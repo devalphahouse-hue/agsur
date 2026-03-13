@@ -45,6 +45,10 @@ class ViewEditProposalModel extends FlutterFlowModel<ViewEditProposalWidget> {
 
   int countController = 0;
 
+  double baseAircraftPrice = 0.0;
+  Map<String, double> selectedItemPrices = {};
+  Map<String, String> aircraftToProposalItemId = {};
+
   List<String> listdIds = [];
   void addToListdIds(String item) => listdIds.add(item);
   void removeFromListdIds(String item) => listdIds.remove(item);

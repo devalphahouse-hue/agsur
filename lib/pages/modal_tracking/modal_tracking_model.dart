@@ -35,6 +35,10 @@ class ModalTrackingModel extends FlutterFlowModel<ModalTrackingWidget> {
   FocusNode? tFLink2FocusNode;
   TextEditingController? tFLink2TextController;
   String? Function(BuildContext, String?)? tFLink2TextControllerValidator;
+  // State field(s) for TFDescTecnica widget.
+  FocusNode? tFDescTecnicaFocusNode;
+  TextEditingController? tFDescTecnicaTextController;
+  String? Function(BuildContext, String?)? tFDescTecnicaTextControllerValidator;
   // State field(s) for TFStripeColor widget.
   FocusNode? tFStripeColorFocusNode;
   TextEditingController? tFStripeColorTextController;
@@ -107,6 +111,7 @@ class ModalTrackingModel extends FlutterFlowModel<ModalTrackingWidget> {
   bool oficListaAds = false;
 
   // State field(s) for order 18 - Documentação do Despachante.
+  bool despCnd = false;
   bool despInvoice = false;
   bool despExportCertificate = false;
   bool despBillOfSale = false;
@@ -117,6 +122,17 @@ class ModalTrackingModel extends FlutterFlowModel<ModalTrackingWidget> {
   bool despSeguroReta = false;
   bool despBoletoReta = false;
   bool despComprovanteReta = false;
+
+  // State field(s) for order 9 - Formalização de Pagamento.
+  String? paymentMethod; // 'vista' or 'financiamento'
+  bool finDoc = false;
+  bool finContadora = false;
+  bool finEndUser = false;
+  bool finCpi = false;
+  bool finCartaHistorico = false;
+  bool finRefsComerciais = false;
+  bool finRefBancaria = false;
+  bool finFotosOperacao = false;
 
   // State field(s) for order 19 - Desembaraço Aduaneiro.
   String? customsStatus;
@@ -155,6 +171,9 @@ class ModalTrackingModel extends FlutterFlowModel<ModalTrackingWidget> {
 
     tFLink2FocusNode?.dispose();
     tFLink2TextController?.dispose();
+
+    tFDescTecnicaFocusNode?.dispose();
+    tFDescTecnicaTextController?.dispose();
 
     tFStripeColorFocusNode?.dispose();
     tFStripeColorTextController?.dispose();

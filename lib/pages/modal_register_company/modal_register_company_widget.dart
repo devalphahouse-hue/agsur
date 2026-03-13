@@ -6,6 +6,7 @@ import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -719,6 +720,9 @@ class _ModalRegisterCompanyWidgetState extends State<ModalRegisterCompanyWidget>
                                         cursorColor:
                                             FlutterFlowTheme.of(context)
                                                 .secondaryBackground,
+                                        maxLength: 18,
+                                        maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                                        buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
                                         validator: _model
                                             .tFCnpjCompanyTextControllerValidator
                                             .asValidator(context),

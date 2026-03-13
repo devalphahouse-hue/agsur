@@ -14,12 +14,14 @@ class ProposalCompanyStruct extends BaseStruct {
     String? phone,
     String? typeDoc,
     String? cpf,
+    String? stateRegistration,
   })  : _id = id,
         _companyName = companyName,
         _cnpj = cnpj,
         _phone = phone,
         _typeDoc = typeDoc,
-        _cpf = cpf;
+        _cpf = cpf,
+        _stateRegistration = stateRegistration;
 
   // "id" field.
   String? _id;
@@ -63,6 +65,13 @@ class ProposalCompanyStruct extends BaseStruct {
 
   bool hasCpf() => _cpf != null;
 
+  // "state_registration" field.
+  String? _stateRegistration;
+  String get stateRegistration => _stateRegistration ?? '';
+  set stateRegistration(String? val) => _stateRegistration = val;
+
+  bool hasStateRegistration() => _stateRegistration != null;
+
   static ProposalCompanyStruct fromMap(Map<String, dynamic> data) =>
       ProposalCompanyStruct(
         id: data['id'] as String?,
@@ -71,6 +80,7 @@ class ProposalCompanyStruct extends BaseStruct {
         phone: data['phone'] as String?,
         typeDoc: data['type_doc'] as String?,
         cpf: data['cpf'] as String?,
+        stateRegistration: data['state_registration'] as String?,
       );
 
   static ProposalCompanyStruct? maybeFromMap(dynamic data) => data is Map
@@ -84,6 +94,7 @@ class ProposalCompanyStruct extends BaseStruct {
         'phone': _phone,
         'type_doc': _typeDoc,
         'cpf': _cpf,
+        'state_registration': _stateRegistration,
       }.withoutNulls;
 
   @override
@@ -110,6 +121,10 @@ class ProposalCompanyStruct extends BaseStruct {
         ),
         'cpf': serializeParam(
           _cpf,
+          ParamType.String,
+        ),
+        'state_registration': serializeParam(
+          _stateRegistration,
           ParamType.String,
         ),
       }.withoutNulls;
@@ -146,6 +161,11 @@ class ProposalCompanyStruct extends BaseStruct {
           ParamType.String,
           false,
         ),
+        stateRegistration: deserializeParam(
+          data['state_registration'],
+          ParamType.String,
+          false,
+        ),
       );
 
   @override
@@ -159,12 +179,13 @@ class ProposalCompanyStruct extends BaseStruct {
         cnpj == other.cnpj &&
         phone == other.phone &&
         typeDoc == other.typeDoc &&
-        cpf == other.cpf;
+        cpf == other.cpf &&
+        stateRegistration == other.stateRegistration;
   }
 
   @override
   int get hashCode =>
-      const ListEquality().hash([id, companyName, cnpj, phone, typeDoc, cpf]);
+      const ListEquality().hash([id, companyName, cnpj, phone, typeDoc, cpf, stateRegistration]);
 }
 
 ProposalCompanyStruct createProposalCompanyStruct({
@@ -174,6 +195,7 @@ ProposalCompanyStruct createProposalCompanyStruct({
   String? phone,
   String? typeDoc,
   String? cpf,
+  String? stateRegistration,
 }) =>
     ProposalCompanyStruct(
       id: id,
@@ -182,4 +204,5 @@ ProposalCompanyStruct createProposalCompanyStruct({
       phone: phone,
       typeDoc: typeDoc,
       cpf: cpf,
+      stateRegistration: stateRegistration,
     );

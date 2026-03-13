@@ -2757,6 +2757,10 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                       'active',
                                       true,
                                     )
+                                    .eqOrNull(
+                                      'deleted',
+                                      false,
+                                    )
                                     .order('aircraft_model', ascending: true),
                               ),
                               builder: (context, snapshot) {

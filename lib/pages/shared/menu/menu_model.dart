@@ -56,6 +56,8 @@ class MenuModel extends FlutterFlowModel<MenuWidget> {
   bool mouseRegionAvailableAircraftsHovered3 = false;
   // State field(s) for MouseRegionAvailableAircrafts widget.
   bool mouseRegionAvailableAircraftsHovered4 = false;
+  // State field(s) for MouseRegionAvailableAircrafts widget.
+  bool mouseRegionAvailableAircraftsHovered5 = false;
   // State field(s) for MouseRegion12 widget.
   bool mouseRegion12Hovered = false;
   // State field(s) for MouseRegion13 widget.

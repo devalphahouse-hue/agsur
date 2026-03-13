@@ -76,7 +76,39 @@ class TrackingDetailsRow extends SupabaseDataRow {
   bool? get hasRadar => getField<bool>('has_radar');
   set hasRadar(bool? value) => setField<bool>('has_radar', value);
 
-  // Documento de Financiamento ou Pagto à Vista
+  // Documento de Financiamento ou Pagto à Vista (Order 9 - new fields)
+  String? get paymentMethod => getField<String>('payment_method');
+  set paymentMethod(String? value) => setField<String>('payment_method', value);
+
+  bool? get finDoc => getField<bool>('fin_doc');
+  set finDoc(bool? value) => setField<bool>('fin_doc', value);
+
+  bool? get finContadora => getField<bool>('fin_contadora');
+  set finContadora(bool? value) => setField<bool>('fin_contadora', value);
+
+  bool? get finEndUser => getField<bool>('fin_end_user');
+  set finEndUser(bool? value) => setField<bool>('fin_end_user', value);
+
+  bool? get finCpi => getField<bool>('fin_cpi');
+  set finCpi(bool? value) => setField<bool>('fin_cpi', value);
+
+  bool? get finCartaHistorico => getField<bool>('fin_carta_historico');
+  set finCartaHistorico(bool? value) =>
+      setField<bool>('fin_carta_historico', value);
+
+  bool? get finRefsComerciais => getField<bool>('fin_refs_comerciais');
+  set finRefsComerciais(bool? value) =>
+      setField<bool>('fin_refs_comerciais', value);
+
+  bool? get finRefBancaria => getField<bool>('fin_ref_bancaria');
+  set finRefBancaria(bool? value) =>
+      setField<bool>('fin_ref_bancaria', value);
+
+  bool? get finFotosOperacao => getField<bool>('fin_fotos_operacao');
+  set finFotosOperacao(bool? value) =>
+      setField<bool>('fin_fotos_operacao', value);
+
+  // Legacy payment fields
   String? get paymentType => getField<String>('payment_type');
   set paymentType(String? value) => setField<String>('payment_type', value);
 
@@ -135,7 +167,10 @@ class TrackingDetailsRow extends SupabaseDataRow {
   set finalContractSigned(bool? value) =>
       setField<bool>('final_contract_signed', value);
 
-  // Despachante - Documentos
+  // Despachante - Documentos (Order 18)
+  bool? get despCnd => getField<bool>('desp_cnd');
+  set despCnd(bool? value) => setField<bool>('desp_cnd', value);
+
   bool? get despInvoice => getField<bool>('desp_invoice');
   set despInvoice(bool? value) => setField<bool>('desp_invoice', value);
 

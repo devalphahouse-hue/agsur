@@ -1171,15 +1171,64 @@ class _ViewTrackingWidgetState extends State<ViewTrackingWidget> {
                                                 ],
                                               ),
                                             ),
-                                            Align(
-                                              alignment: AlignmentDirectional(
-                                                  1.0, 0.0),
-                                              child: Builder(
-                                                builder: (context) => Padding(
-                                                  padding: EdgeInsetsDirectional
-                                                      .fromSTEB(12.0, 24.0,
-                                                          12.0, 0.0),
-                                                  child: FFButtonWidget(
+                                            Padding(
+                                              padding: EdgeInsetsDirectional
+                                                  .fromSTEB(12.0, 24.0, 12.0, 0.0),
+                                              child: Row(
+                                                mainAxisAlignment: MainAxisAlignment.end,
+                                                children: [
+                                                  if (listTrackingItem.isCheck)
+                                                    Padding(
+                                                      padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 8.0, 0.0),
+                                                      child: Builder(
+                                                        builder: (context) => InkWell(
+                                                          splashColor: Colors.transparent,
+                                                          focusColor: Colors.transparent,
+                                                          hoverColor: Colors.transparent,
+                                                          highlightColor: Colors.transparent,
+                                                          onTap: () async {
+                                                            await showDialog(
+                                                              context: context,
+                                                              builder: (dialogContext) {
+                                                                return Dialog(
+                                                                  elevation: 0,
+                                                                  insetPadding: EdgeInsets.zero,
+                                                                  backgroundColor: Colors.transparent,
+                                                                  alignment: AlignmentDirectional(0.0, 0.0).resolve(Directionality.of(context)),
+                                                                  child: GestureDetector(
+                                                                    onTap: () {
+                                                                      FocusScope.of(dialogContext).unfocus();
+                                                                      FocusManager.instance.primaryFocus?.unfocus();
+                                                                    },
+                                                                    child: ModalTrackingWidget(
+                                                                      title: listTrackingItem.trackingDescription,
+                                                                      order: int.tryParse(listTrackingItem.order ?? '') ?? 0,
+                                                                      idTracking: listTrackingItem.id,
+                                                                      userAircraftId: widget.userAircraftId,
+                                                                    ),
+                                                                  ),
+                                                                );
+                                                              },
+                                                            );
+                                                          },
+                                                          child: Container(
+                                                            width: 48.0,
+                                                            height: 48.0,
+                                                            decoration: BoxDecoration(
+                                                              color: Color(0xFF14471E),
+                                                              borderRadius: BorderRadius.circular(12.0),
+                                                            ),
+                                                            child: Icon(
+                                                              Icons.visibility,
+                                                              color: FlutterFlowTheme.of(context).secondaryBackground,
+                                                              size: 22.0,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  Builder(
+                                                builder: (context) => FFButtonWidget(
                                                     onPressed:
                                                         (listTrackingItem.isCheck || _model.user?.firstOrNull?.profileType != 'Admin Master')
                                                             ? null
@@ -1583,6 +1632,7 @@ class _ViewTrackingWidgetState extends State<ViewTrackingWidget> {
                                                     ),
                                                   ),
                                                 ),
+                                                ],
                                               ),
                                             ),
                                           ],

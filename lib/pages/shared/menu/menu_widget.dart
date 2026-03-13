@@ -1490,6 +1490,83 @@ class _MenuWidgetState extends State<MenuWidget> {
                                       false);
                             }),
                           ),
+                          MouseRegion(
+                            opaque: false,
+                            cursor: MouseCursor.defer ?? MouseCursor.defer,
+                            child: InkWell(
+                              splashColor: Colors.transparent,
+                              focusColor: Colors.transparent,
+                              hoverColor: Colors.transparent,
+                              highlightColor: Colors.transparent,
+                              onTap: () async {
+                                context.pushNamed(
+                                    RegistedAircraftWidget.routeName);
+                              },
+                              child: Container(
+                                height: 60.0,
+                                decoration: BoxDecoration(
+                                  color: _model
+                                          .mouseRegionAvailableAircraftsHovered5!
+                                      ? Color(0x72FFFFFF)
+                                      : Color(0x00000000),
+                                  borderRadius: BorderRadius.circular(12.0),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.max,
+                                  children: [
+                                    Padding(
+                                      padding: EdgeInsetsDirectional.fromSTEB(
+                                          12.0, 0.0, 0.0, 0.0),
+                                      child: Icon(
+                                        Icons.flight,
+                                        color: FlutterFlowTheme.of(context)
+                                            .secondaryBackground,
+                                        size: 20.0,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Cadastrar aeronaves',
+                                      style: FlutterFlowTheme.of(context)
+                                          .bodyMedium
+                                          .override(
+                                            font: GoogleFonts.inter(
+                                              fontWeight:
+                                                  FlutterFlowTheme.of(context)
+                                                      .bodyMedium
+                                                      .fontWeight,
+                                              fontStyle:
+                                                  FlutterFlowTheme.of(context)
+                                                      .bodyMedium
+                                                      .fontStyle,
+                                            ),
+                                            color: FlutterFlowTheme.of(context)
+                                                .secondaryBackground,
+                                            letterSpacing: 0.0,
+                                            fontWeight:
+                                                FlutterFlowTheme.of(context)
+                                                    .bodyMedium
+                                                    .fontWeight,
+                                            fontStyle:
+                                                FlutterFlowTheme.of(context)
+                                                    .bodyMedium
+                                                    .fontStyle,
+                                          ),
+                                    ),
+                                  ].divide(SizedBox(width: 8.0)),
+                                ),
+                              ),
+                            ),
+                            onEnter: ((event) async {
+                              safeSetState(() =>
+                                  _model.mouseRegionAvailableAircraftsHovered5 =
+                                      true);
+                            }),
+                            onExit: ((event) async {
+                              safeSetState(() =>
+                                  _model.mouseRegionAvailableAircraftsHovered5 =
+                                      false);
+                            }),
+                          ),
                         ],
                       ),
                     ),

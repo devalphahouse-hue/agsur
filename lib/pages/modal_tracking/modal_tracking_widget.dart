@@ -66,6 +66,9 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
     _model.tFLink2TextController ??= TextEditingController();
     _model.tFLink2FocusNode ??= FocusNode();
 
+    _model.tFDescTecnicaTextController ??= TextEditingController();
+    _model.tFDescTecnicaFocusNode ??= FocusNode();
+
     _model.tFStripeColorTextController ??= TextEditingController();
     _model.tFStripeColorFocusNode ??= FocusNode();
 
@@ -126,6 +129,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
           _model.oficListaComponentes = row.oficListaComponentes ?? false;
           _model.oficListaAds = row.oficListaAds ?? false;
           // Order 18 - Despachante
+          _model.despCnd = row.despCnd ?? false;
           _model.despInvoice = row.despInvoice ?? false;
           _model.despExportCertificate = row.despExportCertificate ?? false;
           _model.despBillOfSale = row.despBillOfSale ?? false;
@@ -146,6 +150,20 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
           if (row.cmDocumentUrl != null && row.cmDocumentUrl!.isNotEmpty) {
             _model.uploadedFileUrl_cmDoc = row.cmDocumentUrl!;
           }
+          // Order 1 - Personalização
+          if (row.customizationDescription != null && row.customizationDescription!.isNotEmpty) {
+            _model.tFDescTecnicaTextController?.text = row.customizationDescription!;
+          }
+          // Order 9 - Formalização de Pagamento
+          _model.paymentMethod = row.paymentMethod;
+          _model.finDoc = row.finDoc ?? false;
+          _model.finContadora = row.finContadora ?? false;
+          _model.finEndUser = row.finEndUser ?? false;
+          _model.finCpi = row.finCpi ?? false;
+          _model.finCartaHistorico = row.finCartaHistorico ?? false;
+          _model.finRefsComerciais = row.finRefsComerciais ?? false;
+          _model.finRefBancaria = row.finRefBancaria ?? false;
+          _model.finFotosOperacao = row.finFotosOperacao ?? false;
           // Other fields
           _model.fiscalBenefitActive = row.fiscalBenefitActive ?? true;
           _model.hasRadar = row.hasRadar ?? false;
@@ -905,6 +923,118 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                               validator: _model.tFPanelTextControllerValidator
                                   .asValidator(context),
                             ),
+                            TextFormField(
+                              controller: _model.tFDescTecnicaTextController,
+                              focusNode: _model.tFDescTecnicaFocusNode,
+                              autofocus: false,
+                              obscureText: false,
+                              maxLines: 3,
+                              minLines: 2,
+                              decoration: InputDecoration(
+                                isDense: false,
+                                labelText: 'Descrição Técnica',
+                                labelStyle: FlutterFlowTheme.of(context)
+                                    .labelMedium
+                                    .override(
+                                      font: GoogleFonts.inter(
+                                        fontWeight: FlutterFlowTheme.of(context)
+                                            .labelMedium
+                                            .fontWeight,
+                                        fontStyle: FlutterFlowTheme.of(context)
+                                            .labelMedium
+                                            .fontStyle,
+                                      ),
+                                      color: FlutterFlowTheme.of(context)
+                                          .secondaryBackground,
+                                      letterSpacing: 0.0,
+                                      fontWeight: FlutterFlowTheme.of(context)
+                                          .labelMedium
+                                          .fontWeight,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .labelMedium
+                                          .fontStyle,
+                                    ),
+                                hintText: 'Descrição Técnica',
+                                hintStyle: FlutterFlowTheme.of(context)
+                                    .labelMedium
+                                    .override(
+                                      font: GoogleFonts.inter(
+                                        fontWeight: FlutterFlowTheme.of(context)
+                                            .labelMedium
+                                            .fontWeight,
+                                        fontStyle: FlutterFlowTheme.of(context)
+                                            .labelMedium
+                                            .fontStyle,
+                                      ),
+                                      color: FlutterFlowTheme.of(context)
+                                          .secondaryBackground,
+                                      letterSpacing: 0.0,
+                                      fontWeight: FlutterFlowTheme.of(context)
+                                          .labelMedium
+                                          .fontWeight,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .labelMedium
+                                          .fontStyle,
+                                    ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Color(0x72FFFFFF),
+                                    width: 1.0,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8.0),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: FlutterFlowTheme.of(context)
+                                        .primaryText,
+                                    width: 1.0,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8.0),
+                                ),
+                                errorBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: FlutterFlowTheme.of(context).error,
+                                    width: 1.0,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8.0),
+                                ),
+                                focusedErrorBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: FlutterFlowTheme.of(context).error,
+                                    width: 1.0,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8.0),
+                                ),
+                                filled: true,
+                                fillColor: Color(0xFF404040),
+                              ),
+                              style: FlutterFlowTheme.of(context)
+                                  .bodyMedium
+                                  .override(
+                                    font: GoogleFonts.inter(
+                                      fontWeight: FlutterFlowTheme.of(context)
+                                          .bodyMedium
+                                          .fontWeight,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .bodyMedium
+                                          .fontStyle,
+                                    ),
+                                    color: FlutterFlowTheme.of(context)
+                                        .secondaryBackground,
+                                    letterSpacing: 0.0,
+                                    fontWeight: FlutterFlowTheme.of(context)
+                                        .bodyMedium
+                                        .fontWeight,
+                                    fontStyle: FlutterFlowTheme.of(context)
+                                        .bodyMedium
+                                        .fontStyle,
+                                  ),
+                              cursorColor: FlutterFlowTheme.of(context)
+                                  .secondaryBackground,
+                              validator: _model
+                                  .tFDescTecnicaTextControllerValidator
+                                  .asValidator(context),
+                            ),
                             Align(
                               alignment: AlignmentDirectional(1.0, 0.0),
                               child: Padding(
@@ -917,6 +1047,9 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                             .validate()) {
                                       return;
                                     }
+                                    await _saveTrackingDetails({
+                                      'customization_description': _model.tFDescTecnicaTextController?.text ?? '',
+                                    });
                                     await widget.onConfiguration?.call(
                                       (_model.tFStripeColorFocusNode
                                                   ?.hasFocus ??
@@ -2342,164 +2475,152 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                       ),
                     );
                   } else if (widget!.order == 9) {
-                    return Form(
-                      key: _model.formKey6,
-                      autovalidateMode: AutovalidateMode.disabled,
-                      child: Padding(
-                        padding: EdgeInsets.all(24.0),
+                    return Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: SingleChildScrollView(
                         child: Column(
                           mainAxisSize: MainAxisSize.max,
-                          crossAxisAlignment: CrossAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Column(
-                              mainAxisSize: MainAxisSize.max,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Forma de pagamento',
-                                  style: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontStyle,
-                                        ),
-                                        color:
-                                            FlutterFlowTheme.of(context).info,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                ),
-                                FlutterFlowDropDown<int>(
-                                  controller: _model.dropDownValueController ??=
-                                      FormFieldController<int>(null),
-                                  options: List<int>.from(
-                                      [0, 1, 2, 3, 4, 5, 6, 7, 8]),
-                                  optionLabels: [
-                                    'Pagamento à Vista',
-                                    'Doc',
-                                    'Contadora',
-                                    'End User',
-                                    'CPI',
-                                    'Carta',
-                                    'Histórica',
-                                    '3x Refs. Comerciais',
-                                    'Fotos da Operação'
-                                  ],
-                                  onChanged: (val) => safeSetState(
-                                      () => _model.dropDownValue = val),
-                                  width: 200.0,
-                                  height: 40.0,
-                                  textStyle: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontStyle,
-                                        ),
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                  hintText: 'Selecione',
-                                  icon: Icon(
-                                    Icons.keyboard_arrow_down_rounded,
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryText,
-                                    size: 24.0,
-                                  ),
-                                  fillColor: FlutterFlowTheme.of(context)
-                                      .secondaryBackground,
-                                  elevation: 2.0,
-                                  borderColor: Colors.transparent,
-                                  borderWidth: 0.0,
-                                  borderRadius: 8.0,
-                                  margin: EdgeInsetsDirectional.fromSTEB(
-                                      12.0, 0.0, 12.0, 0.0),
-                                  hidesUnderline: true,
-                                  isOverButton: false,
-                                  isSearchable: false,
-                                  isMultiSelect: false,
-                                ),
-                              ].divide(SizedBox(height: 4.0)),
+                            Text(
+                              'Formalização de Pagamento',
+                              style: FlutterFlowTheme.of(context).titleMedium.override(
+                                font: GoogleFonts.inter(),
+                                color: Colors.white,
+                                fontSize: 16.0,
+                                letterSpacing: 0.0,
+                              ),
                             ),
-                            Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  4.0, 16.0, 4.0, 16.0),
+                            SizedBox(height: 16.0),
+                            Text(
+                              'Forma de pagamento',
+                              style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                font: GoogleFonts.inter(
+                                  fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                ),
+                                color: Color(0x73FFFFFF),
+                                letterSpacing: 0.0,
+                                fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                              ),
+                            ),
+                            SizedBox(height: 8.0),
+                            Wrap(
+                              spacing: 8.0,
+                              runSpacing: 8.0,
+                              children: [
+                                GestureDetector(
+                                  onTap: () => safeSetState(() => _model.paymentMethod = 'vista'),
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                                    decoration: BoxDecoration(
+                                      color: _model.paymentMethod == 'vista' ? FlutterFlowTheme.of(context).primary : Color(0xFF404040),
+                                      borderRadius: BorderRadius.circular(8.0),
+                                      border: _model.paymentMethod == 'vista' ? Border.all(color: Colors.white, width: 2.0) : null,
+                                    ),
+                                    child: Text(
+                                      'Pagamento à Vista',
+                                      style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                        font: GoogleFonts.inter(),
+                                        color: Colors.white,
+                                        letterSpacing: 0.0,
+                                        fontWeight: _model.paymentMethod == 'vista' ? FontWeight.w600 : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                GestureDetector(
+                                  onTap: () => safeSetState(() => _model.paymentMethod = 'financiamento'),
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                                    decoration: BoxDecoration(
+                                      color: _model.paymentMethod == 'financiamento' ? FlutterFlowTheme.of(context).primary : Color(0xFF404040),
+                                      borderRadius: BorderRadius.circular(8.0),
+                                      border: _model.paymentMethod == 'financiamento' ? Border.all(color: Colors.white, width: 2.0) : null,
+                                    ),
+                                    child: Text(
+                                      'Financiamento',
+                                      style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                        font: GoogleFonts.inter(),
+                                        color: Colors.white,
+                                        letterSpacing: 0.0,
+                                        fontWeight: _model.paymentMethod == 'financiamento' ? FontWeight.w600 : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (_model.paymentMethod == 'financiamento') ...[
+                              SizedBox(height: 20.0),
+                              Text(
+                                'Documentação para Financiamento',
+                                style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                  font: GoogleFonts.inter(
+                                    fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                  ),
+                                  color: Color(0x73FFFFFF),
+                                  letterSpacing: 0.0,
+                                  fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                ),
+                              ),
+                              SizedBox(height: 8.0),
+                              ..._buildDocChecklist(context, [
+                                _DocItem('Doc', _model.finDoc, () => safeSetState(() => _model.finDoc = true), () => safeSetState(() => _model.finDoc = false)),
+                                _DocItem('Contadora', _model.finContadora, () => safeSetState(() => _model.finContadora = true), () => safeSetState(() => _model.finContadora = false)),
+                                _DocItem('End User', _model.finEndUser, () => safeSetState(() => _model.finEndUser = true), () => safeSetState(() => _model.finEndUser = false)),
+                                _DocItem('CPI', _model.finCpi, () => safeSetState(() => _model.finCpi = true), () => safeSetState(() => _model.finCpi = false)),
+                                _DocItem('Carta Histórico', _model.finCartaHistorico, () => safeSetState(() => _model.finCartaHistorico = true), () => safeSetState(() => _model.finCartaHistorico = false)),
+                                _DocItem('3x Refs Comerciais', _model.finRefsComerciais, () => safeSetState(() => _model.finRefsComerciais = true), () => safeSetState(() => _model.finRefsComerciais = false)),
+                                _DocItem('Ref Bancária', _model.finRefBancaria, () => safeSetState(() => _model.finRefBancaria = true), () => safeSetState(() => _model.finRefBancaria = false)),
+                                _DocItem('Fotos da Operação', _model.finFotosOperacao, () => safeSetState(() => _model.finFotosOperacao = true), () => safeSetState(() => _model.finFotosOperacao = false)),
+                              ]),
+                            ],
+                            SizedBox(height: 24.0),
+                            Align(
+                              alignment: AlignmentDirectional(1.0, 0.0),
                               child: FFButtonWidget(
                                 onPressed: () async {
-                                  if (_model.formKey6.currentState == null ||
-                                      !_model.formKey6.currentState!
-                                          .validate()) {
-                                    return;
-                                  }
                                   await _saveTrackingDetails({
-                                    'payment_type':
-                                        _model.dropDownValue?.toString(),
+                                    'payment_method': _model.paymentMethod,
+                                    'fin_doc': _model.finDoc,
+                                    'fin_contadora': _model.finContadora,
+                                    'fin_end_user': _model.finEndUser,
+                                    'fin_cpi': _model.finCpi,
+                                    'fin_carta_historico': _model.finCartaHistorico,
+                                    'fin_refs_comerciais': _model.finRefsComerciais,
+                                    'fin_ref_bancaria': _model.finRefBancaria,
+                                    'fin_fotos_operacao': _model.finFotosOperacao,
                                   });
-                                  await widget.onConfirmStep
-                                      ?.call(widget!.idTracking!);
+                                  await widget.onConfirmStep?.call(widget!.idTracking!);
                                   Navigator.pop(context);
                                 },
-                                text: 'Cadastrar',
+                                text: 'Confirmar',
                                 options: FFButtonOptions(
                                   height: 48.0,
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                      48.0, 0.0, 48.0, 0.0),
-                                  iconPadding: EdgeInsetsDirectional.fromSTEB(
-                                      0.0, 0.0, 0.0, 0.0),
+                                  padding: EdgeInsetsDirectional.fromSTEB(48.0, 0.0, 48.0, 0.0),
+                                  iconPadding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
                                   color: FlutterFlowTheme.of(context).primary,
-                                  textStyle: FlutterFlowTheme.of(context)
-                                      .titleSmall
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .titleSmall
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .titleSmall
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .primaryText,
-                                        fontSize: 14.0,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .titleSmall
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .titleSmall
-                                            .fontStyle,
-                                      ),
+                                  textStyle: FlutterFlowTheme.of(context).titleSmall.override(
+                                    font: GoogleFonts.inter(
+                                      fontWeight: FlutterFlowTheme.of(context).titleSmall.fontWeight,
+                                      fontStyle: FlutterFlowTheme.of(context).titleSmall.fontStyle,
+                                    ),
+                                    color: FlutterFlowTheme.of(context).primaryText,
+                                    fontSize: 14.0,
+                                    letterSpacing: 0.0,
+                                    fontWeight: FlutterFlowTheme.of(context).titleSmall.fontWeight,
+                                    fontStyle: FlutterFlowTheme.of(context).titleSmall.fontStyle,
+                                  ),
                                   elevation: 0.0,
                                   borderRadius: BorderRadius.circular(8.0),
                                 ),
                               ),
                             ),
-                          ].divide(SizedBox(height: 20.0)),
+                          ],
                         ),
                       ),
                     );
@@ -2696,19 +2817,45 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                         children: [
                           Text('Pagamento da Reserva (10.000 U\$)', style: FlutterFlowTheme.of(context).titleMedium.override(font: GoogleFonts.inter(), color: Colors.white, fontSize: 16.0, letterSpacing: 0.0)),
                           SizedBox(height: 16.0),
-                          GestureDetector(
-                            onTap: () => safeSetState(() => _model.reservationPaid = !_model.reservationPaid),
-                            child: Container(
-                              width: double.infinity, height: 50.0,
-                              decoration: BoxDecoration(color: _model.reservationPaid ? Color(0xFF2D6A4F) : Color(0xFF404040), borderRadius: BorderRadius.circular(8.0)),
-                              child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-                                child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                                  Text('Reserva Paga?', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: Colors.white, letterSpacing: 0.0)),
-                                  Text(_model.reservationPaid ? 'Sim' : 'Não', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: _model.reservationPaid ? Color(0xFF95D5B2) : Color(0xFFFF5963), letterSpacing: 0.0, fontWeight: FontWeight.w600)),
-                                ]),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Reserva Paga?', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: Colors.white, letterSpacing: 0.0)),
+                              SizedBox(height: 8.0),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => safeSetState(() => _model.reservationPaid = true),
+                                      child: Container(
+                                        height: 44.0,
+                                        decoration: BoxDecoration(
+                                          color: _model.reservationPaid ? Color(0xFF2D6A4F) : Color(0xFF404040),
+                                          borderRadius: BorderRadius.only(topLeft: Radius.circular(8.0), bottomLeft: Radius.circular(8.0)),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text('Sim', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: _model.reservationPaid ? Color(0xFF95D5B2) : Colors.white70, letterSpacing: 0.0, fontWeight: FontWeight.w600)),
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(width: 2.0),
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => safeSetState(() => _model.reservationPaid = false),
+                                      child: Container(
+                                        height: 44.0,
+                                        decoration: BoxDecoration(
+                                          color: !_model.reservationPaid ? Color(0xFF6B1C1C) : Color(0xFF404040),
+                                          borderRadius: BorderRadius.only(topRight: Radius.circular(8.0), bottomRight: Radius.circular(8.0)),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text('Não', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: !_model.reservationPaid ? Color(0xFFFF5963) : Colors.white70, letterSpacing: 0.0, fontWeight: FontWeight.w600)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
+                            ],
                           ),
                           SizedBox(height: 24.0),
                           Align(
@@ -2735,19 +2882,45 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                         children: [
                           Text('Pagamento dos 5%', style: FlutterFlowTheme.of(context).titleMedium.override(font: GoogleFonts.inter(), color: Colors.white, fontSize: 16.0, letterSpacing: 0.0)),
                           SizedBox(height: 16.0),
-                          GestureDetector(
-                            onTap: () => safeSetState(() => _model.fivePercentPaid = !_model.fivePercentPaid),
-                            child: Container(
-                              width: double.infinity, height: 50.0,
-                              decoration: BoxDecoration(color: _model.fivePercentPaid ? Color(0xFF2D6A4F) : Color(0xFF404040), borderRadius: BorderRadius.circular(8.0)),
-                              child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-                                child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                                  Text('5% Pago?', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: Colors.white, letterSpacing: 0.0)),
-                                  Text(_model.fivePercentPaid ? 'Sim' : 'Não', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: _model.fivePercentPaid ? Color(0xFF95D5B2) : Color(0xFFFF5963), letterSpacing: 0.0, fontWeight: FontWeight.w600)),
-                                ]),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('5% Pago?', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: Colors.white, letterSpacing: 0.0)),
+                              SizedBox(height: 8.0),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => safeSetState(() => _model.fivePercentPaid = true),
+                                      child: Container(
+                                        height: 44.0,
+                                        decoration: BoxDecoration(
+                                          color: _model.fivePercentPaid ? Color(0xFF2D6A4F) : Color(0xFF404040),
+                                          borderRadius: BorderRadius.only(topLeft: Radius.circular(8.0), bottomLeft: Radius.circular(8.0)),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text('Sim', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: _model.fivePercentPaid ? Color(0xFF95D5B2) : Colors.white70, letterSpacing: 0.0, fontWeight: FontWeight.w600)),
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(width: 2.0),
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => safeSetState(() => _model.fivePercentPaid = false),
+                                      child: Container(
+                                        height: 44.0,
+                                        decoration: BoxDecoration(
+                                          color: !_model.fivePercentPaid ? Color(0xFF6B1C1C) : Color(0xFF404040),
+                                          borderRadius: BorderRadius.only(topRight: Radius.circular(8.0), bottomRight: Radius.circular(8.0)),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text('Não', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: !_model.fivePercentPaid ? Color(0xFFFF5963) : Colors.white70, letterSpacing: 0.0, fontWeight: FontWeight.w600)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
+                            ],
                           ),
                           SizedBox(height: 24.0),
                           Align(
@@ -2774,19 +2947,45 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                         children: [
                           Text('Aprovação de Crédito', style: FlutterFlowTheme.of(context).titleMedium.override(font: GoogleFonts.inter(), color: Colors.white, fontSize: 16.0, letterSpacing: 0.0)),
                           SizedBox(height: 16.0),
-                          GestureDetector(
-                            onTap: () => safeSetState(() => _model.financingApproved = !_model.financingApproved),
-                            child: Container(
-                              width: double.infinity, height: 50.0,
-                              decoration: BoxDecoration(color: _model.financingApproved ? Color(0xFF2D6A4F) : Color(0xFF404040), borderRadius: BorderRadius.circular(8.0)),
-                              child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-                                child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                                  Text('Financiamento Aprovado?', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: Colors.white, letterSpacing: 0.0)),
-                                  Text(_model.financingApproved ? 'Sim' : 'Não', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: _model.financingApproved ? Color(0xFF95D5B2) : Color(0xFFFF5963), letterSpacing: 0.0, fontWeight: FontWeight.w600)),
-                                ]),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Financiamento Aprovado?', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: Colors.white, letterSpacing: 0.0)),
+                              SizedBox(height: 8.0),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => safeSetState(() => _model.financingApproved = true),
+                                      child: Container(
+                                        height: 44.0,
+                                        decoration: BoxDecoration(
+                                          color: _model.financingApproved ? Color(0xFF2D6A4F) : Color(0xFF404040),
+                                          borderRadius: BorderRadius.only(topLeft: Radius.circular(8.0), bottomLeft: Radius.circular(8.0)),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text('Sim', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: _model.financingApproved ? Color(0xFF95D5B2) : Colors.white70, letterSpacing: 0.0, fontWeight: FontWeight.w600)),
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(width: 2.0),
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => safeSetState(() => _model.financingApproved = false),
+                                      child: Container(
+                                        height: 44.0,
+                                        decoration: BoxDecoration(
+                                          color: !_model.financingApproved ? Color(0xFF6B1C1C) : Color(0xFF404040),
+                                          borderRadius: BorderRadius.only(topRight: Radius.circular(8.0), bottomRight: Radius.circular(8.0)),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text('Não', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: !_model.financingApproved ? Color(0xFFFF5963) : Colors.white70, letterSpacing: 0.0, fontWeight: FontWeight.w600)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
+                            ],
                           ),
                           SizedBox(height: 24.0),
                           Align(
@@ -2813,19 +3012,45 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                         children: [
                           Text('Assinatura do Pré-contrato', style: FlutterFlowTheme.of(context).titleMedium.override(font: GoogleFonts.inter(), color: Colors.white, fontSize: 16.0, letterSpacing: 0.0)),
                           SizedBox(height: 16.0),
-                          GestureDetector(
-                            onTap: () => safeSetState(() => _model.preContractSigned = !_model.preContractSigned),
-                            child: Container(
-                              width: double.infinity, height: 50.0,
-                              decoration: BoxDecoration(color: _model.preContractSigned ? Color(0xFF2D6A4F) : Color(0xFF404040), borderRadius: BorderRadius.circular(8.0)),
-                              child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-                                child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                                  Text('Pré-contrato Assinado?', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: Colors.white, letterSpacing: 0.0)),
-                                  Text(_model.preContractSigned ? 'Sim' : 'Não', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: _model.preContractSigned ? Color(0xFF95D5B2) : Color(0xFFFF5963), letterSpacing: 0.0, fontWeight: FontWeight.w600)),
-                                ]),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Pré-contrato Assinado?', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: Colors.white, letterSpacing: 0.0)),
+                              SizedBox(height: 8.0),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => safeSetState(() => _model.preContractSigned = true),
+                                      child: Container(
+                                        height: 44.0,
+                                        decoration: BoxDecoration(
+                                          color: _model.preContractSigned ? Color(0xFF2D6A4F) : Color(0xFF404040),
+                                          borderRadius: BorderRadius.only(topLeft: Radius.circular(8.0), bottomLeft: Radius.circular(8.0)),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text('Sim', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: _model.preContractSigned ? Color(0xFF95D5B2) : Colors.white70, letterSpacing: 0.0, fontWeight: FontWeight.w600)),
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(width: 2.0),
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => safeSetState(() => _model.preContractSigned = false),
+                                      child: Container(
+                                        height: 44.0,
+                                        decoration: BoxDecoration(
+                                          color: !_model.preContractSigned ? Color(0xFF6B1C1C) : Color(0xFF404040),
+                                          borderRadius: BorderRadius.only(topRight: Radius.circular(8.0), bottomRight: Radius.circular(8.0)),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text('Não', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: !_model.preContractSigned ? Color(0xFFFF5963) : Colors.white70, letterSpacing: 0.0, fontWeight: FontWeight.w600)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
+                            ],
                           ),
                           SizedBox(height: 24.0),
                           Align(
@@ -2852,19 +3077,45 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                         children: [
                           Text('Apólice de Seguro (CASCO, LUC, RETA)', style: FlutterFlowTheme.of(context).titleMedium.override(font: GoogleFonts.inter(), color: Colors.white, fontSize: 16.0, letterSpacing: 0.0)),
                           SizedBox(height: 16.0),
-                          GestureDetector(
-                            onTap: () => safeSetState(() => _model.insurancePolicySent = !_model.insurancePolicySent),
-                            child: Container(
-                              width: double.infinity, height: 50.0,
-                              decoration: BoxDecoration(color: _model.insurancePolicySent ? Color(0xFF2D6A4F) : Color(0xFF404040), borderRadius: BorderRadius.circular(8.0)),
-                              child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-                                child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                                  Text('Apólice Enviada?', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: Colors.white, letterSpacing: 0.0)),
-                                  Text(_model.insurancePolicySent ? 'Sim' : 'Não', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: _model.insurancePolicySent ? Color(0xFF95D5B2) : Color(0xFFFF5963), letterSpacing: 0.0, fontWeight: FontWeight.w600)),
-                                ]),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Apólice Enviada?', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: Colors.white, letterSpacing: 0.0)),
+                              SizedBox(height: 8.0),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => safeSetState(() => _model.insurancePolicySent = true),
+                                      child: Container(
+                                        height: 44.0,
+                                        decoration: BoxDecoration(
+                                          color: _model.insurancePolicySent ? Color(0xFF2D6A4F) : Color(0xFF404040),
+                                          borderRadius: BorderRadius.only(topLeft: Radius.circular(8.0), bottomLeft: Radius.circular(8.0)),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text('Sim', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: _model.insurancePolicySent ? Color(0xFF95D5B2) : Colors.white70, letterSpacing: 0.0, fontWeight: FontWeight.w600)),
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(width: 2.0),
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => safeSetState(() => _model.insurancePolicySent = false),
+                                      child: Container(
+                                        height: 44.0,
+                                        decoration: BoxDecoration(
+                                          color: !_model.insurancePolicySent ? Color(0xFF6B1C1C) : Color(0xFF404040),
+                                          borderRadius: BorderRadius.only(topRight: Radius.circular(8.0), bottomRight: Radius.circular(8.0)),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text('Não', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: !_model.insurancePolicySent ? Color(0xFFFF5963) : Colors.white70, letterSpacing: 0.0, fontWeight: FontWeight.w600)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
+                            ],
                           ),
                           SizedBox(height: 24.0),
                           Align(
@@ -2919,24 +3170,24 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                             Text('Documentação para Oficina', style: FlutterFlowTheme.of(context).titleMedium.override(font: GoogleFonts.inter(), color: Colors.white, fontSize: 16.0, letterSpacing: 0.0)),
                             SizedBox(height: 16.0),
                             ..._buildDocChecklist(context, [
-                              _DocItem('Invoice', _model.oficInvoice, () => safeSetState(() => _model.oficInvoice = !_model.oficInvoice)),
-                              _DocItem('Export Certificate', _model.oficExportCertificate, () => safeSetState(() => _model.oficExportCertificate = !_model.oficExportCertificate)),
-                              _DocItem('Bill of Sale', _model.oficBillOfSale, () => safeSetState(() => _model.oficBillOfSale = !_model.oficBillOfSale)),
-                              _DocItem('TECAT', _model.oficTecat, () => safeSetState(() => _model.oficTecat = !_model.oficTecat)),
-                              _DocItem('AADsAC', _model.oficAadsac, () => safeSetState(() => _model.oficAadsac = !_model.oficAadsac)),
-                              _DocItem('GENDEC', _model.oficGendec, () => safeSetState(() => _model.oficGendec = !_model.oficGendec)),
-                              _DocItem('Special Airworthness Certificate', _model.oficSpecialAirworthness, () => safeSetState(() => _model.oficSpecialAirworthness = !_model.oficSpecialAirworthness)),
-                              _DocItem('Seguro RETA - Endossado Brasil', _model.oficSeguroReta, () => safeSetState(() => _model.oficSeguroReta = !_model.oficSeguroReta)),
-                              _DocItem('Boleto do Seguro RETA', _model.oficBoletoReta, () => safeSetState(() => _model.oficBoletoReta = !_model.oficBoletoReta)),
-                              _DocItem('Comprovante Pgto Seguro RETA', _model.oficComprovanteReta, () => safeSetState(() => _model.oficComprovanteReta = !_model.oficComprovanteReta)),
-                              _DocItem('Todos docs do Despachante', _model.oficDocsDespachante, () => safeSetState(() => _model.oficDocsDespachante = !_model.oficDocsDespachante)),
-                              _DocItem('Cópia de Cadernetas', _model.oficCopiaCadernetas, () => safeSetState(() => _model.oficCopiaCadernetas = !_model.oficCopiaCadernetas)),
-                              _DocItem('Peso e Balanceamento', _model.oficPesoBalanceamento, () => safeSetState(() => _model.oficPesoBalanceamento = !_model.oficPesoBalanceamento)),
-                              _DocItem('Desregistro', _model.oficDesregistro, () => safeSetState(() => _model.oficDesregistro = !_model.oficDesregistro)),
-                              _DocItem('Flight Test', _model.oficFlightTest, () => safeSetState(() => _model.oficFlightTest = !_model.oficFlightTest)),
-                              _DocItem('Form 337', _model.oficForm337, () => safeSetState(() => _model.oficForm337 = !_model.oficForm337)),
-                              _DocItem('Lista de Componentes', _model.oficListaComponentes, () => safeSetState(() => _model.oficListaComponentes = !_model.oficListaComponentes)),
-                              _DocItem('Lista de ADs', _model.oficListaAds, () => safeSetState(() => _model.oficListaAds = !_model.oficListaAds)),
+                              _DocItem('Invoice', _model.oficInvoice, () => safeSetState(() => _model.oficInvoice = true), () => safeSetState(() => _model.oficInvoice = false)),
+                              _DocItem('Export Certificate', _model.oficExportCertificate, () => safeSetState(() => _model.oficExportCertificate = true), () => safeSetState(() => _model.oficExportCertificate = false)),
+                              _DocItem('Bill of Sale', _model.oficBillOfSale, () => safeSetState(() => _model.oficBillOfSale = true), () => safeSetState(() => _model.oficBillOfSale = false)),
+                              _DocItem('TECAT', _model.oficTecat, () => safeSetState(() => _model.oficTecat = true), () => safeSetState(() => _model.oficTecat = false)),
+                              _DocItem('AADsAC', _model.oficAadsac, () => safeSetState(() => _model.oficAadsac = true), () => safeSetState(() => _model.oficAadsac = false)),
+                              _DocItem('GENDEC', _model.oficGendec, () => safeSetState(() => _model.oficGendec = true), () => safeSetState(() => _model.oficGendec = false)),
+                              _DocItem('Special Airworthness Certificate', _model.oficSpecialAirworthness, () => safeSetState(() => _model.oficSpecialAirworthness = true), () => safeSetState(() => _model.oficSpecialAirworthness = false)),
+                              _DocItem('Seguro RETA - Endossado Brasil', _model.oficSeguroReta, () => safeSetState(() => _model.oficSeguroReta = true), () => safeSetState(() => _model.oficSeguroReta = false)),
+                              _DocItem('Boleto do Seguro RETA', _model.oficBoletoReta, () => safeSetState(() => _model.oficBoletoReta = true), () => safeSetState(() => _model.oficBoletoReta = false)),
+                              _DocItem('Comprovante Pgto Seguro RETA', _model.oficComprovanteReta, () => safeSetState(() => _model.oficComprovanteReta = true), () => safeSetState(() => _model.oficComprovanteReta = false)),
+                              _DocItem('Todos docs do Despachante', _model.oficDocsDespachante, () => safeSetState(() => _model.oficDocsDespachante = true), () => safeSetState(() => _model.oficDocsDespachante = false)),
+                              _DocItem('Cópia de Cadernetas', _model.oficCopiaCadernetas, () => safeSetState(() => _model.oficCopiaCadernetas = true), () => safeSetState(() => _model.oficCopiaCadernetas = false)),
+                              _DocItem('Peso e Balanceamento', _model.oficPesoBalanceamento, () => safeSetState(() => _model.oficPesoBalanceamento = true), () => safeSetState(() => _model.oficPesoBalanceamento = false)),
+                              _DocItem('Desregistro', _model.oficDesregistro, () => safeSetState(() => _model.oficDesregistro = true), () => safeSetState(() => _model.oficDesregistro = false)),
+                              _DocItem('Flight Test', _model.oficFlightTest, () => safeSetState(() => _model.oficFlightTest = true), () => safeSetState(() => _model.oficFlightTest = false)),
+                              _DocItem('Form 337', _model.oficForm337, () => safeSetState(() => _model.oficForm337 = true), () => safeSetState(() => _model.oficForm337 = false)),
+                              _DocItem('Lista de Componentes', _model.oficListaComponentes, () => safeSetState(() => _model.oficListaComponentes = true), () => safeSetState(() => _model.oficListaComponentes = false)),
+                              _DocItem('Lista de ADs', _model.oficListaAds, () => safeSetState(() => _model.oficListaAds = true), () => safeSetState(() => _model.oficListaAds = false)),
                             ]),
                             SizedBox(height: 24.0),
                             Align(
@@ -2978,19 +3229,45 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                         children: [
                           Text('Assinatura do Contrato Final', style: FlutterFlowTheme.of(context).titleMedium.override(font: GoogleFonts.inter(), color: Colors.white, fontSize: 16.0, letterSpacing: 0.0)),
                           SizedBox(height: 16.0),
-                          GestureDetector(
-                            onTap: () => safeSetState(() => _model.finalContractSigned = !_model.finalContractSigned),
-                            child: Container(
-                              width: double.infinity, height: 50.0,
-                              decoration: BoxDecoration(color: _model.finalContractSigned ? Color(0xFF2D6A4F) : Color(0xFF404040), borderRadius: BorderRadius.circular(8.0)),
-                              child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-                                child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                                  Text('Contrato Final Assinado?', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: Colors.white, letterSpacing: 0.0)),
-                                  Text(_model.finalContractSigned ? 'Sim' : 'Não', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: _model.finalContractSigned ? Color(0xFF95D5B2) : Color(0xFFFF5963), letterSpacing: 0.0, fontWeight: FontWeight.w600)),
-                                ]),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Contrato Final Assinado?', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: Colors.white, letterSpacing: 0.0)),
+                              SizedBox(height: 8.0),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => safeSetState(() => _model.finalContractSigned = true),
+                                      child: Container(
+                                        height: 44.0,
+                                        decoration: BoxDecoration(
+                                          color: _model.finalContractSigned ? Color(0xFF2D6A4F) : Color(0xFF404040),
+                                          borderRadius: BorderRadius.only(topLeft: Radius.circular(8.0), bottomLeft: Radius.circular(8.0)),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text('Sim', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: _model.finalContractSigned ? Color(0xFF95D5B2) : Colors.white70, letterSpacing: 0.0, fontWeight: FontWeight.w600)),
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(width: 2.0),
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => safeSetState(() => _model.finalContractSigned = false),
+                                      child: Container(
+                                        height: 44.0,
+                                        decoration: BoxDecoration(
+                                          color: !_model.finalContractSigned ? Color(0xFF6B1C1C) : Color(0xFF404040),
+                                          borderRadius: BorderRadius.only(topRight: Radius.circular(8.0), bottomRight: Radius.circular(8.0)),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text('Não', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: !_model.finalContractSigned ? Color(0xFFFF5963) : Colors.white70, letterSpacing: 0.0, fontWeight: FontWeight.w600)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
+                            ],
                           ),
                           SizedBox(height: 24.0),
                           Align(
@@ -3019,16 +3296,17 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                             Text('Documentação do Despachante', style: FlutterFlowTheme.of(context).titleMedium.override(font: GoogleFonts.inter(), color: Colors.white, fontSize: 16.0, letterSpacing: 0.0)),
                             SizedBox(height: 16.0),
                             ..._buildDocChecklist(context, [
-                              _DocItem('Invoice', _model.despInvoice, () => safeSetState(() => _model.despInvoice = !_model.despInvoice)),
-                              _DocItem('Export Certificate', _model.despExportCertificate, () => safeSetState(() => _model.despExportCertificate = !_model.despExportCertificate)),
-                              _DocItem('Bill of Sale', _model.despBillOfSale, () => safeSetState(() => _model.despBillOfSale = !_model.despBillOfSale)),
-                              _DocItem('TECAT', _model.despTecat, () => safeSetState(() => _model.despTecat = !_model.despTecat)),
-                              _DocItem('AVANAC', _model.despAvanac, () => safeSetState(() => _model.despAvanac = !_model.despAvanac)),
-                              _DocItem('GENDEC', _model.despGendec, () => safeSetState(() => _model.despGendec = !_model.despGendec)),
-                              _DocItem('Special Airworthness Certificate', _model.despSpecialAirworthness, () => safeSetState(() => _model.despSpecialAirworthness = !_model.despSpecialAirworthness)),
-                              _DocItem('Seguro RETA - Endossado Brasil', _model.despSeguroReta, () => safeSetState(() => _model.despSeguroReta = !_model.despSeguroReta)),
-                              _DocItem('Boleto do Seguro RETA', _model.despBoletoReta, () => safeSetState(() => _model.despBoletoReta = !_model.despBoletoReta)),
-                              _DocItem('Comprovante Pgto Seguro RETA', _model.despComprovanteReta, () => safeSetState(() => _model.despComprovanteReta = !_model.despComprovanteReta)),
+                              _DocItem('CND (Certidão Negativa de Débito)', _model.despCnd, () => safeSetState(() => _model.despCnd = true), () => safeSetState(() => _model.despCnd = false)),
+                              _DocItem('Invoice', _model.despInvoice, () => safeSetState(() => _model.despInvoice = true), () => safeSetState(() => _model.despInvoice = false)),
+                              _DocItem('Export Certificate', _model.despExportCertificate, () => safeSetState(() => _model.despExportCertificate = true), () => safeSetState(() => _model.despExportCertificate = false)),
+                              _DocItem('Bill of Sale', _model.despBillOfSale, () => safeSetState(() => _model.despBillOfSale = true), () => safeSetState(() => _model.despBillOfSale = false)),
+                              _DocItem('TECAT', _model.despTecat, () => safeSetState(() => _model.despTecat = true), () => safeSetState(() => _model.despTecat = false)),
+                              _DocItem('AVANAC', _model.despAvanac, () => safeSetState(() => _model.despAvanac = true), () => safeSetState(() => _model.despAvanac = false)),
+                              _DocItem('GENDEC', _model.despGendec, () => safeSetState(() => _model.despGendec = true), () => safeSetState(() => _model.despGendec = false)),
+                              _DocItem('Special Airworthness Certificate', _model.despSpecialAirworthness, () => safeSetState(() => _model.despSpecialAirworthness = true), () => safeSetState(() => _model.despSpecialAirworthness = false)),
+                              _DocItem('Seguro RETA - Endossado Brasil', _model.despSeguroReta, () => safeSetState(() => _model.despSeguroReta = true), () => safeSetState(() => _model.despSeguroReta = false)),
+                              _DocItem('Boleto do Seguro RETA', _model.despBoletoReta, () => safeSetState(() => _model.despBoletoReta = true), () => safeSetState(() => _model.despBoletoReta = false)),
+                              _DocItem('Comprovante Pgto Seguro RETA', _model.despComprovanteReta, () => safeSetState(() => _model.despComprovanteReta = true), () => safeSetState(() => _model.despComprovanteReta = false)),
                             ]),
                             SizedBox(height: 24.0),
                             Align(
@@ -3036,6 +3314,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                               child: FFButtonWidget(
                                 onPressed: () async {
                                   final despData = {
+                                    'desp_cnd': _model.despCnd,
                                     'desp_invoice': _model.despInvoice, 'desp_export_certificate': _model.despExportCertificate,
                                     'desp_bill_of_sale': _model.despBillOfSale, 'desp_tecat': _model.despTecat,
                                     'desp_avanac': _model.despAvanac, 'desp_gendec': _model.despGendec,
@@ -3043,7 +3322,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                     'desp_boleto_reta': _model.despBoletoReta, 'desp_comprovante_reta': _model.despComprovanteReta,
                                   };
                                   await _saveTrackingDetails(despData);
-                                  final allDespChecked = _model.despInvoice && _model.despExportCertificate && _model.despBillOfSale && _model.despTecat && _model.despAvanac && _model.despGendec && _model.despSpecialAirworthness && _model.despSeguroReta && _model.despBoletoReta && _model.despComprovanteReta;
+                                  final allDespChecked = _model.despCnd && _model.despInvoice && _model.despExportCertificate && _model.despBillOfSale && _model.despTecat && _model.despAvanac && _model.despGendec && _model.despSpecialAirworthness && _model.despSeguroReta && _model.despBoletoReta && _model.despComprovanteReta;
                                   if (allDespChecked) {
                                     await widget.onConfirmStep?.call(widget!.idTracking!);
                                   }
@@ -3294,19 +3573,45 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
   List<Widget> _buildDocChecklist(BuildContext context, List<_DocItem> items) {
     return items.map((item) => Padding(
       padding: EdgeInsets.only(bottom: 6.0),
-      child: GestureDetector(
-        onTap: item.onTap,
-        child: Container(
-          width: double.infinity, height: 44.0,
-          decoration: BoxDecoration(color: item.value ? Color(0xFF2D6A4F) : Color(0xFF404040), borderRadius: BorderRadius.circular(6.0)),
-          child: Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(12.0, 0.0, 12.0, 0.0),
-            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Flexible(child: Text(item.label, style: FlutterFlowTheme.of(context).bodySmall.override(font: GoogleFonts.inter(), color: Colors.white, letterSpacing: 0.0))),
-              Text(item.value ? 'Sim' : 'Não', style: FlutterFlowTheme.of(context).bodySmall.override(font: GoogleFonts.inter(), color: item.value ? Color(0xFF95D5B2) : Color(0xFFFF5963), letterSpacing: 0.0, fontWeight: FontWeight.w600)),
-            ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(item.label, style: FlutterFlowTheme.of(context).bodySmall.override(font: GoogleFonts.inter(), color: Colors.white, letterSpacing: 0.0)),
+          SizedBox(height: 4.0),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: item.onTapYes,
+                  child: Container(
+                    height: 36.0,
+                    decoration: BoxDecoration(
+                      color: item.value ? Color(0xFF2D6A4F) : Color(0xFF404040),
+                      borderRadius: BorderRadius.only(topLeft: Radius.circular(6.0), bottomLeft: Radius.circular(6.0)),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text('Sim', style: FlutterFlowTheme.of(context).bodySmall.override(font: GoogleFonts.inter(), color: item.value ? Color(0xFF95D5B2) : Colors.white70, letterSpacing: 0.0, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ),
+              SizedBox(width: 2.0),
+              Expanded(
+                child: GestureDetector(
+                  onTap: item.onTapNo,
+                  child: Container(
+                    height: 36.0,
+                    decoration: BoxDecoration(
+                      color: !item.value ? Color(0xFF6B1C1C) : Color(0xFF404040),
+                      borderRadius: BorderRadius.only(topRight: Radius.circular(6.0), bottomRight: Radius.circular(6.0)),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text('Não', style: FlutterFlowTheme.of(context).bodySmall.override(font: GoogleFonts.inter(), color: !item.value ? Color(0xFFFF5963) : Colors.white70, letterSpacing: 0.0, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
+        ],
       ),
     )).toList();
   }
@@ -3315,6 +3620,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
 class _DocItem {
   final String label;
   final bool value;
-  final VoidCallback onTap;
-  _DocItem(this.label, this.value, this.onTap);
+  final VoidCallback onTapYes;
+  final VoidCallback onTapNo;
+  _DocItem(this.label, this.value, this.onTapYes, this.onTapNo);
 }

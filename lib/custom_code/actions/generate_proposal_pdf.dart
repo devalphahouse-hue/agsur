@@ -111,7 +111,7 @@ final _lightGrey = PdfColor.fromHex('#f5f5f5');
 
 // ===================== SHARED WIDGETS =====================
 
-pw.Widget _buildHeader(pw.ImageProvider logoImage, String year, String clientName, String invoiceRef, String date, String previsaoEntrega) {
+pw.Widget _buildHeader(pw.ImageProvider logoImage, String year, String clientName, String invoiceRef, String date, String previsaoEntrega, {String? proposalYear}) {
   return pw.Column(children: [
     // Dark banner with logo + PROPOSTA title
     pw.Container(
@@ -147,7 +147,7 @@ pw.Widget _buildHeader(pw.ImageProvider logoImage, String year, String clientNam
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.end,
               children: [
-                pw.Text('PROPOSTA - $year',
+                pw.Text('PROPOSTA - ${proposalYear ?? year}',
                     style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: _white)),
                 pw.SizedBox(height: 4),
                 pw.Text('Previsão de Entrega.:',
@@ -257,6 +257,7 @@ Future<void> generateProposalPdf(
 
   // Common data
   final year = aircraft.aircraftYear.isNotEmpty ? aircraft.aircraftYear : DateTime.now().year.toString();
+  final proposalYear = DateTime.now().year.toString();
   final invoiceRef = proposal.idRef;
   final date = proposal.createdAt != null && proposal.createdAt!.isNotEmpty
       ? DateFormat('dd/MM/yyyy').format(DateTime.parse(proposal.createdAt!))
@@ -278,6 +279,9 @@ Future<void> generateProposalPdf(
     docValue = '';
   }
 
+  // Inscrição Estadual
+  final ie = company.stateRegistration;
+
   // Address
   final fullAddress = '${address.street}, ${address.number}${address.complement.isNotEmpty ? ' - ${address.complement}' : ''}';
   final cityState = '${address.city} - ${address.state}';
@@ -291,6 +295,13 @@ Future<void> generateProposalPdf(
 
   // Aircraft title
   final aircraftTitle = '$year ${aircraft.aircraftModel}';
+
+  // Aircraft-only price (subtract optionals from full price)
+  double optionalsTotal = 0.0;
+  for (final opt in optionalItems) {
+    optionalsTotal += roundUp(opt.item.price * opt.item.qty);
+  }
+  final aircraftOnlyPrice = roundUp(fullPrice - optionalsTotal);
   final aircraftDescription = aircraft.aircraftDescription;
 
   // ==================== PAGE 1 - INVOICE / ITEMS ====================
@@ -302,7 +313,7 @@ Future<void> generateProposalPdf(
         return pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            _buildHeader(logoImage, year, clientName, invoiceRef, date, previsaoEntrega),
+            _buildHeader(logoImage, year, clientName, invoiceRef, date, previsaoEntrega, proposalYear: proposalYear),
             pw.SizedBox(height: 12),
 
             // SOLD TO / SHIP TO
@@ -337,7 +348,7 @@ Future<void> generateProposalPdf(
                             children: [
                               pw.Text(clientName, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
                               pw.Text('$docLabel.: $docValue', style: pw.TextStyle(fontSize: 7)),
-                              pw.Text('IE.:', style: pw.TextStyle(fontSize: 7)),
+                              pw.Text('IE.: $ie', style: pw.TextStyle(fontSize: 7)),
                               pw.Text('Endereço.: $fullAddress', style: pw.TextStyle(fontSize: 7)),
                               pw.SizedBox(height: 2),
                               pw.Text('Cidade e UF.: $cityState', style: pw.TextStyle(fontSize: 7)),
@@ -378,12 +389,12 @@ Future<void> generateProposalPdf(
                             crossAxisAlignment: pw.CrossAxisAlignment.start,
                             children: [
                               pw.Text(clientName, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-                              pw.Text('$docLabel.:', style: pw.TextStyle(fontSize: 7)),
-                              pw.Text('IE.:', style: pw.TextStyle(fontSize: 7)),
-                              pw.Text('Endereço.:', style: pw.TextStyle(fontSize: 7)),
+                              pw.Text('$docLabel.: $docValue', style: pw.TextStyle(fontSize: 7)),
+                              pw.Text('IE.: $ie', style: pw.TextStyle(fontSize: 7)),
+                              pw.Text('Endereço.: $fullAddress', style: pw.TextStyle(fontSize: 7)),
                               pw.SizedBox(height: 2),
-                              pw.Text('Cidade e UF.:', style: pw.TextStyle(fontSize: 7)),
-                              pw.Text('CEP', style: pw.TextStyle(fontSize: 7)),
+                              pw.Text('Cidade e UF.: $cityState', style: pw.TextStyle(fontSize: 7)),
+                              pw.Text('CEP $cep', style: pw.TextStyle(fontSize: 7)),
                               pw.Text('Pais.: Brasil', style: pw.TextStyle(fontSize: 7)),
                             ],
                           ),
@@ -470,11 +481,11 @@ Future<void> generateProposalPdf(
                       ),
                       pw.Container(
                         width: 90,
-                        child: pw.Text(formatCurrencyU(fullPrice), style: pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.right),
+                        child: pw.Text(formatCurrencyU(aircraftOnlyPrice), style: pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.right),
                       ),
                       pw.Container(
                         width: 80,
-                        child: pw.Text(formatCurrencyU(fullPrice), style: pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.right),
+                        child: pw.Text(formatCurrencyU(aircraftOnlyPrice), style: pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.right),
                       ),
                     ],
                   ),
@@ -517,10 +528,6 @@ Future<void> generateProposalPdf(
   );
 
   // Calculate invoice total (aircraft + optionals)
-  double optionalsTotal = 0;
-  for (final opt in optionalItems) {
-    optionalsTotal += roundUp(opt.item.price * opt.item.qty);
-  }
   final invoiceTotal = roundUp(fullPrice + optionalsTotal);
 
   // ==================== PAGE 2 - PAYMENT CONDITIONS / BANKING ====================
@@ -532,7 +539,7 @@ Future<void> generateProposalPdf(
         return pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            _buildHeader(logoImage, year, clientName, invoiceRef, date, previsaoEntrega),
+            _buildHeader(logoImage, year, clientName, invoiceRef, date, previsaoEntrega, proposalYear: proposalYear),
             pw.SizedBox(height: 16),
 
             // CONDIÇÕES DE PAGAMENTO
@@ -650,7 +657,7 @@ Future<void> generateProposalPdf(
         return pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            _buildHeader(logoImage, year, clientName, invoiceRef, date, previsaoEntrega),
+            _buildHeader(logoImage, year, clientName, invoiceRef, date, previsaoEntrega, proposalYear: proposalYear),
             pw.SizedBox(height: 12),
 
             // Title
@@ -787,7 +794,7 @@ Future<void> generateProposalPdf(
         return pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            _buildHeader(logoImage, year, clientName, invoiceRef, date, previsaoEntrega),
+            _buildHeader(logoImage, year, clientName, invoiceRef, date, previsaoEntrega, proposalYear: proposalYear),
             pw.SizedBox(height: 16),
 
             pw.Center(

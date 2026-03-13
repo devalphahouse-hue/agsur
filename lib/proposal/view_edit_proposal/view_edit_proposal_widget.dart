@@ -10,6 +10,7 @@ import '/flutter_flow/flutter_flow_widgets.dart';
 import '/pages/modal_edit_company/modal_edit_company_widget.dart';
 import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
 import '/pages/shared/custom_snac_bar/custom_snac_bar_widget.dart';
+import '/pages/shared/empty_all_lists/empty_all_lists_widget.dart';
 import '/pages/shared/empty_list/empty_list_widget.dart';
 import '/pages/shared/modal_edit_address/modal_edit_address_widget.dart';
 import '/pages/shared/modal_register_address/modal_register_address_widget.dart';
@@ -89,13 +90,25 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
           ),
         );
         safeSetState(() {});
-        _model.listdIds = GetProposalDetailsCall.objProposalOptionItems(
+        final optItems = GetProposalDetailsCall.objProposalOptionItems(
           (_model.returnGetProposalDetail?.jsonBody ?? ''),
-        )!
+        )!;
+        _model.listdIds = optItems
             .map((e) => e.item.id)
             .toList()
-            .toList()
             .cast<String>();
+        // Populate selected item prices map and aircraft->proposalItem mapping
+        for (final optItem in optItems) {
+          _model.selectedItemPrices[optItem.item.id] =
+              optItem.item.price * optItem.item.qty;
+          _model.aircraftToProposalItemId[optItem.item.id] = optItem.id;
+        }
+        // Calculate base aircraft price (fullprice minus current optionals total)
+        final currentOptionalsTotal =
+            _model.selectedItemPrices.values.fold(0.0, (a, b) => a + b);
+        _model.baseAircraftPrice =
+            FFAppState().asGetProposalDetails.proposal.fullprice -
+                currentOptionalsTotal;
         safeSetState(() {});
         return;
       } else {
@@ -4442,16 +4455,30 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                             maxWidth: 800.0,
                           ),
                           decoration: BoxDecoration(),
-                          child: Builder(
-                            builder: (context) {
-                              final proposalCategories = FFAppState()
-                                  .asGetProposalDetails
-                                  .proposalOptionalItems
-                                  .map((e) => e.item)
-                                  .toList();
-                              if (proposalCategories.isEmpty) {
+                          child: FutureBuilder<List<CategoryRow>>(
+                            future: CategoryTable().queryRows(
+                              queryFn: (q) => q
+                                  .eqOrNull('item_type', 'optional')
+                                  .order('category_name', ascending: true),
+                            ),
+                            builder: (context, categoriesSnapshot) {
+                              if (!categoriesSnapshot.hasData) {
                                 return Center(
-                                  child: EmptyListWidget(),
+                                  child: SizedBox(
+                                    width: 40.0,
+                                    height: 40.0,
+                                    child: SpinKitFoldingCube(
+                                      color: Color(0xFFC2D51C),
+                                      size: 40.0,
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              final categories = categoriesSnapshot.data!;
+                              if (categories.isEmpty) {
+                                return Center(
+                                  child: EmptyAllListsWidget(),
                                 );
                               }
 
@@ -4460,14 +4487,11 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                 primary: false,
                                 shrinkWrap: true,
                                 scrollDirection: Axis.vertical,
-                                itemCount: proposalCategories.length,
+                                itemCount: categories.length,
                                 separatorBuilder: (_, __) =>
                                     SizedBox(height: 28.0),
-                                itemBuilder:
-                                    (context, proposalCategoriesIndex) {
-                                  final proposalCategoriesItem =
-                                      proposalCategories[
-                                          proposalCategoriesIndex];
+                                itemBuilder: (context, categoryIndex) {
+                                  final category = categories[categoryIndex];
                                   return Container(
                                     constraints: BoxConstraints(
                                       maxWidth: 800.0,
@@ -4493,12 +4517,8 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                 text: TextSpan(
                                                   children: [
                                                     TextSpan(
-                                                      text: valueOrDefault<
-                                                          String>(
-                                                        proposalCategoriesItem
-                                                            .categoryName,
-                                                        'Category name',
-                                                      ),
+                                                      text: category
+                                                          .categoryName,
                                                       style: FlutterFlowTheme
                                                               .of(context)
                                                           .bodyMedium
@@ -4507,20 +4527,18 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                                 .roboto(
                                                               fontWeight:
                                                                   FontWeight
-                                                                      .w500,
+                                                                      .bold,
                                                               fontStyle:
                                                                   FlutterFlowTheme.of(
                                                                           context)
                                                                       .bodyMedium
                                                                       .fontStyle,
                                                             ),
-                                                            color: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .secondaryBackground,
+                                                            color: Colors.white,
                                                             fontSize: 18.0,
                                                             letterSpacing: 0.0,
                                                             fontWeight:
-                                                                FontWeight.w500,
+                                                                FontWeight.bold,
                                                             fontStyle:
                                                                 FlutterFlowTheme.of(
                                                                         context)
@@ -4531,9 +4549,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                     TextSpan(
                                                       text: ' / ',
                                                       style: TextStyle(
-                                                        color: FlutterFlowTheme
-                                                                .of(context)
-                                                            .secondaryBackground,
+                                                        color: Colors.white,
                                                         fontWeight:
                                                             FontWeight.bold,
                                                         fontSize: 18.0,
@@ -4542,8 +4558,14 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                     TextSpan(
                                                       text:
                                                           'Lista de itens opcionais',
-                                                      style: TextStyle(),
-                                                    )
+                                                      style: TextStyle(
+                                                        color:
+                                                            Color(0x73FFFFFF),
+                                                        fontSize: 14.0,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
                                                   ],
                                                   style: FlutterFlowTheme.of(
                                                           context)
@@ -4579,399 +4601,400 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                             thickness: 2.0,
                                             color: Color(0x74FFFFFF),
                                           ),
-                                          Padding(
-                                            padding:
-                                                EdgeInsetsDirectional.fromSTEB(
-                                                    0.0, 12.0, 0.0, 12.0),
-                                            child: ListView(
-                                              padding: EdgeInsets.zero,
-                                              primary: false,
-                                              shrinkWrap: true,
-                                              scrollDirection: Axis.vertical,
-                                              children: [
-                                                Container(
-                                                  decoration: BoxDecoration(),
-                                                  child: Padding(
-                                                    padding:
-                                                        EdgeInsetsDirectional
+                                          FutureBuilder<List<AircraftItemsRow>>(
+                                            future: AircraftItemsTable()
+                                                .queryRows(
+                                              queryFn: (q) => q
+                                                  .eqOrNull(
+                                                      'category_id', category.id)
+                                                  .eqOrNull(
+                                                      'item_type', 'optional')
+                                                  .eqOrNull('active', true)
+                                                  .eqOrNull('deleted', false)
+                                                  .order('item_name',
+                                                      ascending: true),
+                                            ),
+                                            builder:
+                                                (context, itemsSnapshot) {
+                                              if (!itemsSnapshot.hasData) {
+                                                return Padding(
+                                                  padding:
+                                                      EdgeInsetsDirectional
+                                                          .fromSTEB(0.0, 12.0,
+                                                              0.0, 12.0),
+                                                  child: Center(
+                                                    child: SizedBox(
+                                                      width: 30.0,
+                                                      height: 30.0,
+                                                      child: SpinKitFoldingCube(
+                                                        color:
+                                                            Color(0xFFC2D51C),
+                                                        size: 30.0,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                );
+                                              }
+
+                                              final items =
+                                                  itemsSnapshot.data!;
+                                              if (items.isEmpty) {
+                                                return Center(
+                                                  child: EmptyListWidget(),
+                                                );
+                                              }
+
+                                              return Padding(
+                                                padding: EdgeInsetsDirectional
+                                                    .fromSTEB(
+                                                        0.0, 12.0, 0.0, 12.0),
+                                                child: ListView.separated(
+                                                  padding: EdgeInsets.zero,
+                                                  primary: false,
+                                                  shrinkWrap: true,
+                                                  scrollDirection:
+                                                      Axis.vertical,
+                                                  itemCount: items.length,
+                                                  separatorBuilder: (_, __) =>
+                                                      SizedBox(height: 8.0),
+                                                  itemBuilder:
+                                                      (context, itemIndex) {
+                                                    final item =
+                                                        items[itemIndex];
+                                                    return Container(
+                                                      decoration:
+                                                          BoxDecoration(),
+                                                      child: Padding(
+                                                        padding: EdgeInsetsDirectional
                                                             .fromSTEB(12.0, 0.0,
                                                                 12.0, 8.0),
-                                                    child: Row(
-                                                      mainAxisSize:
-                                                          MainAxisSize.max,
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .spaceBetween,
-                                                      children: [
-                                                        Expanded(
-                                                          child: Row(
-                                                            mainAxisSize:
-                                                                MainAxisSize
-                                                                    .max,
-                                                            mainAxisAlignment:
-                                                                MainAxisAlignment
-                                                                    .spaceBetween,
-                                                            children: [
-                                                              Expanded(
-                                                                flex: 3,
-                                                                child: Align(
-                                                                  alignment:
-                                                                      AlignmentDirectional(
-                                                                          -1.0,
-                                                                          0.0),
-                                                                  child:
-                                                                      RichText(
-                                                                    textScaler:
-                                                                        MediaQuery.of(context)
-                                                                            .textScaler,
-                                                                    text:
-                                                                        TextSpan(
-                                                                      children: [
-                                                                        TextSpan(
-                                                                          text:
-                                                                              'Item / ',
-                                                                          style: FlutterFlowTheme.of(context)
-                                                                              .bodyMedium
-                                                                              .override(
+                                                        child: Row(
+                                                          mainAxisSize:
+                                                              MainAxisSize.max,
+                                                          mainAxisAlignment:
+                                                              MainAxisAlignment
+                                                                  .spaceBetween,
+                                                          children: [
+                                                            Expanded(
+                                                              child: Row(
+                                                                mainAxisSize:
+                                                                    MainAxisSize
+                                                                        .max,
+                                                                mainAxisAlignment:
+                                                                    MainAxisAlignment
+                                                                        .spaceBetween,
+                                                                children: [
+                                                                  Expanded(
+                                                                    flex: 3,
+                                                                    child:
+                                                                        Align(
+                                                                      alignment:
+                                                                          AlignmentDirectional(
+                                                                              -1.0,
+                                                                              0.0),
+                                                                      child:
+                                                                          RichText(
+                                                                        textScaler:
+                                                                            MediaQuery.of(context).textScaler,
+                                                                        text:
+                                                                            TextSpan(
+                                                                          children: [
+                                                                            TextSpan(
+                                                                              text: 'Item / ',
+                                                                              style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                    font: GoogleFonts.inter(
+                                                                                      fontWeight: FontWeight.normal,
+                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                    ),
+                                                                                    color: FlutterFlowTheme.of(context).secondaryBackground,
+                                                                                    fontSize: 14.0,
+                                                                                    letterSpacing: 0.0,
+                                                                                    fontWeight: FontWeight.normal,
+                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                  ),
+                                                                            ),
+                                                                            TextSpan(
+                                                                              text: item.itemName,
+                                                                              style: TextStyle(
+                                                                                color: Color(0x73FFFFFF),
+                                                                                fontSize: 14.0,
+                                                                              ),
+                                                                            ),
+                                                                          ],
+                                                                          style: FlutterFlowTheme.of(context).bodyMedium.override(
                                                                                 font: GoogleFonts.inter(
                                                                                   fontWeight: FontWeight.normal,
                                                                                   fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                 ),
-                                                                                color: FlutterFlowTheme.of(context).secondaryBackground,
+                                                                                color: Color(0x73FFFFFF),
                                                                                 fontSize: 14.0,
                                                                                 letterSpacing: 0.0,
                                                                                 fontWeight: FontWeight.normal,
                                                                                 fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                               ),
                                                                         ),
-                                                                        TextSpan(
-                                                                          text:
-                                                                              valueOrDefault<String>(
-                                                                            proposalCategoriesItem.itemName,
-                                                                            '-',
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                  Align(
+                                                                    alignment:
+                                                                        AlignmentDirectional(
+                                                                            -1.0,
+                                                                            0.0),
+                                                                    child:
+                                                                        RichText(
+                                                                      textScaler:
+                                                                          MediaQuery.of(context)
+                                                                              .textScaler,
+                                                                      text:
+                                                                          TextSpan(
+                                                                        children: [
+                                                                          TextSpan(
+                                                                            text:
+                                                                                'Qtd: ',
+                                                                            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                  font: GoogleFonts.inter(
+                                                                                    fontWeight: FontWeight.normal,
+                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                  ),
+                                                                                  color: FlutterFlowTheme.of(context).secondaryBackground,
+                                                                                  fontSize: 14.0,
+                                                                                  letterSpacing: 0.0,
+                                                                                  fontWeight: FontWeight.normal,
+                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                ),
                                                                           ),
-                                                                          style:
-                                                                              TextStyle(),
-                                                                        )
-                                                                      ],
-                                                                      style: FlutterFlowTheme.of(
+                                                                          TextSpan(
+                                                                            text:
+                                                                                item.qty.toString(),
+                                                                            style:
+                                                                                TextStyle(
+                                                                              color: Color(0x73FFFFFF),
+                                                                              fontSize: 14.0,
+                                                                            ),
+                                                                          ),
+                                                                        ],
+                                                                        style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                              font: GoogleFonts.inter(
+                                                                                fontWeight: FontWeight.normal,
+                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                              ),
+                                                                              color: FlutterFlowTheme.of(context).secondaryBackground,
+                                                                              fontSize: 16.0,
+                                                                              letterSpacing: 0.0,
+                                                                              fontWeight: FontWeight.normal,
+                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                            ),
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                  Align(
+                                                                    alignment:
+                                                                        AlignmentDirectional(
+                                                                            -1.0,
+                                                                            0.0),
+                                                                    child:
+                                                                        RichText(
+                                                                      textScaler:
+                                                                          MediaQuery.of(context)
+                                                                              .textScaler,
+                                                                      text:
+                                                                          TextSpan(
+                                                                        children: [
+                                                                          TextSpan(
+                                                                            text:
+                                                                                'Preço: ',
+                                                                            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                  font: GoogleFonts.inter(
+                                                                                    fontWeight: FontWeight.normal,
+                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                  ),
+                                                                                  color: FlutterFlowTheme.of(context).secondaryBackground,
+                                                                                  fontSize: 14.0,
+                                                                                  letterSpacing: 0.0,
+                                                                                  fontWeight: FontWeight.normal,
+                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                ),
+                                                                          ),
+                                                                          TextSpan(
+                                                                            text: valueOrDefault<String>(
+                                                                              formatNumber(
+                                                                                item.price,
+                                                                                formatType: FormatType.decimal,
+                                                                                decimalType: DecimalType.periodDecimal,
+                                                                                currency: '\$',
+                                                                              ),
+                                                                              '\$0,00',
+                                                                            ),
+                                                                            style:
+                                                                                TextStyle(
+                                                                              color: Color(0x73FFFFFF),
+                                                                              fontSize: 14.0,
+                                                                            ),
+                                                                          ),
+                                                                        ],
+                                                                        style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                              font: GoogleFonts.inter(
+                                                                                fontWeight: FontWeight.normal,
+                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                              ),
+                                                                              color: FlutterFlowTheme.of(context).secondaryBackground,
+                                                                              fontSize: 16.0,
+                                                                              letterSpacing: 0.0,
+                                                                              fontWeight: FontWeight.normal,
+                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                            ),
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                ].divide(SizedBox(
+                                                                    width:
+                                                                        36.0)),
+                                                              ),
+                                                            ),
+                                                            Builder(
+                                                              builder:
+                                                                  (context) {
+                                                                if (_model
+                                                                    .listdIds
+                                                                    .contains(
+                                                                        item.id)) {
+                                                                  if (widget!
+                                                                          .typeAccess !=
+                                                                      'edit')
+                                                                    return SizedBox
+                                                                        .shrink();
+                                                                  return FlutterFlowIconButton(
+                                                                    borderRadius:
+                                                                        8.0,
+                                                                    buttonSize:
+                                                                        36.0,
+                                                                    fillColor:
+                                                                        Color(
+                                                                            0xFF303030),
+                                                                    icon: Icon(
+                                                                      Icons
+                                                                          .remove,
+                                                                      color: FlutterFlowTheme.of(
                                                                               context)
-                                                                          .bodyMedium
-                                                                          .override(
-                                                                            font:
-                                                                                GoogleFonts.inter(
-                                                                              fontWeight: FontWeight.normal,
-                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                            ),
-                                                                            color:
-                                                                                Color(0x73FFFFFF),
-                                                                            fontSize:
-                                                                                14.0,
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                            fontWeight:
-                                                                                FontWeight.normal,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                          ),
+                                                                          .error,
+                                                                      size:
+                                                                          20.0,
                                                                     ),
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                              Align(
-                                                                alignment:
-                                                                    AlignmentDirectional(
-                                                                        -1.0,
-                                                                        0.0),
-                                                                child: RichText(
-                                                                  textScaler: MediaQuery.of(
-                                                                          context)
-                                                                      .textScaler,
-                                                                  text:
-                                                                      TextSpan(
-                                                                    children: [
-                                                                      TextSpan(
-                                                                        text:
-                                                                            'Qtd: ',
-                                                                        style: FlutterFlowTheme.of(context)
-                                                                            .bodyMedium
-                                                                            .override(
-                                                                              font: GoogleFonts.inter(
-                                                                                fontWeight: FontWeight.normal,
-                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                    onPressed:
+                                                                        () async {
+                                                                      try {
+                                                                        final proposalItemId = _model.aircraftToProposalItemId[item.id];
+                                                                        if (proposalItemId != null && proposalItemId.isNotEmpty) {
+                                                                          await ProposalItemTable().delete(
+                                                                            matchingRows: (rows) => rows.eqOrNull('id', proposalItemId),
+                                                                          );
+                                                                        } else {
+                                                                          await ProposalItemTable().delete(
+                                                                            matchingRows: (rows) => rows
+                                                                                .eqOrNull('aircraft_item_id', item.id)
+                                                                                .eqOrNull('proposal_id', widget!.proposalId),
+                                                                          );
+                                                                        }
+                                                                        _model.removeFromListdIds(item.id);
+                                                                        _model.selectedItemPrices.remove(item.id);
+                                                                        _model.aircraftToProposalItemId.remove(item.id);
+                                                                        safeSetState(() {});
+                                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                                          SnackBar(
+                                                                            content: Text(
+                                                                              'Item removido com sucesso!',
+                                                                              style: TextStyle(
+                                                                                color: FlutterFlowTheme.of(context).primaryText,
                                                                               ),
-                                                                              color: FlutterFlowTheme.of(context).secondaryBackground,
-                                                                              fontSize: 14.0,
-                                                                              letterSpacing: 0.0,
-                                                                              fontWeight: FontWeight.normal,
-                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                             ),
-                                                                      ),
-                                                                      TextSpan(
-                                                                        text: valueOrDefault<
-                                                                            String>(
-                                                                          proposalCategoriesItem
-                                                                              .qty
-                                                                              .toString(),
-                                                                          '0',
-                                                                        ),
-                                                                        style:
-                                                                            TextStyle(
-                                                                          color:
-                                                                              Color(0x73FFFFFF),
-                                                                          fontSize:
-                                                                              14.0,
-                                                                        ),
-                                                                      )
-                                                                    ],
-                                                                    style: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.inter(
-                                                                            fontWeight:
-                                                                                FontWeight.normal,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                            duration: Duration(milliseconds: 4000),
+                                                                            backgroundColor: FlutterFlowTheme.of(context).error,
                                                                           ),
-                                                                          color:
-                                                                              FlutterFlowTheme.of(context).secondaryBackground,
-                                                                          fontSize:
-                                                                              16.0,
-                                                                          letterSpacing:
-                                                                              0.0,
-                                                                          fontWeight:
-                                                                              FontWeight.normal,
-                                                                          fontStyle: FlutterFlowTheme.of(context)
-                                                                              .bodyMedium
-                                                                              .fontStyle,
-                                                                        ),
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                              Align(
-                                                                alignment:
-                                                                    AlignmentDirectional(
-                                                                        -1.0,
-                                                                        0.0),
-                                                                child: RichText(
-                                                                  textScaler: MediaQuery.of(
-                                                                          context)
-                                                                      .textScaler,
-                                                                  text:
-                                                                      TextSpan(
-                                                                    children: [
-                                                                      TextSpan(
-                                                                        text:
-                                                                            'Preço: ',
-                                                                        style: FlutterFlowTheme.of(context)
-                                                                            .bodyMedium
-                                                                            .override(
-                                                                              font: GoogleFonts.inter(
-                                                                                fontWeight: FontWeight.normal,
-                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                              ),
-                                                                              color: FlutterFlowTheme.of(context).secondaryBackground,
-                                                                              fontSize: 14.0,
-                                                                              letterSpacing: 0.0,
-                                                                              fontWeight: FontWeight.normal,
-                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                            ),
-                                                                      ),
-                                                                      TextSpan(
-                                                                        text: valueOrDefault<
-                                                                            String>(
-                                                                          formatNumber(
-                                                                            proposalCategoriesItem.price,
-                                                                            formatType:
-                                                                                FormatType.decimal,
-                                                                            decimalType:
-                                                                                DecimalType.periodDecimal,
-                                                                            currency:
-                                                                                '\$',
+                                                                        );
+                                                                      } catch (e) {
+                                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                                          SnackBar(
+                                                                            content: Text('Erro ao remover item: $e'),
+                                                                            duration: Duration(milliseconds: 4000),
+                                                                            backgroundColor: FlutterFlowTheme.of(context).error,
                                                                           ),
-                                                                          '\$0,00',
-                                                                        ),
-                                                                        style:
-                                                                            TextStyle(
-                                                                          color:
-                                                                              Color(0x73FFFFFF),
-                                                                          fontSize:
-                                                                              14.0,
-                                                                        ),
-                                                                      )
-                                                                    ],
-                                                                    style: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.inter(
-                                                                            fontWeight:
-                                                                                FontWeight.normal,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                          ),
-                                                                          color:
-                                                                              FlutterFlowTheme.of(context).secondaryBackground,
-                                                                          fontSize:
-                                                                              16.0,
-                                                                          letterSpacing:
-                                                                              0.0,
-                                                                          fontWeight:
-                                                                              FontWeight.normal,
-                                                                          fontStyle: FlutterFlowTheme.of(context)
-                                                                              .bodyMedium
-                                                                              .fontStyle,
-                                                                        ),
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            ].divide(SizedBox(
-                                                                width: 36.0)),
-                                                          ),
-                                                        ),
-                                                        Builder(
-                                                          builder: (context) {
-                                                            if (_model.listdIds
-                                                                .contains(
-                                                                    proposalCategoriesItem
-                                                                        .id)) {
-                                                              if (widget!.typeAccess != 'edit')
-                                                                return SizedBox.shrink();
-                                                              return FlutterFlowIconButton(
-                                                                borderRadius:
-                                                                    8.0,
-                                                                buttonSize:
-                                                                    36.0,
-                                                                fillColor: Color(
-                                                                    0xFF303030),
-                                                                icon: Icon(
-                                                                  Icons.remove,
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .error,
-                                                                  size: 20.0,
-                                                                ),
-                                                                onPressed:
-                                                                    () async {
-                                                                  await ProposalItemTable()
-                                                                      .delete(
-                                                                    matchingRows:
-                                                                        (rows) =>
-                                                                            rows.eqOrNull(
-                                                                      'id',
-                                                                      proposalCategoriesItem
-                                                                          .id,
-                                                                    ),
+                                                                        );
+                                                                      }
+                                                                    },
                                                                   );
-                                                                  _model.removeFromListdIds(
-                                                                      proposalCategoriesItem
-                                                                          .id);
-                                                                  safeSetState(
-                                                                      () {});
-                                                                  safeSetState(() =>
-                                                                      _model.requestCompleter =
-                                                                          null);
-                                                                  await _model
-                                                                      .waitForRequestCompleted();
-                                                                  ScaffoldMessenger.of(
-                                                                          context)
-                                                                      .showSnackBar(
-                                                                    SnackBar(
-                                                                      content:
-                                                                          Text(
-                                                                        'Item removido com sucesso!',
-                                                                        style:
-                                                                            TextStyle(
-                                                                          color:
-                                                                              FlutterFlowTheme.of(context).primaryText,
-                                                                        ),
-                                                                      ),
-                                                                      duration: Duration(
-                                                                          milliseconds:
-                                                                              4000),
-                                                                      backgroundColor:
-                                                                          FlutterFlowTheme.of(context)
-                                                                              .error,
-                                                                    ),
-                                                                  );
-                                                                },
-                                                              );
-                                                            } else {
-                                                              if (widget!.typeAccess != 'edit')
-                                                                return SizedBox.shrink();
-                                                              return FlutterFlowIconButton(
-                                                                borderRadius:
-                                                                    8.0,
-                                                                buttonSize:
-                                                                    36.0,
-                                                                fillColor:
-                                                                    FlutterFlowTheme.of(
+                                                                } else {
+                                                                  if (widget!
+                                                                          .typeAccess !=
+                                                                      'edit')
+                                                                    return SizedBox
+                                                                        .shrink();
+                                                                  return FlutterFlowIconButton(
+                                                                    borderRadius:
+                                                                        8.0,
+                                                                    buttonSize:
+                                                                        36.0,
+                                                                    fillColor: FlutterFlowTheme.of(
                                                                             context)
                                                                         .primary,
-                                                                icon: Icon(
-                                                                  Icons.add,
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .primaryText,
-                                                                  size: 20.0,
-                                                                ),
-                                                                onPressed:
-                                                                    () async {
-                                                                  await ProposalItemTable()
-                                                                      .insert({
-                                                                    'aircraft_item_id':
-                                                                        proposalCategoriesItem
-                                                                            .id,
-                                                                    'proposal_id':
-                                                                        widget!
-                                                                            .proposalId,
-                                                                  });
-                                                                  _model.addToListdIds(
-                                                                      proposalCategoriesItem
-                                                                          .id);
-                                                                  safeSetState(
-                                                                      () {});
-                                                                  safeSetState(() =>
-                                                                      _model.requestCompleter =
-                                                                          null);
-                                                                  await _model
-                                                                      .waitForRequestCompleted();
-                                                                  ScaffoldMessenger.of(
-                                                                          context)
-                                                                      .showSnackBar(
-                                                                    SnackBar(
-                                                                      content:
-                                                                          Text(
-                                                                        'Item adicionado com sucesso!',
-                                                                        style:
-                                                                            TextStyle(
-                                                                          color:
-                                                                              FlutterFlowTheme.of(context).primaryText,
-                                                                        ),
-                                                                      ),
-                                                                      duration: Duration(
-                                                                          milliseconds:
-                                                                              4000),
-                                                                      backgroundColor:
-                                                                          FlutterFlowTheme.of(context)
-                                                                              .primary,
+                                                                    icon: Icon(
+                                                                      Icons.add,
+                                                                      color: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .primaryText,
+                                                                      size:
+                                                                          20.0,
                                                                     ),
+                                                                    onPressed:
+                                                                        () async {
+                                                                      final insertedRow = await ProposalItemTable()
+                                                                          .insert({
+                                                                        'aircraft_item_id':
+                                                                            item.id,
+                                                                        'proposal_id':
+                                                                            widget!.proposalId,
+                                                                      });
+                                                                      _model.addToListdIds(
+                                                                          item.id);
+                                                                      _model.aircraftToProposalItemId[item.id] = insertedRow.id;
+                                                                      _model.selectedItemPrices[
+                                                                              item.id] =
+                                                                          (item.price ?? 0.0) *
+                                                                              (item.qty ?? 1).toDouble();
+                                                                      safeSetState(
+                                                                          () {});
+                                                                      ScaffoldMessenger.of(
+                                                                              context)
+                                                                          .showSnackBar(
+                                                                        SnackBar(
+                                                                          content:
+                                                                              Text(
+                                                                            'Item adicionado com sucesso!',
+                                                                            style:
+                                                                                TextStyle(
+                                                                              color: FlutterFlowTheme.of(context).primaryText,
+                                                                            ),
+                                                                          ),
+                                                                          duration:
+                                                                              Duration(milliseconds: 4000),
+                                                                          backgroundColor:
+                                                                              FlutterFlowTheme.of(context).primary,
+                                                                        ),
+                                                                      );
+                                                                    },
                                                                   );
-                                                                },
-                                                              );
-                                                            }
-                                                          },
+                                                                }
+                                                              },
+                                                            ),
+                                                          ].divide(SizedBox(
+                                                              width: 56.0)),
                                                         ),
-                                                      ].divide(SizedBox(
-                                                          width: 56.0)),
-                                                    ),
-                                                  ),
+                                                      ),
+                                                    );
+                                                  },
                                                 ),
-                                              ].divide(SizedBox(height: 8.0)),
-                                            ),
+                                              );
+                                            },
                                           ),
                                         ],
                                       ),
@@ -5027,10 +5050,9 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                     TextSpan(
                                       text: valueOrDefault<String>(
                                         formatNumber(
-                                          FFAppState()
-                                              .asGetProposalDetails
-                                              .proposal
-                                              .fullprice,
+                                          _model.baseAircraftPrice +
+                                              _model.selectedItemPrices.values
+                                                  .fold(0.0, (a, b) => a + b),
                                           formatType: FormatType.decimal,
                                           decimalType:
                                               DecimalType.periodDecimal,

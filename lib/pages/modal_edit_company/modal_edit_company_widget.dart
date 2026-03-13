@@ -908,6 +908,9 @@ class _ModalEditCompanyWidgetState extends State<ModalEditCompanyWidget>
                                         cursorColor:
                                             FlutterFlowTheme.of(context)
                                                 .secondaryBackground,
+                                        maxLength: 18,
+                                        maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                                        buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
                                         validator: _model
                                             .tFCnpjCompanyTextControllerValidator
                                             .asValidator(context),

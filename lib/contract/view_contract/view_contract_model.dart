@@ -44,6 +44,14 @@ class ViewContractModel extends FlutterFlowModel<ViewContractWidget> {
 
   int countController = 0;
 
+  List<String> listdIds = [];
+  void addToListdIds(String item) => listdIds.add(item);
+  void removeFromListdIds(String item) => listdIds.remove(item);
+
+  double baseAircraftPrice = 0.0;
+  Map<String, double> selectedItemPrices = {};
+  Map<String, String> aircraftToProposalItemId = {};
+
   ///  State fields for stateful widgets in this page.
 
   // Stores action output result for [Backend Call - Query Rows] action in ViewContract widget.

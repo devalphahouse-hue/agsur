@@ -1444,7 +1444,8 @@ class _ViewTrackingWidgetState extends State<ViewTrackingWidget> {
                                                                                   trackingId,
                                                                                 ),
                                                                               );
-                                                                              safeSetState(() {});
+                                                                              safeSetState(() => _model.apiRequestCompleter = null);
+                                                                              await _model.waitForApiRequestCompleted();
                                                                             },
                                                                           ),
                                                                         ),

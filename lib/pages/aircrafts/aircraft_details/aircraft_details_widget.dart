@@ -2054,86 +2054,94 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                                                     null &&
                                                 _model.uploadedFileUrl_uploadUpdateOEM !=
                                                     '') {
-                                              await AircraftManualsTable()
-                                                  .update(
-                                                data: {
-                                                  'documention_name':
-                                                      valueOrDefault<String>(
-                                                    functions.fileNamePath(_model
-                                                        .uploadedFileUrl_uploadUpdateOEM),
+                                              final oemManualId = containerVwMyAircraftDetailsRow?.ownerManuals != null
+                                                  ? getJsonField(containerVwMyAircraftDetailsRow?.ownerManuals, r'''$[0].id''')?.toString()
+                                                  : null;
+                                              if (oemManualId != null && oemManualId != 'null' && oemManualId.isNotEmpty) {
+                                                await AircraftManualsTable().update(
+                                                  data: {
+                                                    'documention_name': valueOrDefault<String>(
+                                                      functions.fileNamePath(_model.uploadedFileUrl_uploadUpdateOEM),
+                                                      'arquivo.pdf',
+                                                    ),
+                                                    'documention_url': _model.uploadedFileUrl_uploadUpdateOEM,
+                                                    'type': 'Manual do proprietário',
+                                                  },
+                                                  matchingRows: (rows) => rows.eqOrNull('id', oemManualId),
+                                                );
+                                              } else {
+                                                await AircraftManualsTable().insert({
+                                                  'aircraft_id': containerVwMyAircraftDetailsRow?.aircraftId,
+                                                  'documention_name': valueOrDefault<String>(
+                                                    functions.fileNamePath(_model.uploadedFileUrl_uploadUpdateOEM),
                                                     'arquivo.pdf',
                                                   ),
-                                                  'documention_url': _model
-                                                      .uploadedFileUrl_uploadUpdateOEM,
-                                                  'type':
-                                                      'Manual do proprietário',
-                                                },
-                                                matchingRows: (rows) =>
-                                                    rows.eqOrNull(
-                                                  'id',
-                                                  getJsonField(
-                                                    containerVwMyAircraftDetailsRow
-                                                        ?.ownerManuals,
-                                                    r'''$[0].id''',
-                                                  ).toString(),
-                                                ),
-                                              );
+                                                  'documention_url': _model.uploadedFileUrl_uploadUpdateOEM,
+                                                  'type': 'Manual do proprietário',
+                                                });
+                                              }
                                             }
                                             if (_model.uploadedFileUrl_uploadUpdateManualVoo !=
                                                     null &&
                                                 _model.uploadedFileUrl_uploadUpdateManualVoo !=
                                                     '') {
-                                              await AircraftManualsTable()
-                                                  .update(
-                                                data: {
-                                                  'documention_name':
-                                                      valueOrDefault<String>(
-                                                    functions.fileNamePath(_model
-                                                        .uploadedFileUrl_uploadUpdateManualVoo),
+                                              final flightManualId = containerVwMyAircraftDetailsRow?.flightManuals != null
+                                                  ? getJsonField(containerVwMyAircraftDetailsRow?.flightManuals, r'''$[0].id''')?.toString()
+                                                  : null;
+                                              if (flightManualId != null && flightManualId != 'null' && flightManualId.isNotEmpty) {
+                                                await AircraftManualsTable().update(
+                                                  data: {
+                                                    'documention_name': valueOrDefault<String>(
+                                                      functions.fileNamePath(_model.uploadedFileUrl_uploadUpdateManualVoo),
+                                                      'arquivo.pdf',
+                                                    ),
+                                                    'documention_url': _model.uploadedFileUrl_uploadUpdateManualVoo,
+                                                    'type': 'Manual de voo',
+                                                  },
+                                                  matchingRows: (rows) => rows.eqOrNull('id', flightManualId),
+                                                );
+                                              } else {
+                                                await AircraftManualsTable().insert({
+                                                  'aircraft_id': containerVwMyAircraftDetailsRow?.aircraftId,
+                                                  'documention_name': valueOrDefault<String>(
+                                                    functions.fileNamePath(_model.uploadedFileUrl_uploadUpdateManualVoo),
                                                     'arquivo.pdf',
                                                   ),
-                                                  'documention_url': _model
-                                                      .uploadedFileUrl_uploadUpdateManualVoo,
+                                                  'documention_url': _model.uploadedFileUrl_uploadUpdateManualVoo,
                                                   'type': 'Manual de voo',
-                                                },
-                                                matchingRows: (rows) =>
-                                                    rows.eqOrNull(
-                                                  'id',
-                                                  getJsonField(
-                                                    containerVwMyAircraftDetailsRow
-                                                        ?.flightManuals,
-                                                    r'''$[0].id''',
-                                                  ).toString(),
-                                                ),
-                                              );
+                                                });
+                                              }
                                             }
                                             if (_model.uploadedFileUrl_uploadUpdateManualPeca !=
                                                     null &&
                                                 _model.uploadedFileUrl_uploadUpdateManualPeca !=
                                                     '') {
-                                              await AircraftManualsTable()
-                                                  .update(
-                                                data: {
-                                                  'documention_name':
-                                                      valueOrDefault<String>(
-                                                    functions.fileNamePath(_model
-                                                        .uploadedFileUrl_uploadUpdateManualPeca),
+                                              final partsManualId = containerVwMyAircraftDetailsRow?.partsManuals != null
+                                                  ? getJsonField(containerVwMyAircraftDetailsRow?.partsManuals, r'''$[0].id''')?.toString()
+                                                  : null;
+                                              if (partsManualId != null && partsManualId != 'null' && partsManualId.isNotEmpty) {
+                                                await AircraftManualsTable().update(
+                                                  data: {
+                                                    'documention_name': valueOrDefault<String>(
+                                                      functions.fileNamePath(_model.uploadedFileUrl_uploadUpdateManualPeca),
+                                                      'arquivo.pdf',
+                                                    ),
+                                                    'documention_url': _model.uploadedFileUrl_uploadUpdateManualPeca,
+                                                    'type': 'Manual de peças',
+                                                  },
+                                                  matchingRows: (rows) => rows.eqOrNull('id', partsManualId),
+                                                );
+                                              } else {
+                                                await AircraftManualsTable().insert({
+                                                  'aircraft_id': containerVwMyAircraftDetailsRow?.aircraftId,
+                                                  'documention_name': valueOrDefault<String>(
+                                                    functions.fileNamePath(_model.uploadedFileUrl_uploadUpdateManualPeca),
                                                     'arquivo.pdf',
                                                   ),
-                                                  'documention_url': _model
-                                                      .uploadedFileUrl_uploadUpdateManualPeca,
+                                                  'documention_url': _model.uploadedFileUrl_uploadUpdateManualPeca,
                                                   'type': 'Manual de peças',
-                                                },
-                                                matchingRows: (rows) =>
-                                                    rows.eqOrNull(
-                                                  'id',
-                                                  getJsonField(
-                                                    containerVwMyAircraftDetailsRow
-                                                        ?.partsManuals,
-                                                    r'''$[0].id''',
-                                                  ).toString(),
-                                                ),
-                                              );
+                                                });
+                                              }
                                             }
                                             _model.isEdit = false;
                                             safeSetState(() {});
@@ -2820,11 +2828,21 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                                             8.0, 0.0, 8.0, 0.0),
                                         child: FFButtonWidget(
                                           onPressed: () async {
-                                            await launchURL(getJsonField(
+                                            final manualUrl = getJsonField(
                                               cTMainVwMyAircraftDetailsRow!
                                                   .ownerManuals!,
                                               r'''$[0].documention_url''',
-                                            ).toString());
+                                            )?.toString() ?? '';
+                                            if (manualUrl.isNotEmpty && manualUrl != 'null' && manualUrl.startsWith('http')) {
+                                              await launchURL(manualUrl);
+                                            } else {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('URL do manual não disponível'),
+                                                  backgroundColor: FlutterFlowTheme.of(context).error,
+                                                ),
+                                              );
+                                            }
                                           },
                                           text: 'Manual do proprietário',
                                           options: FFButtonOptions(
@@ -2886,11 +2904,21 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                                           8.0, 0.0, 8.0, 0.0),
                                       child: FFButtonWidget(
                                         onPressed: () async {
-                                          await launchURL(getJsonField(
+                                          final flightUrl = getJsonField(
                                             cTMainVwMyAircraftDetailsRow!
                                                 .flightManuals!,
                                             r'''$[0].documention_url''',
-                                          ).toString());
+                                          )?.toString() ?? '';
+                                          if (flightUrl.isNotEmpty && flightUrl != 'null' && flightUrl.startsWith('http')) {
+                                            await launchURL(flightUrl);
+                                          } else {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('URL do manual não disponível'),
+                                                backgroundColor: FlutterFlowTheme.of(context).error,
+                                              ),
+                                            );
+                                          }
                                         },
                                         text: 'Manual de voo',
                                         options: FFButtonOptions(
@@ -2951,11 +2979,21 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                                           8.0, 0.0, 8.0, 0.0),
                                       child: FFButtonWidget(
                                         onPressed: () async {
-                                          await launchURL(getJsonField(
+                                          final partsUrl = getJsonField(
                                             cTMainVwMyAircraftDetailsRow!
                                                 .partsManuals!,
                                             r'''$[0].documention_url''',
-                                          ).toString());
+                                          )?.toString() ?? '';
+                                          if (partsUrl.isNotEmpty && partsUrl != 'null' && partsUrl.startsWith('http')) {
+                                            await launchURL(partsUrl);
+                                          } else {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('URL do manual não disponível'),
+                                                backgroundColor: FlutterFlowTheme.of(context).error,
+                                              ),
+                                            );
+                                          }
                                         },
                                         text: 'Manual de peças',
                                         options: FFButtonOptions(

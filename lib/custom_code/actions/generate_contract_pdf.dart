@@ -209,6 +209,9 @@ Future<void> generateContractPdf(
     docValue = '';
   }
 
+  // Inscrição Estadual
+  final ie = company.stateRegistration;
+
   // Address
   final fullAddress = '${address.street}, ${address.number}${address.complement.isNotEmpty ? ' - ${address.complement}' : ''}';
   final cityState = '${address.city} - ${address.state}';
@@ -272,7 +275,7 @@ Future<void> generateContractPdf(
                             children: [
                               pw.Text(clientName, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
                               pw.Text('$docLabel.: $docValue', style: pw.TextStyle(fontSize: 7)),
-                              pw.Text('IE.:', style: pw.TextStyle(fontSize: 7)),
+                              pw.Text('IE.: $ie', style: pw.TextStyle(fontSize: 7)),
                               pw.Text('Endereço.: $fullAddress', style: pw.TextStyle(fontSize: 7)),
                               pw.SizedBox(height: 2),
                               pw.Text('Cidade e UF.: $cityState', style: pw.TextStyle(fontSize: 7)),
@@ -311,12 +314,12 @@ Future<void> generateContractPdf(
                             crossAxisAlignment: pw.CrossAxisAlignment.start,
                             children: [
                               pw.Text(clientName, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-                              pw.Text('$docLabel.:', style: pw.TextStyle(fontSize: 7)),
-                              pw.Text('IE.:', style: pw.TextStyle(fontSize: 7)),
-                              pw.Text('Endereço.:', style: pw.TextStyle(fontSize: 7)),
+                              pw.Text('$docLabel.: $docValue', style: pw.TextStyle(fontSize: 7)),
+                              pw.Text('IE.: $ie', style: pw.TextStyle(fontSize: 7)),
+                              pw.Text('Endereço.: $fullAddress', style: pw.TextStyle(fontSize: 7)),
                               pw.SizedBox(height: 2),
-                              pw.Text('Cidade e UF.:', style: pw.TextStyle(fontSize: 7)),
-                              pw.Text('CEP', style: pw.TextStyle(fontSize: 7)),
+                              pw.Text('Cidade e UF.: $cityState', style: pw.TextStyle(fontSize: 7)),
+                              pw.Text('CEP $cep', style: pw.TextStyle(fontSize: 7)),
                               pw.Text('Pais.: Brasil', style: pw.TextStyle(fontSize: 7)),
                             ],
                           ),

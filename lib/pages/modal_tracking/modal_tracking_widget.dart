@@ -154,6 +154,26 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
           if (row.customizationDescription != null && row.customizationDescription!.isNotEmpty) {
             _model.tFDescTecnicaTextController?.text = row.customizationDescription!;
           }
+          // Order 2 - Invoice
+          if (row.invoiceNumber != null && row.invoiceNumber!.isNotEmpty) {
+            _model.tXTinvoiceTextController?.text = row.invoiceNumber!;
+          }
+          // Order 3 - Tipo de Equipamento
+          if (row.equipmentType != null && row.equipmentType!.isNotEmpty) {
+            _model.tXTipoEquipamentoTextController?.text = row.equipmentType!;
+          }
+          // Order 7 - Nome do Despachante
+          if (row.brokerName != null && row.brokerName!.isNotEmpty) {
+            _model.tXTNomeDespachanteTextController?.text = row.brokerName!;
+          }
+          // Order 9 - Prefixo
+          if (row.prefix != null && row.prefix!.isNotEmpty) {
+            _model.tXTPrefixoTextController?.text = row.prefix!;
+          }
+          // Order 10 - Seguradora
+          if (row.insuranceCompany != null && row.insuranceCompany!.isNotEmpty) {
+            _model.tXTSeguradoraTextController?.text = row.insuranceCompany!;
+          }
           // Order 9 - Formalização de Pagamento
           _model.paymentMethod = row.paymentMethod;
           _model.finDoc = row.finDoc ?? false;
@@ -177,6 +197,47 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
         });
       } else {
         safeSetState(() => _model.detailsLoaded = true);
+      }
+
+      // Load user_aircraft data for order 1 (Personalização) fields
+      if (widget.userAircraftId != null) {
+        final uaRows = await UserAircraftTable().queryRows(
+          queryFn: (q) => q.eq('id', widget.userAircraftId!),
+          limit: 1,
+        );
+        if (uaRows.isNotEmpty) {
+          final ua = uaRows.first;
+          safeSetState(() {
+            if (ua.stripeColor != null && ua.stripeColor!.isNotEmpty) {
+              _model.tFStripeColorTextController?.text = ua.stripeColor!;
+            }
+            if (ua.airFilter != null && ua.airFilter!.isNotEmpty) {
+              _model.tFFilterTextController?.text = ua.airFilter!;
+            }
+            if (ua.panel != null && ua.panel!.isNotEmpty) {
+              _model.tFPanelTextController?.text = ua.panel!;
+            }
+          });
+        }
+      }
+
+      // Load tracking data for order 15 (links)
+      if (widget.idTracking != null) {
+        final trackingRows = await TrackingTable().queryRows(
+          queryFn: (q) => q.eq('id', widget.idTracking!),
+          limit: 1,
+        );
+        if (trackingRows.isNotEmpty) {
+          final tr = trackingRows.first;
+          safeSetState(() {
+            if (tr.link != null && tr.link!.isNotEmpty) {
+              _model.tFLink1TextController?.text = tr.link!;
+            }
+            if (tr.link2 != null && tr.link2!.isNotEmpty) {
+              _model.tFLink2TextController?.text = tr.link2!;
+            }
+          });
+        }
       }
     });
 
@@ -1051,10 +1112,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                       'customization_description': _model.tFDescTecnicaTextController?.text ?? '',
                                     });
                                     await widget.onConfiguration?.call(
-                                      (_model.tFStripeColorFocusNode
-                                                  ?.hasFocus ??
-                                              false)
-                                          .toString(),
+                                      _model.tFStripeColorTextController.text,
                                       _model.tFFilterTextController.text,
                                       _model.tFPanelTextController.text,
                                       true,

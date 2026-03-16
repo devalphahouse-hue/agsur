@@ -599,8 +599,8 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                       _model.tFLink1TextController.text,
                                       _model.tFLink2TextController.text,
                                       true,
-                                      widget!.idTracking!,
-                                      widget!.userAircraftId!,
+                                      widget.idTracking!,
+                                      widget.userAircraftId ?? '',
                                     );
                                   },
                                   text: 'Cadastrar',
@@ -1116,8 +1116,8 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                       _model.tFFilterTextController.text,
                                       _model.tFPanelTextController.text,
                                       true,
-                                      widget!.userAircraftId!,
-                                      widget!.idTracking!,
+                                      widget.userAircraftId ?? '',
+                                      widget.idTracking!,
                                     );
                                   },
                                   text: 'Cadastrar',
@@ -1301,7 +1301,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                           _model.tXTinvoiceTextController.text,
                                     });
                                     await widget.onConfirmStep
-                                        ?.call(widget!.idTracking!);
+                                        ?.call(widget.idTracking!);
                                     Navigator.pop(context);
                                   },
                                   text: 'Cadastrar',
@@ -1485,7 +1485,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                           .tXTipoEquipamentoTextController.text,
                                     });
                                     await widget.onConfirmStep
-                                        ?.call(widget!.idTracking!);
+                                        ?.call(widget.idTracking!);
                                     Navigator.pop(context);
                                   },
                                   text: 'Cadastrar',
@@ -1875,7 +1875,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                   'has_radar': _model.hasRadar,
                                 });
                                 await widget.onConfirmStep
-                                    ?.call(widget!.idTracking!);
+                                    ?.call(widget.idTracking!);
                                 Navigator.pop(context);
                               },
                               text: 'Cadastrar',
@@ -2053,7 +2053,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                           .tXTNomeDespachanteTextController.text,
                                     });
                                     await widget.onConfirmStep
-                                        ?.call(widget!.idTracking!);
+                                        ?.call(widget.idTracking!);
                                     Navigator.pop(context);
                                   },
                                   text: 'Cadastrar',
@@ -2485,7 +2485,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                           .uploadedFileUrl_uploadDataPh0,
                                     });
                                     await widget.onConfirmStep
-                                        ?.call(widget!.idTracking!);
+                                        ?.call(widget.idTracking!);
                                     Navigator.pop(context);
                                   },
                                   text: 'Cadastrar',
@@ -2653,7 +2653,9 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                     'fin_ref_bancaria': _model.finRefBancaria,
                                     'fin_fotos_operacao': _model.finFotosOperacao,
                                   });
-                                  await widget.onConfirmStep?.call(widget!.idTracking!);
+                                  if (widget.idTracking != null) {
+                                    await widget.onConfirmStep?.call(widget.idTracking!);
+                                  }
                                   Navigator.pop(context);
                                 },
                                 text: 'Confirmar',
@@ -2819,7 +2821,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                           .tXTSeguradoraTextController.text,
                                     });
                                     await widget.onConfirmStep
-                                        ?.call(widget!.idTracking!);
+                                        ?.call(widget.idTracking!);
                                     Navigator.pop(context);
                                   },
                                   text: 'Cadastrar',
@@ -2921,7 +2923,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                             child: FFButtonWidget(
                               onPressed: () async {
                                 await _saveTrackingDetails({'reservation_paid': _model.reservationPaid});
-                                await widget.onConfirmStep?.call(widget!.idTracking!);
+                                if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
                                 Navigator.pop(context);
                               },
                               text: 'Confirmar',
@@ -2986,7 +2988,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                             child: FFButtonWidget(
                               onPressed: () async {
                                 await _saveTrackingDetails({'five_percent_paid': _model.fivePercentPaid});
-                                await widget.onConfirmStep?.call(widget!.idTracking!);
+                                if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
                                 Navigator.pop(context);
                               },
                               text: 'Confirmar',
@@ -3051,7 +3053,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                             child: FFButtonWidget(
                               onPressed: () async {
                                 await _saveTrackingDetails({'financing_approved': _model.financingApproved});
-                                await widget.onConfirmStep?.call(widget!.idTracking!);
+                                if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
                                 Navigator.pop(context);
                               },
                               text: 'Confirmar',
@@ -3116,7 +3118,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                             child: FFButtonWidget(
                               onPressed: () async {
                                 await _saveTrackingDetails({'pre_contract_signed': _model.preContractSigned});
-                                await widget.onConfirmStep?.call(widget!.idTracking!);
+                                if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
                                 Navigator.pop(context);
                               },
                               text: 'Confirmar',
@@ -3181,7 +3183,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                             child: FFButtonWidget(
                               onPressed: () async {
                                 await _saveTrackingDetails({'insurance_policy_sent': _model.insurancePolicySent});
-                                await widget.onConfirmStep?.call(widget!.idTracking!);
+                                if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
                                 Navigator.pop(context);
                               },
                               text: 'Confirmar',
@@ -3207,7 +3209,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                             child: FFButtonWidget(
                               onPressed: () async {
                                 await _saveTrackingDetails({'entry_payment_info': 'confirmed'});
-                                await widget.onConfirmStep?.call(widget!.idTracking!);
+                                if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
                                 Navigator.pop(context);
                               },
                               text: 'Confirmar Pagamento',
@@ -3266,7 +3268,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                   await _saveTrackingDetails(oficData);
                                   final allOficChecked = _model.oficInvoice && _model.oficExportCertificate && _model.oficBillOfSale && _model.oficTecat && _model.oficAadsac && _model.oficGendec && _model.oficSpecialAirworthness && _model.oficSeguroReta && _model.oficBoletoReta && _model.oficComprovanteReta && _model.oficDocsDespachante && _model.oficCopiaCadernetas && _model.oficPesoBalanceamento && _model.oficDesregistro && _model.oficFlightTest && _model.oficForm337 && _model.oficListaComponentes && _model.oficListaAds;
                                   if (allOficChecked) {
-                                    await widget.onConfirmStep?.call(widget!.idTracking!);
+                                    if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
                                   }
                                   Navigator.pop(context);
                                 },
@@ -3333,7 +3335,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                             child: FFButtonWidget(
                               onPressed: () async {
                                 await _saveTrackingDetails({'final_contract_signed': _model.finalContractSigned});
-                                await widget.onConfirmStep?.call(widget!.idTracking!);
+                                if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
                                 Navigator.pop(context);
                               },
                               text: 'Confirmar',
@@ -3381,8 +3383,8 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                   };
                                   await _saveTrackingDetails(despData);
                                   final allDespChecked = _model.despCnd && _model.despInvoice && _model.despExportCertificate && _model.despBillOfSale && _model.despTecat && _model.despAvanac && _model.despGendec && _model.despSpecialAirworthness && _model.despSeguroReta && _model.despBoletoReta && _model.despComprovanteReta;
-                                  if (allDespChecked) {
-                                    await widget.onConfirmStep?.call(widget!.idTracking!);
+                                  if (allDespChecked && widget.idTracking != null) {
+                                    await widget.onConfirmStep?.call(widget.idTracking!);
                                   }
                                   Navigator.pop(context);
                                 },
@@ -3449,7 +3451,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                             child: FFButtonWidget(
                               onPressed: () async {
                                 await _saveTrackingDetails({'customs_status': _model.customsStatus, 'customs_cnd': _model.customsCnd});
-                                await widget.onConfirmStep?.call(widget!.idTracking!);
+                                if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
                                 Navigator.pop(context);
                               },
                               text: 'Confirmar',
@@ -3587,7 +3589,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                   'cm_document_url': _model.uploadedFileUrl_cmDoc.isNotEmpty ? _model.uploadedFileUrl_cmDoc : null,
                                 };
                                 await _saveTrackingDetails(docData);
-                                await widget.onConfirmStep?.call(widget!.idTracking!);
+                                if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
                                 Navigator.pop(context);
                               },
                               text: 'Confirmar',
@@ -3614,17 +3616,22 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
   }
 
   Future<void> _saveTrackingDetails(Map<String, dynamic> data) async {
-    if (_model.existingDetailsId != null) {
-      await TrackingDetailsTable().update(
-        data: data,
-        matchingRows: (q) => q.eq('id', _model.existingDetailsId!),
-      );
-    } else {
-      final inserted = await TrackingDetailsTable().insert({
-        'tracking_id': widget!.idTracking,
-        ...data,
-      });
-      _model.existingDetailsId = inserted.id;
+    try {
+      if (_model.existingDetailsId != null) {
+        await TrackingDetailsTable().update(
+          data: data,
+          matchingRows: (q) => q.eq('id', _model.existingDetailsId!),
+        );
+      } else {
+        if (widget.idTracking == null) return;
+        final inserted = await TrackingDetailsTable().insert({
+          'tracking_id': widget!.idTracking,
+          ...data,
+        });
+        _model.existingDetailsId = inserted.id;
+      }
+    } catch (e) {
+      debugPrint('Erro ao salvar tracking details: $e');
     }
   }
 

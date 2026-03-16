@@ -76,8 +76,9 @@ class _ModalEditCompanyWidgetState extends State<ModalEditCompanyWidget>
             _model.getCompany!.firstOrNull!.companyName;
       });
       safeSetState(() {
-        _model.tFPhoneCompanyTextController?.text =
-            _model.getCompany!.firstOrNull!.phone;
+        final rawPhone = _model.getCompany!.firstOrNull!.phone ?? '';
+        final formattedPhone = _model.tFPhoneCompanyMask.maskText(rawPhone.replaceAll(RegExp(r'[^0-9]'), ''));
+        _model.tFPhoneCompanyTextController?.text = formattedPhone;
         _model.tFPhoneCompanyMask.updateMask(
           newValue: TextEditingValue(
             text: _model.tFPhoneCompanyTextController!.text,
@@ -85,8 +86,9 @@ class _ModalEditCompanyWidgetState extends State<ModalEditCompanyWidget>
         );
       });
       safeSetState(() {
-        _model.tFCpfCompanyTextController?.text =
-            _model.getCompany!.firstOrNull!.cpf!;
+        final rawCpf = _model.getCompany!.firstOrNull!.cpf ?? '';
+        final formattedCpf = _model.tFCpfCompanyMask.maskText(rawCpf.replaceAll(RegExp(r'[^0-9]'), ''));
+        _model.tFCpfCompanyTextController?.text = formattedCpf;
         _model.tFCpfCompanyMask.updateMask(
           newValue: TextEditingValue(
             text: _model.tFCpfCompanyTextController!.text,
@@ -94,8 +96,9 @@ class _ModalEditCompanyWidgetState extends State<ModalEditCompanyWidget>
         );
       });
       safeSetState(() {
-        _model.tFCnpjCompanyTextController?.text =
-            _model.getCompany!.firstOrNull!.cnpj;
+        final rawCnpj = _model.getCompany!.firstOrNull!.cnpj ?? '';
+        final formattedCnpj = _model.tFCnpjCompanyMask.maskText(rawCnpj.replaceAll(RegExp(r'[^0-9]'), ''));
+        _model.tFCnpjCompanyTextController?.text = formattedCnpj;
         _model.tFCnpjCompanyMask.updateMask(
           newValue: TextEditingValue(
             text: _model.tFCnpjCompanyTextController!.text,
@@ -1073,6 +1076,8 @@ class _ModalEditCompanyWidgetState extends State<ModalEditCompanyWidget>
                                           .tFCnpjCompanyTextController.text
                                       ..companyName = _model
                                           .tFCompanyNameTextController.text
+                                      ..stateRegistration = _model
+                                          .tFIncricCompanyTextController.text
                                       ..id = widget!.companyId,
                                   ),
                               );

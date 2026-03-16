@@ -5538,6 +5538,35 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                   alignment: AlignmentDirectional(1.0, 0.0),
                                   child: FFButtonWidget(
                                     onPressed: () async {
+                                      // Re-fetch proposal data before generating PDF
+                                      final freshData = await GetProposalDetailsCall.call(
+                                        pProposalId: widget!.proposalId,
+                                      );
+                                      if (freshData?.succeeded ?? false) {
+                                        FFAppState().asGetProposalDetails = GetProposalDetailsStruct(
+                                          proposal: GetProposalDetailsCall.objProposal(
+                                            (freshData?.jsonBody ?? ''),
+                                          ),
+                                          proposalLead: GetProposalDetailsCall.objProposalLead(
+                                            (freshData?.jsonBody ?? ''),
+                                          ),
+                                          proposalCompany: GetProposalDetailsCall.objProposalCompany(
+                                            (freshData?.jsonBody ?? ''),
+                                          ),
+                                          proposalAddress: GetProposalDetailsCall.objProposalAddress(
+                                            (freshData?.jsonBody ?? ''),
+                                          ),
+                                          proposalAircraft: GetProposalDetailsCall.objProposalAircraft(
+                                            (freshData?.jsonBody ?? ''),
+                                          ),
+                                          proposalSeriesItems: GetProposalDetailsCall.objProposalSeriesItem(
+                                            (freshData?.jsonBody ?? ''),
+                                          ),
+                                          proposalOptionalItems: GetProposalDetailsCall.objProposalOptionItems(
+                                            (freshData?.jsonBody ?? ''),
+                                          ),
+                                        );
+                                      }
                                       await actions.generateContractPdf(
                                         FFAppState().asGetProposalDetails,
                                         GetFinancialProposalStruct(

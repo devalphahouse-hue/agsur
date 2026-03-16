@@ -224,12 +224,15 @@ Future<void> generateContractPdf(
   final aircraftTitle = '$year ${aircraft.aircraftModel}';
   final aircraftDescription = aircraft.aircraftDescription;
 
-  // Calculate invoice total (aircraft + optionals)
+  // Calculate optionals total and aircraft-only price
   double optionalsTotal = 0;
   for (final opt in optionalItems) {
     optionalsTotal += _roundUp(opt.item.price * opt.item.qty);
   }
-  final invoiceTotal = _roundUp(fullPrice + optionalsTotal);
+  // fullPrice already includes optionals, so invoiceTotal = fullPrice
+  final invoiceTotal = fullPrice;
+  // Aircraft-only price (subtract optionals from full price)
+  final aircraftOnlyPrice = _roundUp(fullPrice - optionalsTotal);
 
   final totalPages = 2;
 
@@ -403,11 +406,11 @@ Future<void> generateContractPdf(
                       ),
                       pw.Container(
                         width: 90,
-                        child: pw.Text(_formatCurrencyU(fullPrice), style: pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.right),
+                        child: pw.Text(_formatCurrencyU(aircraftOnlyPrice), style: pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.right),
                       ),
                       pw.Container(
                         width: 80,
-                        child: pw.Text(_formatCurrencyU(fullPrice), style: pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.right),
+                        child: pw.Text(_formatCurrencyU(aircraftOnlyPrice), style: pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.right),
                       ),
                     ],
                   ),

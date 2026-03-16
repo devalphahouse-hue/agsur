@@ -527,8 +527,8 @@ Future<void> generateProposalPdf(
     ),
   );
 
-  // Calculate invoice total (aircraft + optionals)
-  final invoiceTotal = roundUp(fullPrice + optionalsTotal);
+  // fullPrice already includes optionals, so invoiceTotal = fullPrice
+  final invoiceTotal = fullPrice;
 
   // ==================== PAGE 2 - PAYMENT CONDITIONS / BANKING ====================
   pdf.addPage(

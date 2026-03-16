@@ -2164,7 +2164,7 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                                               ),
                                             );
 
-                                            context.pushNamed(
+                                            context.goNamed(
                                               AircraftDetailsWidget.routeName,
                                               queryParameters: {
                                                 'aircraftId': serializeParam(
@@ -2899,6 +2899,9 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                                           ),
                                         ),
                                       ),
+                                    if (cTMainVwMyAircraftDetailsRow
+                                            ?.flightManuals !=
+                                        null)
                                     Padding(
                                       padding: EdgeInsetsDirectional.fromSTEB(
                                           8.0, 0.0, 8.0, 0.0),
@@ -2974,6 +2977,9 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                                         ),
                                       ),
                                     ),
+                                    if (cTMainVwMyAircraftDetailsRow
+                                            ?.partsManuals !=
+                                        null)
                                     Padding(
                                       padding: EdgeInsetsDirectional.fromSTEB(
                                           8.0, 0.0, 8.0, 0.0),

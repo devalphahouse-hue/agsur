@@ -57,6 +57,9 @@ class TrackingDetailsRow extends SupabaseDataRow {
       setField<bool>('five_percent_paid', value);
 
   // Reserva de Marcas (RAB)
+  String? get brand => getField<String>('brand');
+  set brand(String? value) => setField<String>('brand', value);
+
   String? get prefix => getField<String>('prefix');
   set prefix(String? value) => setField<String>('prefix', value);
 

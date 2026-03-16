@@ -100,144 +100,164 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
 
     // Load existing tracking_details for this tracking_id
     SchedulerBinding.instance.addPostFrameCallback((_) async {
-      if (widget.idTracking == null) return;
-      final existingRows = await TrackingDetailsTable().queryRows(
-        queryFn: (q) => q.eq('tracking_id', widget.idTracking!),
-        limit: 1,
-      );
-      if (existingRows.isNotEmpty) {
-        final row = existingRows.first;
-        safeSetState(() {
-          _model.existingDetailsId = row.id;
-          // Order 16 - Oficina
-          _model.oficInvoice = row.oficInvoice ?? false;
-          _model.oficExportCertificate = row.oficExportCertificate ?? false;
-          _model.oficBillOfSale = row.oficBillOfSale ?? false;
-          _model.oficTecat = row.oficTecat ?? false;
-          _model.oficAadsac = row.oficAadsac ?? false;
-          _model.oficGendec = row.oficGendec ?? false;
-          _model.oficSpecialAirworthness = row.oficSpecialAirworthness ?? false;
-          _model.oficSeguroReta = row.oficSeguroReta ?? false;
-          _model.oficBoletoReta = row.oficBoletoReta ?? false;
-          _model.oficComprovanteReta = row.oficComprovanteReta ?? false;
-          _model.oficDocsDespachante = row.oficDocsDespachante ?? false;
-          _model.oficCopiaCadernetas = row.oficCopiaCadernetas ?? false;
-          _model.oficPesoBalanceamento = row.oficPesoBalanceamento ?? false;
-          _model.oficDesregistro = row.oficDesregistro ?? false;
-          _model.oficFlightTest = row.oficFlightTest ?? false;
-          _model.oficForm337 = row.oficForm337 ?? false;
-          _model.oficListaComponentes = row.oficListaComponentes ?? false;
-          _model.oficListaAds = row.oficListaAds ?? false;
-          // Order 18 - Despachante
-          _model.despCnd = row.despCnd ?? false;
-          _model.despInvoice = row.despInvoice ?? false;
-          _model.despExportCertificate = row.despExportCertificate ?? false;
-          _model.despBillOfSale = row.despBillOfSale ?? false;
-          _model.despTecat = row.despTecat ?? false;
-          _model.despAvanac = row.despAvanac ?? false;
-          _model.despGendec = row.despGendec ?? false;
-          _model.despSpecialAirworthness = row.despSpecialAirworthness ?? false;
-          _model.despSeguroReta = row.despSeguroReta ?? false;
-          _model.despBoletoReta = row.despBoletoReta ?? false;
-          _model.despComprovanteReta = row.despComprovanteReta ?? false;
-          // Order 19 - Customs
-          _model.customsStatus = row.customsStatus;
-          _model.customsCnd = row.customsCnd ?? false;
-          // Order 20 - Docs
-          if (row.caDocumentUrl != null && row.caDocumentUrl!.isNotEmpty) {
-            _model.uploadedFileUrl_caDoc = row.caDocumentUrl!;
-          }
-          if (row.cmDocumentUrl != null && row.cmDocumentUrl!.isNotEmpty) {
-            _model.uploadedFileUrl_cmDoc = row.cmDocumentUrl!;
-          }
-          // Order 1 - Personalização
-          if (row.customizationDescription != null && row.customizationDescription!.isNotEmpty) {
-            _model.tFDescTecnicaTextController?.text = row.customizationDescription!;
-          }
-          // Order 2 - Invoice
-          if (row.invoiceNumber != null && row.invoiceNumber!.isNotEmpty) {
-            _model.tXTinvoiceTextController?.text = row.invoiceNumber!;
-          }
-          // Order 3 - Tipo de Equipamento
-          if (row.equipmentType != null && row.equipmentType!.isNotEmpty) {
-            _model.tXTipoEquipamentoTextController?.text = row.equipmentType!;
-          }
-          // Order 7 - Nome do Despachante
-          if (row.brokerName != null && row.brokerName!.isNotEmpty) {
-            _model.tXTNomeDespachanteTextController?.text = row.brokerName!;
-          }
-          // Order 9 - Prefixo
-          if (row.prefix != null && row.prefix!.isNotEmpty) {
-            _model.tXTPrefixoTextController?.text = row.prefix!;
-          }
-          // Order 10 - Seguradora
-          if (row.insuranceCompany != null && row.insuranceCompany!.isNotEmpty) {
-            _model.tXTSeguradoraTextController?.text = row.insuranceCompany!;
-          }
-          // Order 9 - Formalização de Pagamento
-          _model.paymentMethod = row.paymentMethod;
-          _model.finDoc = row.finDoc ?? false;
-          _model.finContadora = row.finContadora ?? false;
-          _model.finEndUser = row.finEndUser ?? false;
-          _model.finCpi = row.finCpi ?? false;
-          _model.finCartaHistorico = row.finCartaHistorico ?? false;
-          _model.finRefsComerciais = row.finRefsComerciais ?? false;
-          _model.finRefBancaria = row.finRefBancaria ?? false;
-          _model.finFotosOperacao = row.finFotosOperacao ?? false;
-          // Other fields
-          _model.fiscalBenefitActive = row.fiscalBenefitActive ?? true;
-          _model.hasRadar = row.hasRadar ?? false;
-          _model.reservationPaid = row.reservationPaid ?? false;
-          _model.fivePercentPaid = row.fivePercentPaid ?? false;
-          _model.financingApproved = row.financingApproved ?? false;
-          _model.preContractSigned = row.preContractSigned ?? false;
-          _model.insurancePolicySent = row.insurancePolicySent ?? false;
-          _model.finalContractSigned = row.finalContractSigned ?? false;
-          _model.detailsLoaded = true;
-        });
-      } else {
+      if (widget.idTracking == null || widget.idTracking!.isEmpty) {
+        safeSetState(() => _model.detailsLoaded = true);
+        return;
+      }
+
+      try {
+        final existingRows = await TrackingDetailsTable().queryRows(
+          queryFn: (q) => q.eq('tracking_id', widget.idTracking!),
+          limit: 1,
+        );
+        if (existingRows.isNotEmpty) {
+          final row = existingRows.first;
+          safeSetState(() {
+            _model.existingDetailsId = row.id;
+            // Order 16 - Oficina
+            _model.oficInvoice = row.oficInvoice ?? false;
+            _model.oficExportCertificate = row.oficExportCertificate ?? false;
+            _model.oficBillOfSale = row.oficBillOfSale ?? false;
+            _model.oficTecat = row.oficTecat ?? false;
+            _model.oficAadsac = row.oficAadsac ?? false;
+            _model.oficGendec = row.oficGendec ?? false;
+            _model.oficSpecialAirworthness = row.oficSpecialAirworthness ?? false;
+            _model.oficSeguroReta = row.oficSeguroReta ?? false;
+            _model.oficBoletoReta = row.oficBoletoReta ?? false;
+            _model.oficComprovanteReta = row.oficComprovanteReta ?? false;
+            _model.oficDocsDespachante = row.oficDocsDespachante ?? false;
+            _model.oficCopiaCadernetas = row.oficCopiaCadernetas ?? false;
+            _model.oficPesoBalanceamento = row.oficPesoBalanceamento ?? false;
+            _model.oficDesregistro = row.oficDesregistro ?? false;
+            _model.oficFlightTest = row.oficFlightTest ?? false;
+            _model.oficForm337 = row.oficForm337 ?? false;
+            _model.oficListaComponentes = row.oficListaComponentes ?? false;
+            _model.oficListaAds = row.oficListaAds ?? false;
+            // Order 18 - Despachante
+            _model.despCnd = row.despCnd ?? false;
+            _model.despInvoice = row.despInvoice ?? false;
+            _model.despExportCertificate = row.despExportCertificate ?? false;
+            _model.despBillOfSale = row.despBillOfSale ?? false;
+            _model.despTecat = row.despTecat ?? false;
+            _model.despAvanac = row.despAvanac ?? false;
+            _model.despGendec = row.despGendec ?? false;
+            _model.despSpecialAirworthness = row.despSpecialAirworthness ?? false;
+            _model.despSeguroReta = row.despSeguroReta ?? false;
+            _model.despBoletoReta = row.despBoletoReta ?? false;
+            _model.despComprovanteReta = row.despComprovanteReta ?? false;
+            // Order 19 - Customs
+            _model.customsStatus = row.customsStatus;
+            _model.customsCnd = row.customsCnd ?? false;
+            // Order 20 - Docs
+            if (row.caDocumentUrl != null && row.caDocumentUrl!.isNotEmpty) {
+              _model.uploadedFileUrl_caDoc = row.caDocumentUrl!;
+            }
+            if (row.cmDocumentUrl != null && row.cmDocumentUrl!.isNotEmpty) {
+              _model.uploadedFileUrl_cmDoc = row.cmDocumentUrl!;
+            }
+            // Order 1 - Personalização
+            if (row.customizationDescription != null && row.customizationDescription!.isNotEmpty) {
+              _model.tFDescTecnicaTextController?.text = row.customizationDescription!;
+            }
+            // Order 2 - Invoice
+            if (row.invoiceNumber != null && row.invoiceNumber!.isNotEmpty) {
+              _model.tXTinvoiceTextController?.text = row.invoiceNumber!;
+            }
+            // Order 3 - Tipo de Equipamento
+            if (row.equipmentType != null && row.equipmentType!.isNotEmpty) {
+              _model.tXTipoEquipamentoTextController?.text = row.equipmentType!;
+            }
+            // Order 7 - Nome do Despachante
+            if (row.brokerName != null && row.brokerName!.isNotEmpty) {
+              _model.tXTNomeDespachanteTextController?.text = row.brokerName!;
+            }
+            // Order 8 - Prefixo e Marca
+            if (row.prefix != null && row.prefix!.isNotEmpty) {
+              _model.tXTPrefixoTextController?.text = row.prefix!;
+            }
+            if (row.brand != null && row.brand!.isNotEmpty) {
+              _model.tXTMarcaTextController?.text = row.brand!;
+            }
+            // Order 12 - Seguradora
+            if (row.insuranceCompany != null && row.insuranceCompany!.isNotEmpty) {
+              _model.tXTSeguradoraTextController?.text = row.insuranceCompany!;
+            }
+            // Order 9 - Formalização de Pagamento
+            _model.paymentMethod = row.paymentMethod;
+            _model.finDoc = row.finDoc ?? false;
+            _model.finContadora = row.finContadora ?? false;
+            _model.finEndUser = row.finEndUser ?? false;
+            _model.finCpi = row.finCpi ?? false;
+            _model.finCartaHistorico = row.finCartaHistorico ?? false;
+            _model.finRefsComerciais = row.finRefsComerciais ?? false;
+            _model.finRefBancaria = row.finRefBancaria ?? false;
+            _model.finFotosOperacao = row.finFotosOperacao ?? false;
+            // Other fields
+            _model.fiscalBenefitActive = row.fiscalBenefitActive ?? true;
+            _model.hasRadar = row.hasRadar ?? false;
+            _model.reservationPaid = row.reservationPaid ?? false;
+            _model.fivePercentPaid = row.fivePercentPaid ?? false;
+            _model.financingApproved = row.financingApproved ?? false;
+            _model.preContractSigned = row.preContractSigned ?? false;
+            _model.insurancePolicySent = row.insurancePolicySent ?? false;
+            _model.finalContractSigned = row.finalContractSigned ?? false;
+            _model.detailsLoaded = true;
+          });
+        } else {
+          safeSetState(() => _model.detailsLoaded = true);
+        }
+      } catch (e) {
+        debugPrint('Erro ao carregar tracking_details: $e');
         safeSetState(() => _model.detailsLoaded = true);
       }
 
       // Load user_aircraft data for order 1 (Personalização) fields
-      if (widget.userAircraftId != null) {
-        final uaRows = await UserAircraftTable().queryRows(
-          queryFn: (q) => q.eq('id', widget.userAircraftId!),
-          limit: 1,
-        );
-        if (uaRows.isNotEmpty) {
-          final ua = uaRows.first;
-          safeSetState(() {
-            if (ua.stripeColor != null && ua.stripeColor!.isNotEmpty) {
-              _model.tFStripeColorTextController?.text = ua.stripeColor!;
-            }
-            if (ua.airFilter != null && ua.airFilter!.isNotEmpty) {
-              _model.tFFilterTextController?.text = ua.airFilter!;
-            }
-            if (ua.panel != null && ua.panel!.isNotEmpty) {
-              _model.tFPanelTextController?.text = ua.panel!;
-            }
-          });
+      try {
+        if (widget.userAircraftId != null && widget.userAircraftId!.isNotEmpty) {
+          final uaRows = await UserAircraftTable().queryRows(
+            queryFn: (q) => q.eq('id', widget.userAircraftId!),
+            limit: 1,
+          );
+          if (uaRows.isNotEmpty) {
+            final ua = uaRows.first;
+            safeSetState(() {
+              if (ua.stripeColor != null && ua.stripeColor!.isNotEmpty) {
+                _model.tFStripeColorTextController?.text = ua.stripeColor!;
+              }
+              if (ua.airFilter != null && ua.airFilter!.isNotEmpty) {
+                _model.tFFilterTextController?.text = ua.airFilter!;
+              }
+              if (ua.panel != null && ua.panel!.isNotEmpty) {
+                _model.tFPanelTextController?.text = ua.panel!;
+              }
+            });
+          }
         }
+      } catch (e) {
+        debugPrint('Erro ao carregar user_aircraft: $e');
       }
 
       // Load tracking data for order 15 (links)
-      if (widget.idTracking != null) {
-        final trackingRows = await TrackingTable().queryRows(
-          queryFn: (q) => q.eq('id', widget.idTracking!),
-          limit: 1,
-        );
-        if (trackingRows.isNotEmpty) {
-          final tr = trackingRows.first;
-          safeSetState(() {
-            if (tr.link != null && tr.link!.isNotEmpty) {
-              _model.tFLink1TextController?.text = tr.link!;
-            }
-            if (tr.link2 != null && tr.link2!.isNotEmpty) {
-              _model.tFLink2TextController?.text = tr.link2!;
-            }
-          });
+      try {
+        if (widget.idTracking != null && widget.idTracking!.isNotEmpty) {
+          final trackingRows = await TrackingTable().queryRows(
+            queryFn: (q) => q.eq('id', widget.idTracking!),
+            limit: 1,
+          );
+          if (trackingRows.isNotEmpty) {
+            final tr = trackingRows.first;
+            safeSetState(() {
+              if (tr.link != null && tr.link!.isNotEmpty) {
+                _model.tFLink1TextController?.text = tr.link!;
+              }
+              if (tr.link2 != null && tr.link2!.isNotEmpty) {
+                _model.tFLink2TextController?.text = tr.link2!;
+              }
+            });
+          }
         }
+      } catch (e) {
+        debugPrint('Erro ao carregar tracking links: $e');
       }
     });
 
@@ -2481,6 +2501,8 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                     await _saveTrackingDetails({
                                       'prefix':
                                           _model.tXTPrefixoTextController.text,
+                                      'brand':
+                                          _model.tXTMarcaTextController.text,
                                       'prefix_file_url': _model
                                           .uploadedFileUrl_uploadDataPh0,
                                     });

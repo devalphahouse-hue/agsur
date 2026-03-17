@@ -171,12 +171,15 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
             if (row.brokerName != null && row.brokerName!.isNotEmpty) {
               _model.tXTNomeDespachanteTextController?.text = row.brokerName!;
             }
-            // Order 8 - Prefixo e Marca
+            // Order 8 - Prefixo, Marca e Documento
             if (row.prefix != null && row.prefix!.isNotEmpty) {
               _model.tXTPrefixoTextController?.text = row.prefix!;
             }
             if (row.brand != null && row.brand!.isNotEmpty) {
               _model.tXTMarcaTextController?.text = row.brand!;
+            }
+            if (row.prefixFileUrl != null && row.prefixFileUrl!.isNotEmpty) {
+              _model.uploadedFileUrl_uploadDataPh0 = row.prefixFileUrl!;
             }
             // Order 12 - Seguradora
             if (row.insuranceCompany != null && row.insuranceCompany!.isNotEmpty) {
@@ -201,6 +204,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
             _model.preContractSigned = row.preContractSigned ?? false;
             _model.insurancePolicySent = row.insurancePolicySent ?? false;
             _model.finalContractSigned = row.finalContractSigned ?? false;
+            _model.entryPaymentInfo = row.entryPaymentInfo;
             _model.detailsLoaded = true;
           });
         } else {
@@ -615,13 +619,27 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                             .validate()) {
                                       return;
                                     }
-                                    await widget.onLinks?.call(
-                                      _model.tFLink1TextController.text,
-                                      _model.tFLink2TextController.text,
-                                      true,
-                                      widget.idTracking!,
-                                      widget.userAircraftId ?? '',
-                                    );
+                                    if (widget.onLinks != null) {
+                                      await widget.onLinks!.call(
+                                        _model.tFLink1TextController.text,
+                                        _model.tFLink2TextController.text,
+                                        true,
+                                        widget.idTracking!,
+                                        widget.userAircraftId ?? '',
+                                      );
+                                    } else {
+                                      // Eye icon edit mode: save links directly
+                                      if (widget.idTracking != null) {
+                                        await TrackingTable().update(
+                                          data: {
+                                            'link': _model.tFLink1TextController.text,
+                                            'link2': _model.tFLink2TextController.text,
+                                          },
+                                          matchingRows: (rows) => rows.eqOrNull('id', widget.idTracking!),
+                                        );
+                                      }
+                                      Navigator.pop(context);
+                                    }
                                   },
                                   text: 'Cadastrar',
                                   options: FFButtonOptions(
@@ -1131,14 +1149,29 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                     await _saveTrackingDetails({
                                       'customization_description': _model.tFDescTecnicaTextController?.text ?? '',
                                     });
-                                    await widget.onConfiguration?.call(
-                                      _model.tFStripeColorTextController.text,
-                                      _model.tFFilterTextController.text,
-                                      _model.tFPanelTextController.text,
-                                      true,
-                                      widget.userAircraftId ?? '',
-                                      widget.idTracking!,
-                                    );
+                                    if (widget.onConfiguration != null) {
+                                      await widget.onConfiguration!.call(
+                                        _model.tFStripeColorTextController.text,
+                                        _model.tFFilterTextController.text,
+                                        _model.tFPanelTextController.text,
+                                        true,
+                                        widget.userAircraftId ?? '',
+                                        widget.idTracking!,
+                                      );
+                                    } else {
+                                      // Eye icon edit mode: save directly to user_aircraft
+                                      if (widget.userAircraftId != null && widget.userAircraftId!.isNotEmpty) {
+                                        await UserAircraftTable().update(
+                                          data: {
+                                            'stripe_color': _model.tFStripeColorTextController.text,
+                                            'air_filter': _model.tFFilterTextController.text,
+                                            'panel': _model.tFPanelTextController.text,
+                                          },
+                                          matchingRows: (rows) => rows.eqOrNull('id', widget.userAircraftId!),
+                                        );
+                                      }
+                                      Navigator.pop(context);
+                                    }
                                   },
                                   text: 'Cadastrar',
                                   options: FFButtonOptions(
@@ -3224,6 +3257,16 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                         children: [
                           Text('Pagamento Saldo de Entrada', style: FlutterFlowTheme.of(context).titleMedium.override(font: GoogleFonts.inter(), color: Colors.white, fontSize: 16.0, letterSpacing: 0.0)),
                           SizedBox(height: 16.0),
+                          if (_model.entryPaymentInfo == 'confirmed') ...[
+                            Row(
+                              children: [
+                                Icon(Icons.check_circle, color: Color(0xFF2D6A4F), size: 32.0),
+                                SizedBox(width: 12.0),
+                                Text('Pagamento confirmado', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: Color(0xFF95D5B2), fontSize: 16.0, letterSpacing: 0.0, fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                            SizedBox(height: 8.0),
+                          ],
                           Text('Confirme que o pagamento do saldo de entrada foi realizado.', style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: Color(0x74FFFFFF), fontSize: 14.0, letterSpacing: 0.0)),
                           SizedBox(height: 24.0),
                           Align(
@@ -3234,7 +3277,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                 if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
                                 Navigator.pop(context);
                               },
-                              text: 'Confirmar Pagamento',
+                              text: _model.entryPaymentInfo == 'confirmed' ? 'Confirmado' : 'Confirmar Pagamento',
                               options: FFButtonOptions(height: 48.0, padding: EdgeInsetsDirectional.fromSTEB(48.0, 0.0, 48.0, 0.0), color: FlutterFlowTheme.of(context).primary, textStyle: FlutterFlowTheme.of(context).titleSmall.override(font: GoogleFonts.inter(), color: FlutterFlowTheme.of(context).primaryText, fontSize: 14.0, letterSpacing: 0.0), elevation: 0.0, borderRadius: BorderRadius.circular(8.0)),
                             ),
                           ),
@@ -3622,9 +3665,40 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                       ),
                     );
                   } else {
-                    return Column(
-                      mainAxisSize: MainAxisSize.max,
-                      children: [],
+                    return Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.check_circle,
+                            color: Color(0xFF2D6A4F),
+                            size: 64.0,
+                          ),
+                          SizedBox(height: 16.0),
+                          Text(
+                            'Etapa confirmada',
+                            style: FlutterFlowTheme.of(context).titleMedium.override(
+                              font: GoogleFonts.inter(
+                                fontWeight: FontWeight.w600,
+                              ),
+                              color: Color(0xFF95D5B2),
+                              fontSize: 18.0,
+                              letterSpacing: 0.0,
+                            ),
+                          ),
+                          SizedBox(height: 8.0),
+                          Text(
+                            'Esta etapa já foi concluída com sucesso.',
+                            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                              font: GoogleFonts.inter(),
+                              color: Color(0x74FFFFFF),
+                              fontSize: 14.0,
+                              letterSpacing: 0.0,
+                            ),
+                          ),
+                        ],
+                      ),
                     );
                   }
                 },

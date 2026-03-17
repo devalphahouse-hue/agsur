@@ -149,6 +149,9 @@ class ModalTrackingModel extends FlutterFlowModel<ModalTrackingWidget> {
       FFUploadedFile(bytes: Uint8List.fromList([]), originalFilename: '');
   String uploadedFileUrl_cmDoc = '';
 
+  // State field(s) for order 14 - Saldo de Entrada.
+  String? entryPaymentInfo;
+
   // Existing tracking_details row ID (null = no row yet, needs insert)
   String? existingDetailsId;
   bool detailsLoaded = false;

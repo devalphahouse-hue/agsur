@@ -224,15 +224,14 @@ Future<void> generateContractPdf(
   final aircraftTitle = '$year ${aircraft.aircraftModel}';
   final aircraftDescription = aircraft.aircraftDescription;
 
-  // Calculate optionals total and aircraft-only price
+  // Calculate optionals total
   double optionalsTotal = 0;
   for (final opt in optionalItems) {
     optionalsTotal += _roundUp(opt.item.price * opt.item.qty);
   }
-  // fullPrice already includes optionals, so invoiceTotal = fullPrice
-  final invoiceTotal = fullPrice;
-  // Aircraft-only price (subtract optionals from full price)
-  final aircraftOnlyPrice = _roundUp(fullPrice - optionalsTotal);
+  // Aircraft price is the base price (fullPrice), optionals are added on top
+  final aircraftOnlyPrice = fullPrice;
+  final invoiceTotal = _roundUp(fullPrice + optionalsTotal);
 
   final totalPages = 2;
 
@@ -485,6 +484,19 @@ Future<void> generateContractPdf(
             ),
             pw.SizedBox(height: 16),
 
+            // Instruções de Pagamento (digitadas pelo usuário)
+            if (instructions.isNotEmpty) ...[
+              pw.Text('Instruções de Pagamento',
+                  style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 6),
+              pw.Container(
+                padding: const pw.EdgeInsets.all(8),
+                decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
+                child: pw.Text(instructions, style: pw.TextStyle(fontSize: 9)),
+              ),
+              pw.SizedBox(height: 12),
+            ],
+
             // Instruções para transferência bancária
             pw.Text('Instruções para transferência bancária',
                 style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
@@ -503,6 +515,18 @@ Future<void> generateContractPdf(
                 ],
               ),
             ),
+            // Termos do Contrato (digitados pelo usuário)
+            if (terms.isNotEmpty) ...[
+              pw.SizedBox(height: 12),
+              pw.Text('Termos do Contrato',
+                  style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 6),
+              pw.Container(
+                padding: const pw.EdgeInsets.all(8),
+                decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
+                child: pw.Text(terms, style: pw.TextStyle(fontSize: 9)),
+              ),
+            ],
             pw.SizedBox(height: 24),
 
             // Signatures

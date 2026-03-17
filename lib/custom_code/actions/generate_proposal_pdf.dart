@@ -296,12 +296,13 @@ Future<void> generateProposalPdf(
   // Aircraft title
   final aircraftTitle = '$year ${aircraft.aircraftModel}';
 
-  // Aircraft-only price (subtract optionals from full price)
+  // Calculate optionals total
   double optionalsTotal = 0.0;
   for (final opt in optionalItems) {
     optionalsTotal += roundUp(opt.item.price * opt.item.qty);
   }
-  final aircraftOnlyPrice = roundUp(fullPrice - optionalsTotal);
+  // Aircraft price is the base price (fullPrice), optionals are added on top
+  final aircraftOnlyPrice = fullPrice;
   final aircraftDescription = aircraft.aircraftDescription;
 
   // ==================== PAGE 1 - INVOICE / ITEMS ====================
@@ -527,8 +528,8 @@ Future<void> generateProposalPdf(
     ),
   );
 
-  // fullPrice already includes optionals, so invoiceTotal = fullPrice
-  final invoiceTotal = fullPrice;
+  // Aircraft price is the base price, optionals are added on top
+  final invoiceTotal = roundUp(fullPrice + optionalsTotal);
 
   // ==================== PAGE 2 - PAYMENT CONDITIONS / BANKING ====================
   pdf.addPage(

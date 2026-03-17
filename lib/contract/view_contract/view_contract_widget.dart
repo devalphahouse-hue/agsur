@@ -4344,6 +4344,24 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                                                             _model.removeFromListdIds(lVOptionalItemsAircraftItemsRow.id);
                                                                             _model.selectedItemPrices.remove(lVOptionalItemsAircraftItemsRow.id);
                                                                             _model.aircraftToProposalItemId.remove(lVOptionalItemsAircraftItemsRow.id);
+                                                                            // Update fullprice in proposal table and refresh FFAppState
+                                                                            final newFullprice = _model.baseAircraftPrice + _model.selectedItemPrices.values.fold(0.0, (a, b) => a + b);
+                                                                            await ProposalTable().update(
+                                                                              data: {'fullprice': newFullprice},
+                                                                              matchingRows: (rows) => rows.eqOrNull('id', widget!.proposalId),
+                                                                            );
+                                                                            final refreshedDetails = await GetProposalDetailsCall.call(pProposalId: widget!.proposalId);
+                                                                            if (refreshedDetails.succeeded) {
+                                                                              FFAppState().asGetProposalDetails = GetProposalDetailsStruct(
+                                                                                proposal: GetProposalDetailsCall.objProposal(refreshedDetails.jsonBody ?? ''),
+                                                                                proposalLead: GetProposalDetailsCall.objProposalLead(refreshedDetails.jsonBody ?? ''),
+                                                                                proposalCompany: GetProposalDetailsCall.objProposalCompany(refreshedDetails.jsonBody ?? ''),
+                                                                                proposalAddress: GetProposalDetailsCall.objProposalAddress(refreshedDetails.jsonBody ?? ''),
+                                                                                proposalAircraft: GetProposalDetailsCall.objProposalAircraft(refreshedDetails.jsonBody ?? ''),
+                                                                                proposalSeriesItems: GetProposalDetailsCall.objProposalSeriesItem(refreshedDetails.jsonBody ?? ''),
+                                                                                proposalOptionalItems: GetProposalDetailsCall.objProposalOptionItems(refreshedDetails.jsonBody ?? ''),
+                                                                              );
+                                                                            }
                                                                             safeSetState(() {});
                                                                             ScaffoldMessenger.of(context).showSnackBar(
                                                                               SnackBar(
@@ -4396,6 +4414,24 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                                                           _model.selectedItemPrices[lVOptionalItemsAircraftItemsRow.id] =
                                                                               (lVOptionalItemsAircraftItemsRow.price ?? 0.0) *
                                                                               (lVOptionalItemsAircraftItemsRow.qty ?? 1).toDouble();
+                                                                          // Update fullprice in proposal table and refresh FFAppState
+                                                                          final newFullprice = _model.baseAircraftPrice + _model.selectedItemPrices.values.fold(0.0, (a, b) => a + b);
+                                                                          await ProposalTable().update(
+                                                                            data: {'fullprice': newFullprice},
+                                                                            matchingRows: (rows) => rows.eqOrNull('id', widget!.proposalId),
+                                                                          );
+                                                                          final refreshedDetails = await GetProposalDetailsCall.call(pProposalId: widget!.proposalId);
+                                                                          if (refreshedDetails.succeeded) {
+                                                                            FFAppState().asGetProposalDetails = GetProposalDetailsStruct(
+                                                                              proposal: GetProposalDetailsCall.objProposal(refreshedDetails.jsonBody ?? ''),
+                                                                              proposalLead: GetProposalDetailsCall.objProposalLead(refreshedDetails.jsonBody ?? ''),
+                                                                              proposalCompany: GetProposalDetailsCall.objProposalCompany(refreshedDetails.jsonBody ?? ''),
+                                                                              proposalAddress: GetProposalDetailsCall.objProposalAddress(refreshedDetails.jsonBody ?? ''),
+                                                                              proposalAircraft: GetProposalDetailsCall.objProposalAircraft(refreshedDetails.jsonBody ?? ''),
+                                                                              proposalSeriesItems: GetProposalDetailsCall.objProposalSeriesItem(refreshedDetails.jsonBody ?? ''),
+                                                                              proposalOptionalItems: GetProposalDetailsCall.objProposalOptionItems(refreshedDetails.jsonBody ?? ''),
+                                                                            );
+                                                                          }
                                                                           safeSetState(() {});
                                                                           ScaffoldMessenger.of(context)
                                                                               .showSnackBar(

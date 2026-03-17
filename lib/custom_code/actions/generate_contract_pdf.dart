@@ -229,9 +229,10 @@ Future<void> generateContractPdf(
   for (final opt in optionalItems) {
     optionalsTotal += _roundUp(opt.item.price * opt.item.qty);
   }
-  // Aircraft price is the base price (fullPrice), optionals are added on top
-  final aircraftOnlyPrice = fullPrice;
-  final invoiceTotal = _roundUp(fullPrice + optionalsTotal);
+  // Aircraft base price = fullPrice minus optionals (fullPrice already includes optionals)
+  final aircraftOnlyPrice = fullPrice - optionalsTotal;
+  // fullPrice already includes optionals, so invoiceTotal = fullPrice
+  final invoiceTotal = fullPrice;
 
   final totalPages = 2;
 

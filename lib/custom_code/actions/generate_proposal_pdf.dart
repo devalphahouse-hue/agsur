@@ -301,8 +301,8 @@ Future<void> generateProposalPdf(
   for (final opt in optionalItems) {
     optionalsTotal += roundUp(opt.item.price * opt.item.qty);
   }
-  // Aircraft price is the base price (fullPrice), optionals are added on top
-  final aircraftOnlyPrice = fullPrice;
+  // Aircraft base price = fullPrice minus optionals (fullPrice already includes optionals)
+  final aircraftOnlyPrice = fullPrice - optionalsTotal;
   final aircraftDescription = aircraft.aircraftDescription;
 
   // ==================== PAGE 1 - INVOICE / ITEMS ====================
@@ -528,8 +528,8 @@ Future<void> generateProposalPdf(
     ),
   );
 
-  // Aircraft price is the base price, optionals are added on top
-  final invoiceTotal = roundUp(fullPrice + optionalsTotal);
+  // fullPrice already includes optionals, so invoiceTotal = fullPrice
+  final invoiceTotal = fullPrice;
 
   // ==================== PAGE 2 - PAYMENT CONDITIONS / BANKING ====================
   pdf.addPage(

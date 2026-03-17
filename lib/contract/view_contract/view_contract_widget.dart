@@ -103,11 +103,23 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
               optItem.item.price * optItem.item.qty;
           _model.aircraftToProposalItemId[optItem.item.id] = optItem.id;
         }
-        final currentOptionalsTotal =
-            _model.selectedItemPrices.values.fold(0.0, (a, b) => a + b);
-        _model.baseAircraftPrice =
-            FFAppState().asGetProposalDetails.proposal.fullprice -
-                currentOptionalsTotal;
+        // Get aircraft base price directly from aircrafts table
+        final aircraftRows = await AircraftsTable().queryRows(
+          queryFn: (q) => q.eqOrNull(
+            'id',
+            FFAppState().asGetProposalDetails.proposal.aircraftId,
+          ),
+        );
+        _model.baseAircraftPrice = aircraftRows.isNotEmpty
+            ? aircraftRows.first.price
+            : FFAppState().asGetProposalDetails.proposal.fullprice -
+                _model.selectedItemPrices.values.fold(0.0, (a, b) => a + b);
+        // Sync fullprice in DB with actual base + selected optionals
+        final correctFullprice = _model.baseAircraftPrice + _model.selectedItemPrices.values.fold(0.0, (a, b) => a + b);
+        await ProposalTable().update(
+          data: {'fullprice': correctFullprice},
+          matchingRows: (rows) => rows.eqOrNull('id', FFAppState().asGetProposalDetails.proposal.id),
+        );
         safeSetState(() {});
         _model.getProposalFinancial = await ProposalFinancingTable().queryRows(
           queryFn: (q) => q.eqOrNull(

@@ -3,19 +3,16 @@ name: Flutter analyze
 on:
   pull_request:
     paths:
-      - "agsur-app/**"
-      - "agsur-painel/**"
+      - "lib/**"
+      - "test/**"
+      - "pubspec.yaml"
       - ".github/workflows/flutter-analyze.yml"
   push:
     branches: [main, master]
 
 jobs:
-  analyze-app:
-    if: contains(github.event.pull_request.changed_files, 'agsur-app') || github.event_name == 'push'
+  analyze:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: agsur-app
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -24,23 +21,5 @@ jobs:
           cache: true
       - run: flutter --version
       - run: flutter pub get
-      - run: flutter analyze --fatal-infos --fatal-warnings || flutter analyze
-      - run: flutter test
-
-  analyze-painel:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: agsur-painel
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - run: flutter --version
-      - run: flutter pub get
-      # Painel é gerado pelo FlutterFlow — temos warnings tolerados.
-      # Não usamos --fatal-warnings aqui; só queremos catch de novos errors.
       - run: flutter analyze
       - run: flutter test

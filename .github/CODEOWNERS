@@ -1,28 +1,20 @@
-# Code owners — Agsur
-#
-# Sintaxe: <padrão> <usuário ou time GitHub>
-# Quem aparece aqui é REQUERIDO no review do PR.
-# Trocar `@_TIME_SECURITY_` pelo handle real (user ou @org/team) antes de mergear.
+# Code owners — Agsur Painel
+# Trocar @_TIME_*_ pelos handles reais antes de mergear este arquivo.
 
 # === Tudo por padrão ===
 *                                    @_TIME_DEV_
 
 # === Schema do banco / RLS / migrations / hooks ===
-# Mudanças aqui afetam segurança em produção. Review obrigatório do time de segurança.
 /supabase/                           @_TIME_SECURITY_
 /supabase/migrations/                @_TIME_SECURITY_
 
 # === Auth e gates de login ===
-/agsur-painel/lib/pages/authentication/      @_TIME_SECURITY_
-/agsur-painel/lib/auth/                      @_TIME_SECURITY_
-/agsur-app/lib/authentication/               @_TIME_SECURITY_
-/agsur-app/lib/auth/                         @_TIME_SECURITY_
-/agsur-app/lib/core/auth/                    @_TIME_SECURITY_
-/agsur-app/lib/core/security/                @_TIME_SECURITY_
-/agsur-painel/lib/security/                  @_TIME_SECURITY_
+/lib/pages/authentication/           @_TIME_SECURITY_
+/lib/auth/                           @_TIME_SECURITY_
+/lib/security/                       @_TIME_SECURITY_
 
 # === Headers HTTP / Vercel ===
-/agsur-painel/vercel.json            @_TIME_SECURITY_
+/vercel.json                         @_TIME_SECURITY_
 
 # === CI workflows que rodam validação de segurança ===
 /.github/workflows/                  @_TIME_SECURITY_
@@ -31,10 +23,7 @@
 /RUNBOOK.md                          @_TIME_SECURITY_
 
 # === Storage / chaves embarcadas ===
-/agsur-painel/lib/backend/supabase/supabase.dart   @_TIME_SECURITY_
-/agsur-app/lib/backend/supabase/supabase.dart      @_TIME_SECURITY_
-/agsur-app/lib/backend/supabase/secure_local_storage.dart  @_TIME_SECURITY_
+/lib/backend/supabase/supabase.dart  @_TIME_SECURITY_
 
 # === Observabilidade (Sentry) ===
-/agsur-painel/lib/observability/     @_TIME_SECURITY_
-/agsur-app/lib/observability/        @_TIME_SECURITY_
+/lib/observability/                  @_TIME_SECURITY_

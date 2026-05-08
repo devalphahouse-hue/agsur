@@ -101,6 +101,11 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           path: LoginWidget.routePath,
           builder: (context, params) => LoginWidget(),
         ).toRoute(appStateNotifier),
+        FFRoute(
+          name: ResetPasswordWidget.routeName,
+          path: ResetPasswordWidget.routePath,
+          builder: (context, params) => ResetPasswordWidget(),
+        ).toRoute(appStateNotifier),
         ShellRoute(
           builder: (context, state, child) => AppShell(child: child),
           routes: [
@@ -134,11 +139,6 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           name: RegistedAircraftWidget.routeName,
           path: RegistedAircraftWidget.routePath,
           builder: (context, params) => RegistedAircraftWidget(),
-        ),
-        FFRoute(
-          name: ResetPasswordWidget.routeName,
-          path: ResetPasswordWidget.routePath,
-          builder: (context, params) => ResetPasswordWidget(),
         ),
         FFRoute(
           name: CertificatesWidget.routeName,

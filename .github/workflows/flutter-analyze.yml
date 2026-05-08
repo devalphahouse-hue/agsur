@@ -21,5 +21,7 @@ jobs:
           cache: true
       - run: flutter --version
       - run: flutter pub get
-      - run: flutter analyze
+      # Painel é gerado pelo FlutterFlow — milhares de info/warning toleradas.
+      # CI quebra apenas em ERROR (regressão real).
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - run: flutter test

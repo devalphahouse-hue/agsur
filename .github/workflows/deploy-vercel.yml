@@ -47,11 +47,12 @@ jobs:
       - name: Pull Vercel project config
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
-      - name: Deploy to Vercel (production)
+      - name: Build Vercel artifact (uses build/web via vercel.json)
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy prebuilt to Vercel (production)
         run: |
-          vercel deploy build/web \
-            --prod \
-            --yes \
+          vercel deploy --prebuilt --prod --yes \
             --token=${{ secrets.VERCEL_TOKEN }} \
             --meta githubCommitSha=$GITHUB_SHA \
             --meta githubCommitRef=$GITHUB_REF_NAME

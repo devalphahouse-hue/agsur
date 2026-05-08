@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '/core_ui/core_ui.dart';
 import 'registed_aircraft_model.dart';
 export 'registed_aircraft_model.dart';
 
@@ -50,70 +51,9 @@ class _RegistedAircraftWidgetState extends State<RegistedAircraftWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus();
-        FocusManager.instance.primaryFocus?.unfocus();
-      },
-      child: Scaffold(
-        key: scaffoldKey,
-        backgroundColor: Color(0xFF313131),
-        drawer: Drawer(
-          elevation: 16.0,
-          child: wrapWithModel(
-            model: _model.menuModel,
-            updateCallback: () => safeSetState(() {}),
-            child: MenuWidget(),
-          ),
-        ),
-        appBar: AppBar(
-          backgroundColor: Color(0xFF313131),
-          iconTheme: IconThemeData(color: FlutterFlowTheme.of(context).primary),
-          automaticallyImplyLeading: true,
-          title: Text(
-            'Aeronaves cadastradas',
-            textAlign: TextAlign.center,
-            style: FlutterFlowTheme.of(context).headlineMedium.override(
-                  font: GoogleFonts.inter(
-                    fontWeight:
-                        FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                  ),
-                  color: Color(0x72FFFFFF),
-                  fontSize: 18.0,
-                  letterSpacing: 0.0,
-                  fontWeight:
-                      FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                  fontStyle:
-                      FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                ),
-          ),
-          actions: [
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-              child: InkWell(
-                splashColor: Colors.transparent,
-                focusColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                onTap: () async {
-                  context.pushNamed(HomePageWidget.routeName);
-                },
-                child: Icon(
-                  Icons.home,
-                  color: FlutterFlowTheme.of(context).primary,
-                  size: 24.0,
-                ),
-              ),
-            ),
-          ],
-          centerTitle: true,
-          elevation: 0.0,
-        ),
-        body: SafeArea(
-          top: true,
-          child: FutureBuilder<List<AircraftsRow>>(
+    return AppDetailsScaffold(
+      title: 'Aeronaves cadastradas (catálogo)',
+      body: FutureBuilder<List<AircraftsRow>>(
             future: (_model.requestCompleter ??= Completer<List<AircraftsRow>>()
                   ..complete(AircraftsTable().queryRows(
                     queryFn: (q) => q
@@ -156,7 +96,92 @@ class _RegistedAircraftWidgetState extends State<RegistedAircraftWidget> {
                     children: [
                       Padding(
                         padding: EdgeInsetsDirectional.fromSTEB(
-                            28.0, 48.0, 28.0, 28.0),
+                            28.0, 24.0, 28.0, 0.0),
+                        child: Container(
+                          padding: EdgeInsetsDirectional.fromSTEB(
+                              16.0, 12.0, 16.0, 12.0),
+                          decoration: BoxDecoration(
+                            color: Color(0xFF404040),
+                            borderRadius: BorderRadius.circular(8.0),
+                            border: Border.all(
+                              color: FlutterFlowTheme.of(context)
+                                  .primary
+                                  .withValues(alpha: 0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.max,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.menu_book_outlined,
+                                color: FlutterFlowTheme.of(context).primary,
+                                size: 22.0,
+                              ),
+                              SizedBox(width: 12.0),
+                              Expanded(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'O que é o catálogo?',
+                                      style: FlutterFlowTheme.of(context)
+                                          .bodyMedium
+                                          .override(
+                                            font: GoogleFonts.inter(
+                                              fontWeight: FontWeight.w600,
+                                              fontStyle:
+                                                  FlutterFlowTheme.of(context)
+                                                      .bodyMedium
+                                                      .fontStyle,
+                                            ),
+                                            color:
+                                                FlutterFlowTheme.of(context)
+                                                    .secondaryBackground,
+                                            fontSize: 14.0,
+                                            letterSpacing: 0.0,
+                                            fontWeight: FontWeight.w600,
+                                            fontStyle:
+                                                FlutterFlowTheme.of(context)
+                                                    .bodyMedium
+                                                    .fontStyle,
+                                          ),
+                                    ),
+                                    SizedBox(height: 4.0),
+                                    Text(
+                                      'Modelos de aeronave que a AGSur vende — fotos, especificações e preço base. '
+                                      'Para cadastrar uma unidade física específica (com serial e datas reais), use o menu Estoque (unidades).',
+                                      style: FlutterFlowTheme.of(context)
+                                          .bodySmall
+                                          .override(
+                                            font: GoogleFonts.inter(
+                                              fontWeight:
+                                                  FlutterFlowTheme.of(context)
+                                                      .bodySmall
+                                                      .fontWeight,
+                                              fontStyle:
+                                                  FlutterFlowTheme.of(context)
+                                                      .bodySmall
+                                                      .fontStyle,
+                                            ),
+                                            color: Color(0xCCFFFFFF),
+                                            fontSize: 12.5,
+                                            letterSpacing: 0.0,
+                                            lineHeight: 1.4,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsetsDirectional.fromSTEB(
+                            28.0, 24.0, 28.0, 28.0),
                         child: Row(
                           mainAxisSize: MainAxisSize.max,
                           children: [
@@ -311,7 +336,7 @@ class _RegistedAircraftWidgetState extends State<RegistedAircraftWidget> {
                                   context.pushNamed(
                                       CreateAircraftWidget.routeName);
                                 },
-                                text: 'Cadastrar aeronave',
+                                text: 'Novo modelo',
                                 options: FFButtonOptions(
                                   height: 48.0,
                                   padding: EdgeInsetsDirectional.fromSTEB(
@@ -588,8 +613,6 @@ class _RegistedAircraftWidgetState extends State<RegistedAircraftWidget> {
               );
             },
           ),
-        ),
-      ),
     );
   }
 }

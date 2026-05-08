@@ -1,49 +1,114 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
+# =============================================================================
+# CRÍTICO — segredos e tokens
+# =============================================================================
+
+# Memória/settings locais do Claude (settings.local.json contém SUPABASE_ACCESS_TOKEN)
+.claude/
+
+# Variáveis de ambiente (anon key fica hardcoded como fallback no código,
+# mas .env.local pode conter staging keys ou DSN do Sentry).
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Android signing
+**/android/key.properties
+**/android/app/key.jks
+**/android/app/*.keystore
+
+# Supabase CLI cache (pode conter project-ref e token cacheado)
+supabase/.temp/
+
+# =============================================================================
+# Sistema operacional / editor
+# =============================================================================
 .DS_Store
-.atom/
-.buildlog/
-.history
-.svn/
-
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
+Thumbs.db
+desktop.ini
 .idea/
+.vscode/
+*.iml
+*.swp
+*~
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# =============================================================================
+# Arquivos pessoais grandes
+# =============================================================================
+*.mp4
+*.mov
+*.zip
+*.tar.gz
 
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.packages
-.pub-cache/
-.pub/
-# /build/
+# =============================================================================
+# Flutter / Dart — artefatos de build
+# =============================================================================
+**/build/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/.pub-cache/
+**/.pub/
+**/pubspec.lock
+**/.metadata
+**/devtools_options.yaml
+**/coverage/
 
-# Firebase – this is necessary if you use Firebase since it could otherwise 
-# lead to leaking of private certificates to your repository, which is no bueno.
-.firebase/
+# Web (gerado pelo flutter build web)
+**/web/index.html.bak
+**/web/canvaskit/
 
-# Web related
+# =============================================================================
+# Android
+# =============================================================================
+**/android/.gradle/
+**/android/captures/
+**/android/local.properties
+**/android/.idea/
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
+**/android/gradle-wrapper.jar.bak
 
-# Symbolication related
-app.*.symbols
+# =============================================================================
+# iOS
+# =============================================================================
+**/ios/Pods/
+**/ios/Podfile.lock
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/ios/.symlinks/
+**/ios/Runner.xcworkspace/xcuserdata/
+**/ios/Runner.xcodeproj/xcuserdata/
 
-# Obfuscation related
-app.*.map.json
+# =============================================================================
+# macOS
+# =============================================================================
+**/macos/Pods/
+**/macos/Podfile.lock
+**/macos/Flutter/ephemeral/
+**/macos/.symlinks/
+**/macos/Runner.xcworkspace/xcuserdata/
+**/macos/Runner.xcodeproj/xcuserdata/
 
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+# =============================================================================
+# Logs / temp
+# =============================================================================
+*.log
+*.tmp
+.tmp/
+
+# =============================================================================
+# Node (caso entre algum tooling JS no futuro)
+# =============================================================================
+node_modules/
+.next/
+dist/
+out/

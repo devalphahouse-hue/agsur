@@ -1,5 +1,6 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/api_requests/api_calls.dart';
+import '/core_ui/core_ui.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/schema/structs/index.dart';
 import '/backend/supabase/supabase.dart';
@@ -17,6 +18,7 @@ import '/custom_code/actions/index.dart' as actions;
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -172,69 +174,12 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
   Widget build(BuildContext context) {
     context.watch<FFAppState>();
 
-    return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus();
-        FocusManager.instance.primaryFocus?.unfocus();
-      },
-      child: Scaffold(
-        key: scaffoldKey,
-        backgroundColor: Color(0xFF313131),
-        appBar: AppBar(
-          backgroundColor: Color(0xFF313131),
-          iconTheme: IconThemeData(color: FlutterFlowTheme.of(context).primary),
-          automaticallyImplyLeading: true,
-          title: Text(
-            valueOrDefault<String>(
-              widget!.typeAccess == 'edit'
-                  ? 'Editar Contrato ${widget!.companyName}'
-                  : 'Contrato de venda ${widget!.companyName}',
-              'Proposta Personalizada Nome Empresa',
-            ),
-            textAlign: TextAlign.center,
-            style: FlutterFlowTheme.of(context).headlineMedium.override(
-                  font: GoogleFonts.inter(
-                    fontWeight:
-                        FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                  ),
-                  color: Color(0x73FFFFFF),
-                  fontSize: 18.0,
-                  letterSpacing: 0.0,
-                  fontWeight:
-                      FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                  fontStyle:
-                      FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                ),
-          ),
-          actions: [
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-              child: InkWell(
-                splashColor: Colors.transparent,
-                focusColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                onTap: () async {
-                  context.pushNamed(HomePageWidget.routeName);
-                },
-                child: Icon(
-                  Icons.home,
-                  color: FlutterFlowTheme.of(context).primary,
-                  size: 24.0,
-                ),
-              ),
-            ),
-          ],
-          centerTitle: true,
-          elevation: 0.0,
-        ),
-        body: SafeArea(
-          top: true,
-          child: Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(0.0, 28.0, 0.0, 0.0),
-            child: FutureBuilder<List<ProposalFinancingRow>>(
+    return AppDetailsScaffold(
+      title: widget.typeAccess == 'edit'
+          ? 'Editar contrato — ${widget.companyName ?? ''}'
+          : 'Contrato de venda — ${widget.companyName ?? ''}',
+      subtitle: 'Visão geral, dados de financiamento e empresariais.',
+      body: FutureBuilder<List<ProposalFinancingRow>>(
               future: _model
                   .propostaFinanceiro(
                 requestFn: () => ProposalFinancingTable().querySingleRow(
@@ -277,12 +222,51 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: double.infinity),
+                            child: AppDetailHero(
+                              avatarIcon: Icons.description_rounded,
+                              eyebrow:
+                                  'CONTRATO · #${(widget.proposalId ?? '').substring(0, math.min(8, (widget.proposalId ?? '').length))}',
+                              title: widget.companyName?.isNotEmpty == true
+                                  ? widget.companyName!
+                                  : 'Contrato',
+                              subtitle:
+                                  'Visão geral, dados de financiamento e empresariais.',
+                              badge: AppStatusBadge(
+                                label: widget.typeAccess == 'edit'
+                                    ? 'Edição'
+                                    : 'Visualização',
+                                tone: widget.typeAccess == 'edit'
+                                    ? AppStatusTone.warning
+                                    : AppStatusTone.brand,
+                                icon: Icons.assignment_outlined,
+                              ),
+                              chips: [
+                                HeroChip(
+                                  icon: Icons.business_outlined,
+                                  label: 'Empresa',
+                                ),
+                                HeroChip(
+                                  icon: Icons.payments_outlined,
+                                  label: 'Financeiro',
+                                ),
+                                HeroChip(
+                                  icon: Icons.gavel_rounded,
+                                  label: 'Termos legais',
+                                ),
+                              ],
+                            ).appFade(),
+                          ),
+                        ),
+                        SizedBox(height: 12.0),
                         Padding(
                           padding: EdgeInsetsDirectional.fromSTEB(
                               16.0, 0.0, 16.0, 16.0),
                           child: Container(
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               color: Color(0xFF404040),
@@ -464,7 +448,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                               16.0, 0.0, 16.0, 16.0),
                           child: Container(
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               color: Color(0xFF404040),
@@ -1291,7 +1275,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                               16.0, 0.0, 16.0, 16.0),
                           child: Container(
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               color: Color(0xFF404040),
@@ -2195,7 +2179,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                               16.0, 0.0, 16.0, 16.0),
                           child: Container(
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               color: Color(0xFF404040),
@@ -3247,7 +3231,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
 
                               return Container(
                                 constraints: BoxConstraints(
-                                  maxWidth: 800.0,
+                                  maxWidth: double.infinity,
                                 ),
                                 decoration: BoxDecoration(
                                   color: Color(0xFF404040),
@@ -3800,7 +3784,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                               16.0, 0.0, 16.0, 16.0),
                           child: Container(
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               color: Color(0xFF404040),
@@ -3844,7 +3828,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                   ),
                                   Container(
                                     constraints: BoxConstraints(
-                                      maxWidth: 800.0,
+                                      maxWidth: double.infinity,
                                     ),
                                     decoration: BoxDecoration(),
                                     alignment: AlignmentDirectional(-1.0, -1.0),
@@ -3894,7 +3878,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                             Container(
                               width: MediaQuery.sizeOf(context).width * 1.0,
                               constraints: BoxConstraints(
-                                maxWidth: 800.0,
+                                maxWidth: double.infinity,
                               ),
                               decoration: BoxDecoration(),
                               child: FutureBuilder<List<CategoryRow>>(
@@ -3945,7 +3929,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                               lVCategoriesIndex];
                                       return Container(
                                         constraints: BoxConstraints(
-                                          maxWidth: 800.0,
+                                          maxWidth: double.infinity,
                                         ),
                                         decoration: BoxDecoration(
                                           color: Color(0xFF404040),
@@ -4490,7 +4474,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                           child: Container(
                             width: double.infinity,
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               color: Color(0xFF404040),
@@ -4951,7 +4935,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                           child: Container(
                             width: double.infinity,
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               color: Color(0xFF404040),
@@ -5094,7 +5078,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                     child: Container(
                                       width: double.infinity,
                                       constraints: BoxConstraints(
-                                        maxWidth: 800.0,
+                                        maxWidth: double.infinity,
                                       ),
                                       decoration: BoxDecoration(
                                         color: Color(0xFF404040),
@@ -5331,7 +5315,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                     child: Container(
                                       width: double.infinity,
                                       constraints: BoxConstraints(
-                                        maxWidth: 800.0,
+                                        maxWidth: double.infinity,
                                       ),
                                       decoration: BoxDecoration(
                                         color: Color(0xFF404040),
@@ -5573,7 +5557,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                           child: Container(
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12.0),
@@ -5708,9 +5692,6 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                 );
               },
             ),
-          ),
-        ),
-      ),
     );
   }
 }

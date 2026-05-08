@@ -13,6 +13,7 @@ import '/backend/supabase/supabase.dart';
 import '/auth/base_auth_user_provider.dart';
 
 import '/main.dart';
+import '/core_ui/app_shell.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/lat_lng.dart';
 import '/flutter_flow/place.dart';
@@ -94,17 +95,20 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           path: '/',
           builder: (context, _) =>
               appStateNotifier.loggedIn ? HomePageWidget() : LoginWidget(),
-        ),
+        ).toRoute(appStateNotifier),
+        FFRoute(
+          name: LoginWidget.routeName,
+          path: LoginWidget.routePath,
+          builder: (context, params) => LoginWidget(),
+        ).toRoute(appStateNotifier),
+        ShellRoute(
+          builder: (context, state, child) => AppShell(child: child),
+          routes: [
         FFRoute(
           name: HomePageWidget.routeName,
           path: HomePageWidget.routePath,
           requireAuth: true,
           builder: (context, params) => HomePageWidget(),
-        ),
-        FFRoute(
-          name: LoginWidget.routeName,
-          path: LoginWidget.routePath,
-          builder: (context, params) => LoginWidget(),
         ),
         FFRoute(
           name: GuaranteesWidget.routeName,
@@ -423,8 +427,10 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           name: AvailableAircraftsWidget.routeName,
           path: AvailableAircraftsWidget.routePath,
           builder: (context, params) => AvailableAircraftsWidget(),
-        )
-      ].map((r) => r.toRoute(appStateNotifier)).toList(),
+        ),
+          ].map((r) => r.toRoute(appStateNotifier)).toList(),
+        ),
+      ],
     );
 
 extension NavParamExtensions on Map<String, String?> {

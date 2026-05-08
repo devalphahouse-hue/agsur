@@ -27,6 +27,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '/core_ui/core_ui.dart';
 import 'create_proposal_model.dart';
 export 'create_proposal_model.dart';
 
@@ -75,73 +76,50 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
   Widget build(BuildContext context) {
     context.watch<FFAppState>();
 
-    return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus();
-        FocusManager.instance.primaryFocus?.unfocus();
-      },
-      child: Scaffold(
-        key: scaffoldKey,
-        backgroundColor: Color(0xFF313131),
-        appBar: AppBar(
-          backgroundColor: Color(0xFF313131),
-          iconTheme: IconThemeData(color: FlutterFlowTheme.of(context).primary),
-          automaticallyImplyLeading: true,
-          title: Text(
-            'Criar Proposta Personalizada',
-            textAlign: TextAlign.center,
-            style: FlutterFlowTheme.of(context).headlineMedium.override(
-                  font: GoogleFonts.inter(
-                    fontWeight:
-                        FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                  ),
-                  color: Color(0x73FFFFFF),
-                  fontSize: 18.0,
-                  letterSpacing: 0.0,
-                  fontWeight:
-                      FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                  fontStyle:
-                      FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                ),
-          ),
-          actions: [
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-              child: InkWell(
-                splashColor: Colors.transparent,
-                focusColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                onTap: () async {
-                  context.pushNamed(HomePageWidget.routeName);
-                },
-                child: Icon(
-                  Icons.home,
-                  color: FlutterFlowTheme.of(context).primary,
-                  size: 24.0,
-                ),
-              ),
-            ),
-          ],
-          centerTitle: true,
-          elevation: 0.0,
-        ),
-        body: SafeArea(
-          top: true,
-          child: Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(0.0, 28.0, 0.0, 0.0),
-            child: Container(
+    return AppDetailsScaffold(
+      title: 'Criar proposta personalizada',
+      subtitle:
+          'Selecione um lead, configure as informações da aeronave e finalize.',
+      body: Container(
               width: MediaQuery.sizeOf(context).width * 1.0,
               decoration: BoxDecoration(),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                     Padding(
                       padding: EdgeInsetsDirectional.fromSTEB(
-                          16.0, 36.0, 16.0, 16.0),
+                          16.0, 12.0, 16.0, 4.0),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: double.infinity),
+                          child: AppDetailHero(
+                            avatarIcon: Icons.request_quote_rounded,
+                            eyebrow: 'NOVA PROPOSTA',
+                            title: 'Criar proposta personalizada',
+                            subtitle:
+                                'Selecione um lead, configure a aeronave, itens e financiamento.',
+                            badge: AppStatusBadge(
+                              label: 'Rascunho',
+                              tone: AppStatusTone.warning,
+                              icon: Icons.edit_note_rounded,
+                            ),
+                            chips: [
+                              HeroChip(
+                                icon: Icons.timeline_rounded,
+                                label: 'Lead → Proposta',
+                              ),
+                              HeroChip(
+                                icon: Icons.payments_outlined,
+                                label: 'Financiamento configurável',
+                              ),
+                            ],
+                          ).appFade(),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsetsDirectional.fromSTEB(
+                          16.0, 12.0, 16.0, 16.0),
                       child: FutureBuilder<List<LeadsRow>>(
                         future: LeadsTable().queryRows(
                           queryFn: (q) => q.eqOrNull(
@@ -169,7 +147,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                           return Container(
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               color: Color(0xFF404040),
@@ -470,7 +448,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                             child: Container(
                               width: MediaQuery.sizeOf(context).width * 1.0,
                               constraints: BoxConstraints(
-                                maxWidth: 800.0,
+                                maxWidth: double.infinity,
                               ),
                               decoration: BoxDecoration(
                                 color: Color(0xFF404040),
@@ -1564,7 +1542,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                             child: Container(
                               width: MediaQuery.sizeOf(context).width * 1.0,
                               constraints: BoxConstraints(
-                                maxWidth: 800.0,
+                                maxWidth: double.infinity,
                               ),
                               decoration: BoxDecoration(
                                 color: Color(0xFF404040),
@@ -2784,7 +2762,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                 return Container(
                                   width: MediaQuery.sizeOf(context).width * 1.0,
                                   constraints: BoxConstraints(
-                                    maxWidth: 800.0,
+                                    maxWidth: double.infinity,
                                   ),
                                   decoration: BoxDecoration(
                                     color: Color(0xFF404040),
@@ -3167,7 +3145,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                             child: Container(
                               width: double.infinity,
                               constraints: BoxConstraints(
-                                maxWidth: 800.0,
+                                maxWidth: double.infinity,
                               ),
                               decoration: BoxDecoration(
                                 color: Color(0xFF404040),
@@ -3704,7 +3682,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                             child: Container(
                               width: double.infinity,
                               constraints: BoxConstraints(
-                                maxWidth: 800.0,
+                                maxWidth: double.infinity,
                               ),
                               decoration: BoxDecoration(
                                 color: Color(0xFF404040),
@@ -3810,7 +3788,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                               width: double.infinity,
                               constraints: BoxConstraints(
                                 minHeight: 200.0,
-                                maxWidth: 800.0,
+                                maxWidth: double.infinity,
                               ),
                               decoration: BoxDecoration(
                                 color: Color(0xFF404040),
@@ -4283,7 +4261,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                             child: Container(
                               width: double.infinity,
                               constraints: BoxConstraints(
-                                maxWidth: 800.0,
+                                maxWidth: double.infinity,
                               ),
                               decoration: BoxDecoration(
                                 color: Color(0xFF404040),
@@ -4443,7 +4421,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                           Container(
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(),
                             child: FutureBuilder<List<CategoryRow>>(
@@ -4492,7 +4470,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                             lVCategoriesIndex];
                                     return Container(
                                       constraints: BoxConstraints(
-                                        maxWidth: 800.0,
+                                        maxWidth: double.infinity,
                                       ),
                                       decoration: BoxDecoration(
                                         color: Color(0xFF404040),
@@ -4990,7 +4968,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                             child: Container(
                               width: MediaQuery.sizeOf(context).width * 1.0,
                               constraints: BoxConstraints(
-                                maxWidth: 800.0,
+                                maxWidth: double.infinity,
                               ),
                               decoration: BoxDecoration(
                                 color: Color(0xFF404040),
@@ -5147,7 +5125,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                 return Container(
                                   width: MediaQuery.sizeOf(context).width * 1.0,
                                   constraints: BoxConstraints(
-                                    maxWidth: 800.0,
+                                    maxWidth: double.infinity,
                                   ),
                                   decoration: BoxDecoration(
                                     color: Color(0xFF404040),
@@ -6030,7 +6008,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                             child: Container(
                               width: MediaQuery.sizeOf(context).width * 1.0,
                               constraints: BoxConstraints(
-                                maxWidth: 800.0,
+                                maxWidth: double.infinity,
                               ),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(12.0),
@@ -6432,10 +6410,6 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                       .addToEnd(SizedBox(height: 32.0)),
                 ),
               ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

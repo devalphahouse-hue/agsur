@@ -1,0 +1,53 @@
+name: RLS smoke test
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - ".github/workflows/rls-smoke.yml"
+  schedule:
+    # Roda diariamente às 06:00 UTC para detectar drift (alguém alterando policies via Studio)
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Anon access deve ser bloqueado nas tabelas críticas
+        env:
+          SUPABASE_URL: https://bkzybtmxxzpxtztesdye.supabase.co
+          ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$ANON_KEY" ]; then
+            echo "::warning::SUPABASE_ANON_KEY não configurada — pulando smoke."
+            exit 0
+          fi
+          set -e
+          fail=0
+          for table in users proposal contract financial financing_rates sales tracking; do
+            count=$(curl -s "$SUPABASE_URL/rest/v1/$table?select=*&limit=1" \
+              -H "apikey: $ANON_KEY" -H "Authorization: Bearer $ANON_KEY" \
+              | jq 'if type == "array" then length else -1 end')
+            if [ "$count" != "0" ]; then
+              echo "::error::Anon conseguiu ler $table (esperado 0, obtido $count)"
+              fail=1
+            else
+              echo "OK: $table — anon bloqueado"
+            fi
+          done
+
+          # Tentar INSERT com escalation
+          resp=$(curl -s -X POST "$SUPABASE_URL/rest/v1/users" \
+            -H "apikey: $ANON_KEY" -H "Authorization: Bearer $ANON_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"id":"00000000-0000-0000-0000-00000000aaaa","name":"x","email":"x@y","profile_type":"Admin Master","is_admin":true,"phone":"0","cpf":"0"}')
+          if echo "$resp" | grep -q "42501"; then
+            echo "OK: anon INSERT em users com escalation foi bloqueado"
+          else
+            echo "::error::Anon INSERT em users NÃO foi bloqueado: $resp"
+            fail=1
+          fi
+
+          exit $fail

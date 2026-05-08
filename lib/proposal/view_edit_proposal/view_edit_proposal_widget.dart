@@ -19,12 +19,14 @@ import 'dart:ui';
 import '/custom_code/actions/index.dart' as actions;
 import '/index.dart';
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '/core_ui/core_ui.dart';
 import 'view_edit_proposal_model.dart';
 export 'view_edit_proposal_model.dart';
 
@@ -160,69 +162,9 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
   Widget build(BuildContext context) {
     context.watch<FFAppState>();
 
-    return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus();
-        FocusManager.instance.primaryFocus?.unfocus();
-      },
-      child: Scaffold(
-        key: scaffoldKey,
-        backgroundColor: Color(0xFF313131),
-        appBar: AppBar(
-          backgroundColor: Color(0xFF313131),
-          iconTheme: IconThemeData(color: FlutterFlowTheme.of(context).primary),
-          automaticallyImplyLeading: true,
-          title: Text(
-            valueOrDefault<String>(
-              widget!.typeAccess == 'edit'
-                  ? 'Editar Proposta ${widget!.companyName}'
-                  : 'Proposta Personalizada ${widget!.companyName}',
-              'Proposta Personalizada NomeEmpresa',
-            ),
-            textAlign: TextAlign.center,
-            style: FlutterFlowTheme.of(context).headlineMedium.override(
-                  font: GoogleFonts.inter(
-                    fontWeight:
-                        FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                  ),
-                  color: Color(0x73FFFFFF),
-                  fontSize: 18.0,
-                  letterSpacing: 0.0,
-                  fontWeight:
-                      FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                  fontStyle:
-                      FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                ),
-          ),
-          actions: [
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-              child: InkWell(
-                splashColor: Colors.transparent,
-                focusColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                onTap: () async {
-                  context.pushNamed(HomePageWidget.routeName);
-                },
-                child: Icon(
-                  Icons.home,
-                  color: FlutterFlowTheme.of(context).primary,
-                  size: 24.0,
-                ),
-              ),
-            ),
-          ],
-          centerTitle: true,
-          elevation: 0.0,
-        ),
-        body: SafeArea(
-          top: true,
-          child: Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(0.0, 28.0, 0.0, 0.0),
-            child: FutureBuilder<List<ProposalFinancingRow>>(
+    return AppDetailsScaffold(
+      title: 'Editar proposta — ${widget.companyName ?? ''}',
+      body: FutureBuilder<List<ProposalFinancingRow>>(
               future: (_model.requestCompleter ??=
                       Completer<List<ProposalFinancingRow>>()
                         ..complete(ProposalFinancingTable().querySingleRow(
@@ -261,12 +203,53 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: double.infinity),
+                            child: AppDetailHero(
+                              avatarIcon: Icons.receipt_long_rounded,
+                              eyebrow:
+                                  'PROPOSTA · #${(widget.proposalId ?? '').substring(0, math.min(8, (widget.proposalId ?? '').length))}',
+                              title: widget.companyName?.isNotEmpty == true
+                                  ? widget.companyName!
+                                  : 'Proposta',
+                              subtitle: [
+                                if (widget.sellerName?.isNotEmpty == true)
+                                  'Vendedor: ${widget.sellerName}',
+                              ].join(' · '),
+                              badge: AppStatusBadge(
+                                label: widget.typeAccess == 'edit'
+                                    ? 'Edição'
+                                    : 'Visualização',
+                                tone: widget.typeAccess == 'edit'
+                                    ? AppStatusTone.warning
+                                    : AppStatusTone.brand,
+                                icon: Icons.assignment_outlined,
+                              ),
+                              chips: [
+                                HeroChip(
+                                  icon: Icons.flight_outlined,
+                                  label: 'Aeronave',
+                                ),
+                                HeroChip(
+                                  icon: Icons.tune_rounded,
+                                  label: 'Personalização',
+                                ),
+                                HeroChip(
+                                  icon: Icons.payments_outlined,
+                                  label: 'Financiamento',
+                                ),
+                              ],
+                            ).appFade(),
+                          ),
+                        ),
+                        SizedBox(height: 12.0),
                         Padding(
                           padding: EdgeInsetsDirectional.fromSTEB(
                               16.0, 0.0, 16.0, 16.0),
                           child: Container(
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               color: Color(0xFF404040),
@@ -1090,7 +1073,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                               16.0, 0.0, 16.0, 16.0),
                           child: Container(
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               color: Color(0xFF404040),
@@ -2021,7 +2004,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                           child: Container(
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               color: Color(0xFF404040),
@@ -3249,7 +3232,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                               return Container(
                                 width: MediaQuery.sizeOf(context).width * 1.0,
                                 constraints: BoxConstraints(
-                                  maxWidth: 800.0,
+                                  maxWidth: double.infinity,
                                 ),
                                 decoration: BoxDecoration(
                                   color: Color(0xFF404040),
@@ -3815,7 +3798,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                           child: Container(
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               color: Color(0xFF404040),
@@ -3910,7 +3893,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                           child: Container(
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               color: Color(0xFF404040),
@@ -4368,7 +4351,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                           child: Container(
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               color: Color(0xFF404040),
@@ -4463,7 +4446,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                         Container(
                           width: MediaQuery.sizeOf(context).width * 1.0,
                           constraints: BoxConstraints(
-                            maxWidth: 800.0,
+                            maxWidth: double.infinity,
                           ),
                           decoration: BoxDecoration(),
                           child: FutureBuilder<List<CategoryRow>>(
@@ -4505,7 +4488,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                   final category = categories[categoryIndex];
                                   return Container(
                                     constraints: BoxConstraints(
-                                      maxWidth: 800.0,
+                                      maxWidth: double.infinity,
                                     ),
                                     decoration: BoxDecoration(
                                       color: Color(0xFF404040),
@@ -5060,7 +5043,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                           child: Container(
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               color: Color(0xFF404040),
@@ -5164,7 +5147,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                           child: Container(
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12.0),
@@ -5693,9 +5676,6 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                 );
               },
             ),
-          ),
-        ),
-      ),
     );
   }
 }

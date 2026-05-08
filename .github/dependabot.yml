@@ -1,0 +1,54 @@
+version: 2
+updates:
+  # === GitHub Actions ===
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - ci
+
+  # === Painel Flutter (pub) ===
+  - package-ecosystem: pub
+    directory: /agsur-painel
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - flutter
+    # Pacotes do Supabase têm versões pinadas em conjunto pelo FlutterFlow.
+    # Bumpar individualmente quebra. Ignorar major automatic.
+    ignore:
+      - dependency-name: "supabase_flutter"
+      - dependency-name: "supabase"
+      - dependency-name: "gotrue"
+      - dependency-name: "postgrest"
+      - dependency-name: "realtime_client"
+      - dependency-name: "storage_client"
+      - dependency-name: "functions_client"
+
+  # === App Flutter (pub) ===
+  - package-ecosystem: pub
+    directory: /agsur-app
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - flutter
+    ignore:
+      - dependency-name: "supabase_flutter"
+      - dependency-name: "supabase"
+      - dependency-name: "gotrue"

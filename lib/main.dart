@@ -10,6 +10,7 @@ import 'auth/supabase_auth/auth_util.dart';
 
 import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
+import '/observability/sentry.dart';
 import 'flutter_flow/flutter_flow_util.dart';
 import 'flutter_flow/internationalization.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -26,10 +27,10 @@ void main() async {
   final appState = FFAppState(); // Initialize FFAppState
   await appState.initializePersistedState();
 
-  runApp(ChangeNotifierProvider(
-    create: (context) => appState,
-    child: MyApp(),
-  ));
+  await runWithSentry(() => ChangeNotifierProvider(
+        create: (context) => appState,
+        child: MyApp(),
+      ));
 }
 
 class MyApp extends StatefulWidget {
@@ -100,7 +101,7 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
-      title: 'Agsur App',
+      title: 'Agsur Painel',
       scrollBehavior: MyAppScrollBehavior(),
       localizationsDelegates: [
         FFLocalizationsDelegate(),

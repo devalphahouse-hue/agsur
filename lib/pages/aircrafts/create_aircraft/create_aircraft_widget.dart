@@ -19,6 +19,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '/core_ui/core_ui.dart';
 import 'create_aircraft_model.dart';
 export 'create_aircraft_model.dart';
 
@@ -69,70 +70,82 @@ class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus();
-        FocusManager.instance.primaryFocus?.unfocus();
-      },
-      child: Scaffold(
-        key: scaffoldKey,
-        backgroundColor: Color(0xFF313131),
-        appBar: AppBar(
-          backgroundColor: Color(0xFF313131),
-          iconTheme: IconThemeData(color: FlutterFlowTheme.of(context).primary),
-          automaticallyImplyLeading: true,
-          title: Text(
-            'Cadastrar Aeronave',
-            textAlign: TextAlign.center,
-            style: FlutterFlowTheme.of(context).headlineMedium.override(
-                  font: GoogleFonts.inter(
-                    fontWeight:
-                        FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                  ),
-                  color: Color(0x73FFFFFF),
-                  fontSize: 18.0,
-                  letterSpacing: 0.0,
-                  fontWeight:
-                      FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                  fontStyle:
-                      FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                ),
-          ),
-          actions: [
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-              child: InkWell(
-                splashColor: Colors.transparent,
-                focusColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                onTap: () async {
-                  context.pushNamed(HomePageWidget.routeName);
-                },
-                child: Icon(
-                  Icons.home,
-                  color: FlutterFlowTheme.of(context).primary,
-                  size: 24.0,
-                ),
-              ),
-            ),
-          ],
-          centerTitle: true,
-          elevation: 0.0,
-        ),
-        body: SafeArea(
-          top: true,
-          child: Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(0.0, 28.0, 0.0, 0.0),
-            child: Container(
+    return AppDetailsScaffold(
+      title: 'Cadastrar aeronave (catálogo)',
+      body: Container(
               width: MediaQuery.sizeOf(context).width * 1.0,
               decoration: BoxDecoration(),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.max,
                   children: [
+                    Padding(
+                      padding: EdgeInsetsDirectional.fromSTEB(
+                          16.0, 0.0, 16.0, 0.0),
+                      child: Container(
+                        width: MediaQuery.sizeOf(context).width * 1.0,
+                        constraints: BoxConstraints(maxWidth: 800.0),
+                        padding: EdgeInsetsDirectional.fromSTEB(
+                            16.0, 12.0, 16.0, 12.0),
+                        decoration: BoxDecoration(
+                          color: Color(0xFF404040),
+                          borderRadius: BorderRadius.circular(8.0),
+                          border: Border.all(
+                            color: FlutterFlowTheme.of(context)
+                                .primary
+                                .withValues(alpha: 0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.menu_book_outlined,
+                              color: FlutterFlowTheme.of(context).primary,
+                              size: 22.0,
+                            ),
+                            SizedBox(width: 12.0),
+                            Expanded(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Cadastro de modelo no catálogo',
+                                    style: FlutterFlowTheme.of(context)
+                                        .bodyMedium
+                                        .override(
+                                          font: GoogleFonts.roboto(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          color: Colors.white,
+                                          fontSize: 14.0,
+                                          letterSpacing: 0.0,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                  ),
+                                  SizedBox(height: 4.0),
+                                  Text(
+                                    'Defina aqui as características do modelo (nome, foto, ano, hopper, descrição). Depois você adiciona as unidades físicas em "Estoque (unidades)".',
+                                    style: FlutterFlowTheme.of(context)
+                                        .bodySmall
+                                        .override(
+                                          font: GoogleFonts.roboto(),
+                                          color: Color(0xCCFFFFFF),
+                                          fontSize: 12.0,
+                                          letterSpacing: 0.0,
+                                          lineHeight: 1.4,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     Form(
                       key: _model.formKey,
                       autovalidateMode: AutovalidateMode.disabled,
@@ -142,7 +155,7 @@ class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
                         child: Container(
                           width: MediaQuery.sizeOf(context).width * 1.0,
                           constraints: BoxConstraints(
-                            maxWidth: 800.0,
+                            maxWidth: double.infinity,
                           ),
                           decoration: BoxDecoration(
                             color: Color(0xFF404040),
@@ -668,11 +681,11 @@ class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
                     ),
                     Padding(
                       padding:
-                          EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 16.0),
+                          EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 12.0),
                       child: Container(
                         width: MediaQuery.sizeOf(context).width * 1.0,
                         constraints: BoxConstraints(
-                          maxWidth: 800.0,
+                          maxWidth: double.infinity,
                         ),
                         decoration: BoxDecoration(
                           color: Color(0xFF404040),
@@ -1088,11 +1101,11 @@ class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
                     ),
                     Padding(
                       padding:
-                          EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 16.0),
+                          EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 12.0),
                       child: Container(
                         width: MediaQuery.sizeOf(context).width * 1.0,
                         constraints: BoxConstraints(
-                          maxWidth: 800.0,
+                          maxWidth: double.infinity,
                         ),
                         decoration: BoxDecoration(
                           color: Color(0xFF404040),
@@ -1848,11 +1861,11 @@ class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
                     ),
                     Padding(
                       padding:
-                          EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 16.0),
+                          EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 12.0),
                       child: Container(
                         width: MediaQuery.sizeOf(context).width * 1.0,
                         constraints: BoxConstraints(
-                          maxWidth: 800.0,
+                          maxWidth: double.infinity,
                         ),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12.0),
@@ -2107,7 +2120,7 @@ class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
 
                                     if (_shouldSetState) safeSetState(() {});
                                   },
-                                  text: 'Cadastrar Aeronave',
+                                  text: 'Cadastrar modelo',
                                   options: FFButtonOptions(
                                     height: 48.0,
                                     padding: EdgeInsetsDirectional.fromSTEB(
@@ -2151,9 +2164,6 @@ class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
                 ),
               ),
             ),
-          ),
-        ),
-      ),
     );
   }
 }

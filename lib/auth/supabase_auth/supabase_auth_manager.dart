@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '/auth/auth_manager.dart';
 import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/observability/sentry.dart';
 import 'email_auth.dart';
 
 import 'supabase_user_provider.dart';
@@ -12,7 +13,9 @@ export '/auth/base_auth_user_provider.dart';
 
 class SupabaseAuthManager extends AuthManager with EmailSignInManager {
   @override
-  Future signOut() {
+  Future signOut() async {
+    // Limpa o user do Sentry antes do JWT ser invalidado.
+    await setSentryUser(null);
     return SupaFlow.client.auth.signOut();
   }
 
@@ -138,6 +141,8 @@ class SupabaseAuthManager extends AuthManager with EmailSignInManager {
       if (authUser != null) {
         currentUser = authUser;
         AppStateNotifier.instance.update(authUser);
+        // Anexa user.id ao Sentry para correlacionar erros com banco.
+        await setSentryUser(authUser.uid);
       }
       return authUser;
     } on AuthException catch (e) {

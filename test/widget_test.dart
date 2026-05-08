@@ -1,17 +1,8 @@
-// This is a basic Flutter widget test.
+// Widget tests reais ficam por feature.
+// Os testes de helpers de segurança (decodeJwtAal, decodeJwtClaim) estão
+// em test/jwt_utils_test.dart.
 //
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility that Flutter provides. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// MyApp() depende de Supabase + FFAppState inicializados, então não dá
+// pra rodar em widget test sem mocks pesados.
 
-import 'package:flutter_test/flutter_test.dart';
-
-import 'package:a_g_sur_back_office/main.dart';
-
-void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(MyApp());
-  });
-}
+void main() {}

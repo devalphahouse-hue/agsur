@@ -1,22 +1,14 @@
-import '/backend/supabase/supabase.dart';
-import '/flutter_flow/flutter_flow_animations.dart';
-import '/flutter_flow/flutter_flow_drop_down.dart';
-import '/flutter_flow/flutter_flow_theme.dart';
-import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import '/flutter_flow/form_field_controller.dart';
-import '/flutter_flow/upload_data.dart';
-import 'dart:math';
-import 'dart:ui';
-import '/flutter_flow/custom_functions.dart' as functions;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+
+import '/backend/supabase/supabase.dart';
+import '/core_ui/core_ui.dart';
+import '/flutter_flow/custom_functions.dart' as functions;
+import '/flutter_flow/flutter_flow_util.dart';
+import '/flutter_flow/upload_data.dart';
 import 'modal_certificate_pilot_model.dart';
+
 export 'modal_certificate_pilot_model.dart';
 
 class ModalCertificatePilotWidget extends StatefulWidget {
@@ -29,8 +21,11 @@ class ModalCertificatePilotWidget extends StatefulWidget {
 
   final String? pilotId;
   final Future Function(
-          String pilotId, int certificateId, String docUrl, DateTime validity)?
-      btnAction;
+    String pilotId,
+    int certificateId,
+    String docUrl,
+    DateTime validity,
+  )? btnAction;
   final String? pilotName;
 
   @override
@@ -39,714 +34,481 @@ class ModalCertificatePilotWidget extends StatefulWidget {
 }
 
 class _ModalCertificatePilotWidgetState
-    extends State<ModalCertificatePilotWidget> with TickerProviderStateMixin {
+    extends State<ModalCertificatePilotWidget> {
   late ModalCertificatePilotModel _model;
-
-  final animationsMap = <String, AnimationInfo>{};
-
-  @override
-  void setState(VoidCallback callback) {
-    super.setState(callback);
-    _model.onUpdate();
-  }
+  bool _busy = false;
+  String? _certError;
+  String? _dateError;
+  String? _fileError;
 
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => ModalCertificatePilotModel());
-
     _model.tFPilotNameTextController ??=
-        TextEditingController(text: widget!.pilotName);
+        TextEditingController(text: widget.pilotName);
     _model.tFPilotNameFocusNode ??= FocusNode();
-
-    animationsMap.addAll({
-      'containerOnPageLoadAnimation': AnimationInfo(
-        trigger: AnimationTrigger.onPageLoad,
-        effectsBuilder: () => [
-          ScaleEffect(
-            curve: Curves.easeInOut,
-            delay: 0.0.ms,
-            duration: 500.0.ms,
-            begin: Offset(0.0, 0.0),
-            end: Offset(1.0, 1.0),
-          ),
-        ],
-      ),
-    });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {}));
   }
 
   @override
   void dispose() {
     _model.maybeDispose();
-
     super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _model.datePicked ?? now,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 30),
+      builder: (ctx, child) => Theme(
+        data: ThemeData.dark().copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: Color(0xFFC2D51C),
+            onPrimary: Color(0xFF313131),
+            surface: Color(0xFF2A2A2A),
+          ),
+          dialogBackgroundColor: const Color(0xFF2A2A2A),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _model.datePicked = DateTime(picked.year, picked.month, picked.day);
+        _dateError = null;
+      });
+    }
+  }
+
+  Future<void> _pickFile() async {
+    final selectedFiles = await selectFiles(
+      multiFile: false,
+      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+    );
+    if (selectedFiles == null || selectedFiles.isEmpty) return;
+    setState(
+        () => _model.isDataUploading_uploadCertificatePilot = true);
+    try {
+      final uploads = selectedFiles
+          .map((m) => FFUploadedFile(
+                name: m.storagePath.split('/').last,
+                bytes: m.bytes,
+                originalFilename: m.originalFilename,
+              ))
+          .toList();
+      final urls = await uploadSupabaseStorageFiles(
+        bucketName: 'AGSur',
+        selectedFiles: selectedFiles,
+      );
+      if (uploads.length == selectedFiles.length &&
+          urls.length == selectedFiles.length) {
+        setState(() {
+          _model.uploadedLocalFile_uploadCertificatePilot = uploads.first;
+          _model.uploadedFileUrl_uploadCertificatePilot = urls.first;
+          _fileError = null;
+        });
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Falha no upload do arquivo')),
+          );
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() =>
+            _model.isDataUploading_uploadCertificatePilot = false);
+      }
+    }
+  }
+
+  Future<void> _submit() async {
+    if (_busy) return;
+    if (_model.formKey.currentState == null ||
+        !_model.formKey.currentState!.validate()) return;
+    setState(() {
+      _certError = _model.dpdCertificateValue == null
+          ? 'Selecione o certificado'
+          : null;
+      _dateError =
+          _model.datePicked == null ? 'Selecione a data de validade' : null;
+      _fileError = (_model.uploadedFileUrl_uploadCertificatePilot.isEmpty)
+          ? 'Anexe o documento do certificado'
+          : null;
+    });
+    if (_certError != null || _dateError != null || _fileError != null) {
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await widget.btnAction?.call(
+        widget.pilotId!,
+        _model.dpdCertificateValue!,
+        _model.uploadedFileUrl_uploadCertificatePilot,
+        _model.datePicked!,
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: AlignmentDirectional(0.0, -1.0),
-      child: Padding(
-        padding: EdgeInsets.all(36.0),
-        child: Container(
-          width: MediaQuery.sizeOf(context).width * 1.0,
-          constraints: BoxConstraints(
-            maxWidth: 800.0,
+    return AppModal(
+      icon: Icons.workspace_premium_outlined,
+      title: 'Cadastrar certificado do piloto',
+      description:
+          'Vincule um certificado, defina a validade e anexe o comprovante.',
+      maxWidth: 620,
+      footer: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          AppSecondaryButton(
+            label: 'Cancelar',
+            onPressed: () => Navigator.of(context).maybePop(),
           ),
-          decoration: BoxDecoration(
-            color: Color(0xFF313131),
-            borderRadius: BorderRadius.circular(12.0),
+          const SizedBox(width: 10),
+          AppPrimaryButton(
+            label: 'Cadastrar certificado',
+            icon: Icons.check_rounded,
+            busy: _busy,
+            onPressed: _submit,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Align(
-                alignment: AlignmentDirectional(1.0, -1.0),
-                child: Padding(
-                  padding:
-                      EdgeInsetsDirectional.fromSTEB(12.0, 12.0, 12.0, 16.0),
-                  child: InkWell(
-                    splashColor: Colors.transparent,
-                    focusColor: Colors.transparent,
-                    hoverColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
-                    onTap: () async {
-                      Navigator.pop(context);
-                    },
-                    child: Icon(
-                      Icons.close_sharp,
-                      color: Color(0x72FFFFFF),
-                      size: 24.0,
-                    ),
-                  ),
+        ],
+      ),
+      child: FutureBuilder<List<CertificatesRow>>(
+        future: CertificatesTable().queryRows(
+          queryFn: (q) => q.eqOrNull('is_deleted', false),
+        ),
+        builder: (context, snap) {
+          if (!snap.hasData) {
+            return Column(
+              children: List.generate(
+                4,
+                (_) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: AppSkeleton.box(height: 60),
                 ),
               ),
-              Text(
-                'Cadastrar Certificado do Piloto',
-                style: FlutterFlowTheme.of(context).bodyMedium.override(
-                      font: GoogleFonts.inter(
-                        fontWeight: FontWeight.w500,
-                        fontStyle:
-                            FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                      ),
-                      color: FlutterFlowTheme.of(context).secondaryBackground,
-                      fontSize: 18.0,
-                      letterSpacing: 0.0,
-                      fontWeight: FontWeight.w500,
-                      fontStyle:
-                          FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                    ),
-              ),
-              Form(
-                key: _model.formKey,
-                autovalidateMode: AutovalidateMode.disabled,
-                child: FutureBuilder<List<CertificatesRow>>(
-                  future: CertificatesTable().queryRows(
-                    queryFn: (q) => q
-                        .eqOrNull(
-                          'is_deleted',
-                          false,
-                        )
-                        .order('certificate_name', ascending: true),
-                  ),
-                  builder: (context, snapshot) {
-                    // Customize what your widget looks like when it's loading.
-                    if (!snapshot.hasData) {
-                      return Center(
-                        child: SizedBox(
-                          width: 40.0,
-                          height: 40.0,
-                          child: SpinKitFoldingCube(
-                            color: Color(0xFFC2D51C),
-                            size: 40.0,
-                          ),
-                        ),
-                      );
-                    }
-                    List<CertificatesRow> cTStructureInputsCertificatesRowList =
-                        snapshot.data!;
-
-                    return Container(
-                      decoration: BoxDecoration(),
-                      child: Padding(
-                        padding: EdgeInsets.all(24.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            TextFormField(
-                              controller: _model.tFPilotNameTextController,
-                              focusNode: _model.tFPilotNameFocusNode,
-                              autofocus: false,
-                              readOnly: true,
-                              obscureText: false,
-                              decoration: InputDecoration(
-                                isDense: false,
-                                labelText: 'Piloto',
-                                labelStyle: FlutterFlowTheme.of(context)
-                                    .labelMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontStyle,
-                                      ),
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryBackground,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .labelMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .labelMedium
-                                          .fontStyle,
-                                    ),
-                                hintText: 'Digite o nome do piloto',
-                                hintStyle: FlutterFlowTheme.of(context)
-                                    .labelMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontStyle,
-                                      ),
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryBackground,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .labelMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .labelMedium
-                                          .fontStyle,
-                                    ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderSide: BorderSide(
-                                    color: Color(0x72FFFFFF),
-                                    width: 1.0,
-                                  ),
-                                  borderRadius: BorderRadius.circular(8.0),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderSide: BorderSide(
-                                    color: FlutterFlowTheme.of(context).primary,
-                                    width: 1.0,
-                                  ),
-                                  borderRadius: BorderRadius.circular(8.0),
-                                ),
-                                errorBorder: OutlineInputBorder(
-                                  borderSide: BorderSide(
-                                    color: FlutterFlowTheme.of(context).error,
-                                    width: 1.0,
-                                  ),
-                                  borderRadius: BorderRadius.circular(8.0),
-                                ),
-                                focusedErrorBorder: OutlineInputBorder(
-                                  borderSide: BorderSide(
-                                    color: FlutterFlowTheme.of(context).error,
-                                    width: 1.0,
-                                  ),
-                                  borderRadius: BorderRadius.circular(8.0),
-                                ),
-                                filled: true,
-                                fillColor: Color(0xFF404040),
-                              ),
-                              style: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                              cursorColor: FlutterFlowTheme.of(context)
-                                  .secondaryBackground,
-                              validator: _model
-                                  .tFPilotNameTextControllerValidator
-                                  .asValidator(context),
-                            ),
-                            FlutterFlowDropDown<int>(
-                              controller:
-                                  _model.dpdCertificateValueController ??=
-                                      FormFieldController<int>(null),
-                              options: List<int>.from(
-                                  cTStructureInputsCertificatesRowList
-                                      .map((e) => e.id)
-                                      .toList()),
-                              optionLabels: cTStructureInputsCertificatesRowList
-                                  .map((e) => e.certificateName)
-                                  .withoutNulls
-                                  .toList(),
-                              onChanged: (val) => safeSetState(
-                                  () => _model.dpdCertificateValue = val),
-                              height: 50.0,
-                              textStyle: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                              hintText: 'Selecione o certificado',
-                              icon: Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                color: Color(0x72FFFFFF),
-                                size: 24.0,
-                              ),
-                              fillColor: Color(0xFF313131),
-                              elevation: 2.0,
-                              borderColor: Color(0x72FFFFFF),
-                              borderWidth: 0.0,
-                              borderRadius: 8.0,
-                              margin: EdgeInsetsDirectional.fromSTEB(
-                                  12.0, 0.0, 12.0, 0.0),
-                              hidesUnderline: true,
-                              isOverButton: false,
-                              isSearchable: false,
-                              isMultiSelect: false,
-                            ),
-                            InkWell(
-                              splashColor: Colors.transparent,
-                              focusColor: Colors.transparent,
-                              hoverColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
-                              onTap: () async {
-                                final _datePickedDate = await showDatePicker(
-                                  context: context,
-                                  initialDate: getCurrentTimestamp,
-                                  firstDate: getCurrentTimestamp,
-                                  lastDate: DateTime(2050),
-                                  builder: (context, child) {
-                                    return wrapInMaterialDatePickerTheme(
-                                      context,
-                                      child!,
-                                      headerBackgroundColor:
-                                          FlutterFlowTheme.of(context).primary,
-                                      headerForegroundColor:
-                                          FlutterFlowTheme.of(context).info,
-                                      headerTextStyle: FlutterFlowTheme.of(
-                                              context)
-                                          .headlineLarge
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight: FontWeight.w600,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .headlineLarge
-                                                      .fontStyle,
-                                            ),
-                                            fontSize: 32.0,
-                                            letterSpacing: 0.0,
-                                            fontWeight: FontWeight.w600,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .headlineLarge
-                                                    .fontStyle,
-                                          ),
-                                      pickerBackgroundColor:
-                                          FlutterFlowTheme.of(context)
-                                              .secondaryBackground,
-                                      pickerForegroundColor:
-                                          FlutterFlowTheme.of(context)
-                                              .primaryText,
-                                      selectedDateTimeBackgroundColor:
-                                          FlutterFlowTheme.of(context).primary,
-                                      selectedDateTimeForegroundColor:
-                                          FlutterFlowTheme.of(context).info,
-                                      actionButtonForegroundColor:
-                                          FlutterFlowTheme.of(context)
-                                              .primaryText,
-                                      iconSize: 20.0,
-                                    );
-                                  },
-                                );
-
-                                if (_datePickedDate != null) {
-                                  safeSetState(() {
-                                    _model.datePicked = DateTime(
-                                      _datePickedDate.year,
-                                      _datePickedDate.month,
-                                      _datePickedDate.day,
-                                    );
-                                  });
-                                } else if (_model.datePicked != null) {
-                                  safeSetState(() {
-                                    _model.datePicked = getCurrentTimestamp;
-                                  });
-                                }
-                              },
-                              child: Container(
-                                width: MediaQuery.sizeOf(context).width * 1.0,
-                                height: 48.0,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8.0),
-                                  border: Border.all(
-                                    color: Color(0x72FFFFFF),
-                                    width: 1.0,
-                                  ),
-                                ),
-                                child: Align(
-                                  alignment: AlignmentDirectional(-1.0, 0.0),
-                                  child: Padding(
-                                    padding: EdgeInsetsDirectional.fromSTEB(
-                                        12.0, 0.0, 12.0, 0.0),
-                                    child: Text(
-                                      _model.datePicked != null
-                                          ? dateTimeFormat(
-                                              "d/M/y",
-                                              _model.datePicked,
-                                              locale:
-                                                  FFLocalizations.of(context)
-                                                      .languageCode,
-                                            )
-                                          : 'Selecione a data de validade',
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                            color: valueOrDefault<Color>(
-                                              _model.datePicked != null
-                                                  ? FlutterFlowTheme.of(context)
-                                                      .secondaryBackground
-                                                  : Color(0x72FFFFFF),
-                                              FlutterFlowTheme.of(context)
-                                                  .secondaryBackground,
-                                            ),
-                                            letterSpacing: 0.0,
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Column(
-                              mainAxisSize: MainAxisSize.max,
-                              children: [
-                                InkWell(
-                                  splashColor: Colors.transparent,
-                                  focusColor: Colors.transparent,
-                                  hoverColor: Colors.transparent,
-                                  highlightColor: Colors.transparent,
-                                  onTap: () async {
-                                    final selectedFiles = await selectFiles(
-                                      storageFolderPath: '',
-                                      allowedExtensions: ['pdf'],
-                                      multiFile: false,
-                                    );
-                                    if (selectedFiles != null) {
-                                      safeSetState(() => _model
-                                              .isDataUploading_uploadCertificatePilot =
-                                          true);
-                                      var selectedUploadedFiles =
-                                          <FFUploadedFile>[];
-
-                                      var downloadUrls = <String>[];
-                                      try {
-                                        showUploadMessage(
-                                          context,
-                                          'Uploading file...',
-                                          showLoading: true,
-                                        );
-                                        selectedUploadedFiles = selectedFiles
-                                            .map((m) => FFUploadedFile(
-                                                  name: m.storagePath
-                                                      .split('/')
-                                                      .last,
-                                                  bytes: m.bytes,
-                                                  originalFilename:
-                                                      m.originalFilename,
-                                                ))
-                                            .toList();
-
-                                        downloadUrls =
-                                            await uploadSupabaseStorageFiles(
-                                          bucketName: 'AGSur',
-                                          selectedFiles: selectedFiles,
-                                        );
-                                      } finally {
-                                        ScaffoldMessenger.of(context)
-                                            .hideCurrentSnackBar();
-                                        _model.isDataUploading_uploadCertificatePilot =
-                                            false;
-                                      }
-                                      if (selectedUploadedFiles.length ==
-                                              selectedFiles.length &&
-                                          downloadUrls.length ==
-                                              selectedFiles.length) {
-                                        safeSetState(() {
-                                          _model.uploadedLocalFile_uploadCertificatePilot =
-                                              selectedUploadedFiles.first;
-                                          _model.uploadedFileUrl_uploadCertificatePilot =
-                                              downloadUrls.first;
-                                        });
-                                        showUploadMessage(
-                                          context,
-                                          'Success!',
-                                        );
-                                      } else {
-                                        safeSetState(() {});
-                                        showUploadMessage(
-                                          context,
-                                          'Failed to upload file',
-                                        );
-                                        return;
-                                      }
-                                    }
-                                  },
-                                  child: Container(
-                                    width:
-                                        MediaQuery.sizeOf(context).width * 1.0,
-                                    height: 48.0,
-                                    decoration: BoxDecoration(
-                                      color: valueOrDefault<Color>(
-                                        _model.uploadedFileUrl_uploadCertificatePilot !=
-                                                    null &&
-                                                _model.uploadedFileUrl_uploadCertificatePilot !=
-                                                    ''
-                                            ? FlutterFlowTheme.of(context)
-                                                .primaryText
-                                            : Color(0xFF404040),
-                                        Color(0xFF404040),
-                                      ),
-                                      borderRadius: BorderRadius.circular(8.0),
-                                      border: Border.all(
-                                        color: valueOrDefault<Color>(
-                                          _model.uploadedFileUrl_uploadCertificatePilot != null &&
-                                                  _model.uploadedFileUrl_uploadCertificatePilot !=
-                                                      ''
-                                              ? FlutterFlowTheme.of(context)
-                                                  .primaryText
-                                              : Color(0x72FFFFFF),
-                                          Color(0x72FFFFFF),
-                                        ),
-                                        width: 2.0,
-                                      ),
-                                    ),
-                                    child: Align(
-                                      alignment: AlignmentDirectional(0.0, 0.0),
-                                      child: Text(
-                                        _model.uploadedFileUrl_uploadCertificatePilot !=
-                                                    null &&
-                                                _model.uploadedFileUrl_uploadCertificatePilot !=
-                                                    ''
-                                            ? 'Certificado anexado'
-                                            : 'Anexar Certificado',
-                                        style: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .override(
-                                              font: GoogleFonts.inter(
-                                                fontWeight:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontWeight,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontStyle,
-                                              ),
-                                              color: valueOrDefault<Color>(
-                                                _model.uploadedFileUrl_uploadCertificatePilot !=
-                                                            null &&
-                                                        _model.uploadedFileUrl_uploadCertificatePilot !=
-                                                            ''
-                                                    ? FlutterFlowTheme.of(
-                                                            context)
-                                                        .secondaryBackground
-                                                    : Color(0x72FFFFFF),
-                                                Color(0x72FFFFFF),
-                                              ),
-                                              letterSpacing: 0.0,
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                Align(
-                                  alignment: AlignmentDirectional(-1.0, 0.0),
-                                  child: Padding(
-                                    padding: EdgeInsetsDirectional.fromSTEB(
-                                        4.0, 6.0, 4.0, 0.0),
-                                    child: Text(
-                                      functions.fileNamePath(_model
-                                          .uploadedFileUrl_uploadCertificatePilot),
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .secondaryBackground,
-                                            fontSize: 12.0,
-                                            letterSpacing: 0.0,
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Align(
-                              alignment: AlignmentDirectional(1.0, 0.0),
-                              child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    4.0, 16.0, 4.0, 16.0),
-                                child: FFButtonWidget(
-                                  onPressed: () async {
-                                    _model.form1 = true;
-                                    if (_model.formKey.currentState == null ||
-                                        !_model.formKey.currentState!
-                                            .validate()) {
-                                      safeSetState(() => _model.form1 = false);
-                                      return;
-                                    }
-                                    if (_model.dpdCertificateValue == null) {
-                                      _model.form1 = false;
-                                      safeSetState(() {});
-                                      return;
-                                    }
-                                    if (_model.datePicked == null) {
-                                      _model.form1 = false;
-                                      safeSetState(() {});
-                                      return;
-                                    }
-                                    if (_model.uploadedFileUrl_uploadCertificatePilot ==
-                                            null ||
-                                        _model
-                                            .uploadedFileUrl_uploadCertificatePilot
-                                            .isEmpty) {
-                                      _model.form1 = false;
-                                      safeSetState(() {});
-                                      return;
-                                    }
-                                    await widget.btnAction?.call(
-                                      widget!.pilotId!,
-                                      _model.dpdCertificateValue!,
-                                      _model
-                                          .uploadedFileUrl_uploadCertificatePilot,
-                                      _model.datePicked!,
-                                    );
-
-                                    safeSetState(() {});
-                                  },
-                                  text: 'Cadastrar certificado',
-                                  options: FFButtonOptions(
-                                    height: 48.0,
-                                    padding: EdgeInsetsDirectional.fromSTEB(
-                                        56.0, 0.0, 56.0, 0.0),
-                                    iconPadding: EdgeInsetsDirectional.fromSTEB(
-                                        0.0, 0.0, 0.0, 0.0),
-                                    color: FlutterFlowTheme.of(context).primary,
-                                    textStyle: FlutterFlowTheme.of(context)
-                                        .titleSmall
-                                        .override(
-                                          font: GoogleFonts.roboto(
-                                            fontWeight: FontWeight.w500,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .titleSmall
-                                                    .fontStyle,
-                                          ),
-                                          color: FlutterFlowTheme.of(context)
-                                              .primaryText,
-                                          fontSize: 14.0,
-                                          letterSpacing: 0.0,
-                                          fontWeight: FontWeight.w500,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .titleSmall
-                                                  .fontStyle,
-                                        ),
-                                    elevation: 0.0,
-                                    borderRadius: BorderRadius.circular(8.0),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ].divide(SizedBox(height: 16.0)),
-                        ),
-                      ),
-                    );
+            );
+          }
+          final certs = snap.data!;
+          return Form(
+            key: _model.formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppFormField(
+                  controller: _model.tFPilotNameTextController,
+                  focusNode: _model.tFPilotNameFocusNode,
+                  label: 'Piloto',
+                  icon: Icons.person_outline_rounded,
+                  enabled: false,
+                ),
+                const SizedBox(height: 14),
+                AppDropdown<CertificatesRow>(
+                  label: 'Certificado',
+                  icon: Icons.workspace_premium_outlined,
+                  required: true,
+                  searchable: true,
+                  placeholder: 'Selecione o certificado...',
+                  value: certs.firstWhereOrNull(
+                      (c) => c.id == _model.dpdCertificateValue),
+                  options: certs,
+                  labelOf: (c) => c.certificateName ?? '',
+                  errorText: _certError,
+                  onChanged: (c) {
+                    setState(() {
+                      _model.dpdCertificateValue = c.id;
+                      _certError = null;
+                    });
                   },
                 ),
-              ),
-            ].divide(SizedBox(height: 8.0)),
-          ),
-        ).animateOnPageLoad(animationsMap['containerOnPageLoadAnimation']!),
+                const SizedBox(height: 14),
+                _DateButton(
+                  label: 'Validade',
+                  date: _model.datePicked,
+                  errorText: _dateError,
+                  onTap: _pickDate,
+                ),
+                const SizedBox(height: 14),
+                _UploadButton(
+                  url: _model.uploadedFileUrl_uploadCertificatePilot,
+                  uploading: _model.isDataUploading_uploadCertificatePilot,
+                  errorText: _fileError,
+                  onTap: _pickFile,
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
+  }
+}
+
+class _DateButton extends StatefulWidget {
+  const _DateButton({
+    required this.label,
+    required this.date,
+    required this.onTap,
+    this.errorText,
+  });
+
+  final String label;
+  final DateTime? date;
+  final VoidCallback onTap;
+  final String? errorText;
+
+  @override
+  State<_DateButton> createState() => _DateButtonState();
+}
+
+class _DateButtonState extends State<_DateButton> {
+  bool _hover = false;
+
+  String _format(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  @override
+  Widget build(BuildContext context) {
+    final hasError = widget.errorText != null && widget.errorText!.isNotEmpty;
+    final selected = widget.date != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        RichText(
+          text: TextSpan(
+            text: widget.label,
+            style: GoogleFonts.inter(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xCCFFFFFF),
+              letterSpacing: 0.3,
+            ),
+            children: const [
+              TextSpan(text: ' *', style: TextStyle(color: Color(0xFFFF7B82))),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hover = true),
+          onExit: (_) => setState(() => _hover = false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              decoration: BoxDecoration(
+                color: const Color(0x14FFFFFF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: hasError
+                      ? const Color(0xFFFF7B82).withValues(alpha: 0.85)
+                      : _hover
+                          ? const Color(0xFFC2D51C).withValues(alpha: 0.55)
+                          : const Color(0x22FFFFFF),
+                  width: 1.4,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.event_outlined,
+                    size: 16,
+                    color: selected
+                        ? const Color(0xFFC2D51C)
+                        : const Color(0x99FFFFFF),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    selected ? _format(widget.date!) : 'Selecionar data...',
+                    style: GoogleFonts.roboto(
+                      fontSize: 13.5,
+                      color: selected
+                          ? Colors.white
+                          : const Color(0x66FFFFFF),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (hasError) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.error_outline_rounded,
+                  size: 13, color: Color(0xFFFF7B82)),
+              const SizedBox(width: 4),
+              Text(
+                widget.errorText!,
+                style: GoogleFonts.roboto(
+                  fontSize: 11.5,
+                  color: const Color(0xFFFF7B82),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _UploadButton extends StatefulWidget {
+  const _UploadButton({
+    required this.url,
+    required this.uploading,
+    required this.onTap,
+    this.errorText,
+  });
+
+  final String url;
+  final bool uploading;
+  final VoidCallback onTap;
+  final String? errorText;
+
+  @override
+  State<_UploadButton> createState() => _UploadButtonState();
+}
+
+class _UploadButtonState extends State<_UploadButton> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasError = widget.errorText != null && widget.errorText!.isNotEmpty;
+    final hasFile = widget.url.isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RichText(
+          text: TextSpan(
+            text: 'Documento',
+            style: GoogleFonts.inter(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xCCFFFFFF),
+              letterSpacing: 0.3,
+            ),
+            children: const [
+              TextSpan(text: ' *', style: TextStyle(color: Color(0xFFFF7B82))),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hover = true),
+          onExit: (_) => setState(() => _hover = false),
+          child: GestureDetector(
+            onTap: widget.uploading ? null : widget.onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              decoration: BoxDecoration(
+                color: hasFile
+                    ? const Color(0x22C2D51C)
+                    : const Color(0x14FFFFFF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: hasError
+                      ? const Color(0xFFFF7B82).withValues(alpha: 0.85)
+                      : hasFile
+                          ? const Color(0x88C2D51C)
+                          : _hover
+                              ? const Color(0xFFC2D51C).withValues(alpha: 0.5)
+                              : const Color(0x22FFFFFF),
+                  width: 1.4,
+                ),
+              ),
+              child: Row(
+                children: [
+                  if (widget.uploading)
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.8,
+                        color: Color(0xFFC2D51C),
+                      ),
+                    )
+                  else
+                    Icon(
+                      hasFile
+                          ? Icons.check_circle_outline_rounded
+                          : Icons.upload_file_rounded,
+                      size: 16,
+                      color: hasFile
+                          ? const Color(0xFFC2D51C)
+                          : const Color(0x99FFFFFF),
+                    ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      widget.uploading
+                          ? 'Enviando arquivo...'
+                          : hasFile
+                              ? functions.fileNamePath(widget.url)
+                              : 'Anexar certificado (PDF / JPG / PNG)',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.roboto(
+                        fontSize: 13,
+                        color: hasFile
+                            ? Colors.white
+                            : const Color(0x88FFFFFF),
+                        fontWeight:
+                            hasFile ? FontWeight.w600 : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  if (hasFile)
+                    const Icon(Icons.swap_horiz_rounded,
+                        size: 16, color: Color(0xCCFFFFFF)),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (hasError) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.error_outline_rounded,
+                  size: 13, color: Color(0xFFFF7B82)),
+              const SizedBox(width: 4),
+              Text(
+                widget.errorText!,
+                style: GoogleFonts.roboto(
+                  fontSize: 11.5,
+                  color: const Color(0xFFFF7B82),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+extension _ListExt<T> on List<T> {
+  T? firstWhereOrNull(bool Function(T) test) {
+    for (final e in this) {
+      if (test(e)) return e;
+    }
+    return null;
   }
 }

@@ -1,20 +1,30 @@
-import '/auth/supabase_auth/auth_util.dart';
-import '/backend/supabase/supabase.dart';
-import '/flutter_flow/flutter_flow_theme.dart';
-import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
-import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+
+import '/auth/supabase_auth/auth_util.dart';
+import '/backend/supabase/supabase.dart';
+import '/core_ui/core_ui.dart';
+import '/flutter_flow/flutter_flow_util.dart';
+import '/index.dart';
 import 'menu_model.dart';
+
 export 'menu_model.dart';
 
+/// Menu lateral.
+/// - Recebe `currentPath` do AppShell (fonte-de-verdade do destaque ativo).
+/// - MenuModel intacto (campos user/avioes/vendas/mouseRegion*Hovered).
+/// - Mesmas rotas / mesma lógica de gating por profile_type.
 class MenuWidget extends StatefulWidget {
-  const MenuWidget({super.key});
+  const MenuWidget({super.key, this.currentPath = ''});
+
+  /// Caminho atual da rota, vindo do AppShell.
+  /// É a fonte-de-verdade do destaque ativo — o widget rebuilda
+  /// sempre que esse valor muda. Default vazio é compatibilidade
+  /// transitória para telas legadas (Drawer próprio) que ainda não
+  /// foram migradas para o AppShell.
+  final String currentPath;
 
   @override
   State<MenuWidget> createState() => _MenuWidgetState();
@@ -22,6 +32,7 @@ class MenuWidget extends StatefulWidget {
 
 class _MenuWidgetState extends State<MenuWidget> {
   late MenuModel _model;
+  bool _disposed = false;
 
   @override
   void setState(VoidCallback callback) {
@@ -34,2141 +45,748 @@ class _MenuWidgetState extends State<MenuWidget> {
     super.initState();
     _model = createModel(context, () => MenuModel());
 
+    // Auto-expande grupos cuja rota é a inicial.
+    _maybeAutoExpand(widget.currentPath);
+
     SchedulerBinding.instance.addPostFrameCallback((_) async {
-      _model.user = await UsersTable().queryRows(
-        queryFn: (q) => q.eqOrNull('id', currentUserUid),
-      );
-      safeSetState(() {});
+      try {
+        final user = await QueryCache.fetch<List<UsersRow>>(
+          key: 'menu.currentUser:$currentUserUid',
+          ttl: const Duration(minutes: 5),
+          fetcher: () => UsersTable().queryRows(
+            queryFn: (q) => q.eqOrNull('id', currentUserUid),
+          ),
+        );
+        if (_disposed) return;
+        _model.user = user;
+        safeSetState(() {});
+      } catch (_) {}
     });
   }
 
   @override
-  void dispose() {
-    _model.maybeDispose();
+  void didUpdateWidget(covariant MenuWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.currentPath != oldWidget.currentPath) {
+      _maybeAutoExpand(widget.currentPath);
+    }
+  }
 
-    super.dispose();
+  /// Mantém grupos expandidos quando a rota ativa pertence a um deles.
+  /// Não recolhe se o usuário já tiver aberto manualmente.
+  void _maybeAutoExpand(String path) {
+    if (_isVendasRoute(path) && !_model.vendas) _model.vendas = true;
+    if (_isAvioesRoute(path) && !_model.avioes) _model.avioes = true;
   }
 
   @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.max,
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: Color(0xFF1E1E1E),
-            ),
-            child: Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(12.0, 8.0, 12.0, 8.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.max,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(),
-                    child: Padding(
-                      padding: EdgeInsetsDirectional.fromSTEB(
-                          16.0, 16.0, 16.0, 16.0),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.max,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          Align(
-                            alignment: AlignmentDirectional(-1.0, 0.0),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8.0),
-                              child: Image.asset(
-                                'assets/images/Logo_AEROTG_NEGATIVO_V.png',
-                                width: 100.0,
-                                height: 100.0,
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                          ),
-                        ].divide(SizedBox(width: 8.0)),
-                      ),
-                    ),
-                  ),
-                  MouseRegion(
-                    opaque: false,
-                    cursor: MouseCursor.defer ?? MouseCursor.defer,
-                    child: InkWell(
-                      splashColor: Colors.transparent,
-                      focusColor: Colors.transparent,
-                      hoverColor: Colors.transparent,
-                      highlightColor: Colors.transparent,
-                      onTap: () async {
-                        context.pushNamed(HomePageWidget.routeName);
-                      },
-                      child: Container(
-                        height: 60.0,
-                        decoration: BoxDecoration(
-                          color: _model.mouseRegion0Hovered!
-                              ? Color(0x72FFFFFF)
-                              : Color(0x00000000),
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  12.0, 0.0, 0.0, 0.0),
-                              child: Icon(
-                                Icons.home_outlined,
-                                color: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
-                                size: 20.0,
-                              ),
-                            ),
-                            Text(
-                              'Dashboard',
-                              style: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                            ),
-                          ].divide(SizedBox(width: 8.0)),
-                        ),
-                      ),
-                    ),
-                    onEnter: ((event) async {
-                      safeSetState(() => _model.mouseRegion0Hovered = true);
-                    }),
-                    onExit: ((event) async {
-                      safeSetState(() => _model.mouseRegion0Hovered = false);
-                    }),
-                  ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    Divider(
-                      thickness: 1.0,
-                      color: Color(0xFF313131),
-                    ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    MouseRegion(
-                      opaque: false,
-                      cursor: MouseCursor.defer ?? MouseCursor.defer,
-                      child: InkWell(
-                        splashColor: Colors.transparent,
-                        focusColor: Colors.transparent,
-                        hoverColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onTap: () async {
-                          context.pushNamed(ProfileAnalysisWidget.routeName);
-                        },
-                        child: Container(
-                          height: 60.0,
-                          decoration: BoxDecoration(
-                            color: _model.mouseRegion1Hovered!
-                                ? Color(0x73FFFFFF)
-                                : Color(0x00000000),
-                            borderRadius: BorderRadius.circular(12.0),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.max,
-                            children: [
-                              Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    12.0, 0.0, 0.0, 0.0),
-                                child: Icon(
-                                  Icons.person_add_alt,
-                                  color: FlutterFlowTheme.of(context)
-                                      .secondaryBackground,
-                                  size: 19.0,
-                                ),
-                              ),
-                              Text(
-                                'Solicitações',
-                                style: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryBackground,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                              ),
-                            ].divide(SizedBox(width: 8.0)),
-                          ),
-                        ),
-                      ),
-                      onEnter: ((event) async {
-                        safeSetState(() => _model.mouseRegion1Hovered = true);
-                      }),
-                      onExit: ((event) async {
-                        safeSetState(() => _model.mouseRegion1Hovered = false);
-                      }),
-                    ),
-                  Divider(
-                    thickness: 1.0,
-                    color: Color(0xFF313131),
-                  ),
-                  MouseRegion(
-                    opaque: false,
-                    cursor: MouseCursor.defer ?? MouseCursor.defer,
-                    child: InkWell(
-                      splashColor: Colors.transparent,
-                      focusColor: Colors.transparent,
-                      hoverColor: Colors.transparent,
-                      highlightColor: Colors.transparent,
-                      onTap: () async {
-                        _model.vendas = !_model.vendas;
-                        safeSetState(() {});
-                      },
-                      child: Container(
-                        height: 60.0,
-                        decoration: BoxDecoration(
-                          color: _model.listHovered!
-                              ? Color(0x72FFFFFF)
-                              : Color(0x00000000),
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  12.0, 0.0, 0.0, 0.0),
-                              child: Icon(
-                                Icons.cases_sharp,
-                                color: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
-                                size: 20.0,
-                              ),
-                            ),
-                            Text(
-                              'Vendas',
-                              style: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                            ),
-                            if (!_model.vendas)
-                              Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    24.0, 0.0, 0.0, 0.0),
-                                child: InkWell(
-                                  splashColor: Colors.transparent,
-                                  focusColor: Colors.transparent,
-                                  hoverColor: Colors.transparent,
-                                  highlightColor: Colors.transparent,
-                                  onTap: () async {
-                                    _model.vendas = !_model.vendas;
-                                    safeSetState(() {});
-                                  },
-                                  child: Icon(
-                                    Icons.keyboard_arrow_down_rounded,
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    size: 24.0,
-                                  ),
-                                ),
-                              ),
-                            if (_model.vendas)
-                              Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    24.0, 0.0, 0.0, 0.0),
-                                child: InkWell(
-                                  splashColor: Colors.transparent,
-                                  focusColor: Colors.transparent,
-                                  hoverColor: Colors.transparent,
-                                  highlightColor: Colors.transparent,
-                                  onTap: () async {
-                                    _model.vendas = !_model.vendas;
-                                    safeSetState(() {});
-                                  },
-                                  child: Icon(
-                                    Icons.keyboard_arrow_up_rounded,
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    size: 24.0,
-                                  ),
-                                ),
-                              ),
-                          ].divide(SizedBox(width: 8.0)),
-                        ),
-                      ),
-                    ),
-                    onEnter: ((event) async {
-                      safeSetState(() => _model.listHovered = true);
-                    }),
-                    onExit: ((event) async {
-                      safeSetState(() => _model.listHovered = false);
-                    }),
-                  ),
-                  if (_model.vendas)
-                    AnimatedContainer(
-                      duration: Duration(milliseconds: 800),
-                      curve: Curves.elasticOut,
-                      constraints: BoxConstraints(
-                        minHeight: 0.0,
-                      ),
-                      decoration: BoxDecoration(),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.max,
-                        children: [
-                          MouseRegion(
-                            opaque: false,
-                            cursor: MouseCursor.defer ?? MouseCursor.defer,
-                            child: InkWell(
-                              splashColor: Colors.transparent,
-                              focusColor: Colors.transparent,
-                              hoverColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
-                              onTap: () async {
-                                context.pushNamed(LeadsWidget.routeName);
-                              },
-                              child: Container(
-                                height: 60.0,
-                                decoration: BoxDecoration(
-                                  color: _model.mouseRegion2Hovered!
-                                      ? Color(0x72FFFFFF)
-                                      : Color(0x00000000),
-                                  borderRadius: BorderRadius.circular(12.0),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.max,
-                                  children: [
-                                    Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                          12.0, 0.0, 0.0, 0.0),
-                                      child: Icon(
-                                        Icons.groups_2,
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        size: 20.0,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Leads',
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .secondaryBackground,
-                                            letterSpacing: 0.0,
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                  ].divide(SizedBox(width: 8.0)),
-                                ),
-                              ),
-                            ),
-                            onEnter: ((event) async {
-                              safeSetState(
-                                  () => _model.mouseRegion2Hovered = true);
-                            }),
-                            onExit: ((event) async {
-                              safeSetState(
-                                  () => _model.mouseRegion2Hovered = false);
-                            }),
-                          ),
-                          MouseRegion(
-                            opaque: false,
-                            cursor: MouseCursor.defer ?? MouseCursor.defer,
-                            child: InkWell(
-                              splashColor: Colors.transparent,
-                              focusColor: Colors.transparent,
-                              hoverColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
-                              onTap: () async {
-                                context.pushNamed(ProposalsWidget.routeName);
-                              },
-                              child: Container(
-                                height: 60.0,
-                                decoration: BoxDecoration(
-                                  color: _model.mouseRegion8Hovered!
-                                      ? Color(0x72FFFFFF)
-                                      : Color(0x00000000),
-                                  borderRadius: BorderRadius.circular(12.0),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.max,
-                                  children: [
-                                    Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                          12.0, 0.0, 0.0, 0.0),
-                                      child: Icon(
-                                        Icons.list_alt,
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        size: 20.0,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Propostas',
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .secondaryBackground,
-                                            letterSpacing: 0.0,
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                  ].divide(SizedBox(width: 8.0)),
-                                ),
-                              ),
-                            ),
-                            onEnter: ((event) async {
-                              safeSetState(
-                                  () => _model.mouseRegion8Hovered = true);
-                            }),
-                            onExit: ((event) async {
-                              safeSetState(
-                                  () => _model.mouseRegion8Hovered = false);
-                            }),
-                          ),
-                          MouseRegion(
-                            opaque: false,
-                            cursor: MouseCursor.defer ?? MouseCursor.defer,
-                            child: InkWell(
-                              splashColor: Colors.transparent,
-                              focusColor: Colors.transparent,
-                              hoverColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
-                              onTap: () async {
-                                context.pushNamed(ContractsWidget.routeName);
-                              },
-                              child: Container(
-                                height: 60.0,
-                                decoration: BoxDecoration(
-                                  color: _model.mouseRegion9Hovered!
-                                      ? Color(0x72FFFFFF)
-                                      : Color(0x00000000),
-                                  borderRadius: BorderRadius.circular(12.0),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.max,
-                                  children: [
-                                    Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                          12.0, 0.0, 0.0, 0.0),
-                                      child: Icon(
-                                        Icons.document_scanner_outlined,
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        size: 20.0,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Contratos',
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .secondaryBackground,
-                                            letterSpacing: 0.0,
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                  ].divide(SizedBox(width: 8.0)),
-                                ),
-                              ),
-                            ),
-                            onEnter: ((event) async {
-                              safeSetState(
-                                  () => _model.mouseRegion9Hovered = true);
-                            }),
-                            onExit: ((event) async {
-                              safeSetState(
-                                  () => _model.mouseRegion9Hovered = false);
-                            }),
-                          ),
-                          MouseRegion(
-                            opaque: false,
-                            cursor: MouseCursor.defer ?? MouseCursor.defer,
-                            child: InkWell(
-                              splashColor: Colors.transparent,
-                              focusColor: Colors.transparent,
-                              hoverColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
-                              onTap: () async {
-                                context.pushNamed(ClientsWidget.routeName);
-                              },
-                              child: Container(
-                                height: 60.0,
-                                decoration: BoxDecoration(
-                                  color: _model.mouseRegion3Hovered!
-                                      ? Color(0x72FFFFFF)
-                                      : Color(0x00000000),
-                                  borderRadius: BorderRadius.circular(12.0),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.max,
-                                  children: [
-                                    Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                          12.0, 0.0, 0.0, 0.0),
-                                      child: Icon(
-                                        Icons.person,
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        size: 20.0,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Clientes',
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .secondaryBackground,
-                                            letterSpacing: 0.0,
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                  ].divide(SizedBox(width: 8.0)),
-                                ),
-                              ),
-                            ),
-                            onEnter: ((event) async {
-                              safeSetState(
-                                  () => _model.mouseRegion3Hovered = true);
-                            }),
-                            onExit: ((event) async {
-                              safeSetState(
-                                  () => _model.mouseRegion3Hovered = false);
-                            }),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    Divider(
-                      thickness: 1.0,
-                      color: Color(0xFF313131),
-                    ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    MouseRegion(
-                      opaque: false,
-                      cursor: MouseCursor.defer ?? MouseCursor.defer,
-                      child: InkWell(
-                        splashColor: Colors.transparent,
-                        focusColor: Colors.transparent,
-                        hoverColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onTap: () async {
-                          context.pushNamed(PilotsWidget.routeName);
-                        },
-                        child: Container(
-                          height: 60.0,
-                          decoration: BoxDecoration(
-                            color: _model.mouseRegion4Hovered!
-                                ? Color(0x72FFFFFF)
-                                : Color(0x00000000),
-                            borderRadius: BorderRadius.circular(12.0),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.max,
-                            children: [
-                              Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    12.0, 0.0, 0.0, 0.0),
-                                child: Icon(
-                                  Icons.flight_takeoff,
-                                  color: FlutterFlowTheme.of(context)
-                                      .secondaryBackground,
-                                  size: 20.0,
-                                ),
-                              ),
-                              Text(
-                                'Pilotos',
-                                style: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryBackground,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                              ),
-                            ].divide(SizedBox(width: 8.0)),
-                          ),
-                        ),
-                      ),
-                      onEnter: ((event) async {
-                        safeSetState(() => _model.mouseRegion4Hovered = true);
-                      }),
-                      onExit: ((event) async {
-                        safeSetState(() => _model.mouseRegion4Hovered = false);
-                      }),
-                    ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    Divider(
-                      thickness: 1.0,
-                      color: Color(0xFF313131),
-                    ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    MouseRegion(
-                      opaque: false,
-                      cursor: MouseCursor.defer ?? MouseCursor.defer,
-                      child: InkWell(
-                        splashColor: Colors.transparent,
-                        focusColor: Colors.transparent,
-                        hoverColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onTap: () async {
-                          context.pushNamed(
-                            OficinaWidget.routeName,
-                          extra: <String, dynamic>{
-                            '__transition_info__': TransitionInfo(
-                              hasTransition: true,
-                              transitionType: PageTransitionType.fade,
-                              duration: Duration(milliseconds: 0),
-                            ),
-                          },
-                        );
-                      },
-                      child: Container(
-                        height: 60.0,
-                        decoration: BoxDecoration(
-                          color: _model.mouseRegion5Hovered!
-                              ? Color(0x72FFFFFF)
-                              : Color(0x00000000),
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  12.0, 0.0, 0.0, 0.0),
-                              child: Icon(
-                                Icons.build_outlined,
-                                color: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
-                                size: 18.0,
-                              ),
-                            ),
-                            Text(
-                              'Oficinas',
-                              style: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                            ),
-                          ].divide(SizedBox(width: 8.0)),
-                        ),
-                      ),
-                    ),
-                    onEnter: ((event) async {
-                      safeSetState(() => _model.mouseRegion5Hovered = true);
-                    }),
-                    onExit: ((event) async {
-                      safeSetState(() => _model.mouseRegion5Hovered = false);
-                    }),
-                  ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    Divider(
-                      thickness: 1.0,
-                      color: Color(0xFF313131),
-                    ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    MouseRegion(
-                      opaque: false,
-                      cursor: MouseCursor.defer ?? MouseCursor.defer,
-                      child: InkWell(
-                        splashColor: Colors.transparent,
-                        focusColor: Colors.transparent,
-                        hoverColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onTap: () async {
-                          context.pushNamed(SellersWidget.routeName);
-                        },
-                      child: Container(
-                        height: 60.0,
-                        decoration: BoxDecoration(
-                          color: _model.mouseRegion6Hovered!
-                              ? Color(0x72FFFFFF)
-                              : Color(0x00000000),
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  12.0, 0.0, 0.0, 0.0),
-                              child: Icon(
-                                Icons.business_center_outlined,
-                                color: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
-                                size: 20.0,
-                              ),
-                            ),
-                            Text(
-                              'Vendedores',
-                              style: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                            ),
-                          ].divide(SizedBox(width: 8.0)),
-                        ),
-                      ),
-                    ),
-                    onEnter: ((event) async {
-                      safeSetState(() => _model.mouseRegion6Hovered = true);
-                    }),
-                    onExit: ((event) async {
-                      safeSetState(() => _model.mouseRegion6Hovered = false);
-                    }),
-                  ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    Divider(
-                      thickness: 1.0,
-                      color: Color(0xFF313131),
-                    ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    MouseRegion(
-                      opaque: false,
-                      cursor: MouseCursor.defer ?? MouseCursor.defer,
-                      child: InkWell(
-                        splashColor: Colors.transparent,
-                        focusColor: Colors.transparent,
-                        hoverColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onTap: () async {
-                          context.pushNamed(
-                            EmployeesWidget.routeName,
-                          extra: <String, dynamic>{
-                            '__transition_info__': TransitionInfo(
-                              hasTransition: true,
-                              transitionType: PageTransitionType.fade,
-                              duration: Duration(milliseconds: 0),
-                            ),
-                          },
-                        );
-                      },
-                      child: Container(
-                        height: 60.0,
-                        decoration: BoxDecoration(
-                          color: _model.mouseRegion7Hovered!
-                              ? Color(0x72FFFFFF)
-                              : Color(0x00000000),
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  12.0, 0.0, 0.0, 0.0),
-                              child: Icon(
-                                Icons.home_work_outlined,
-                                color: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
-                                size: 20.0,
-                              ),
-                            ),
-                            Text(
-                              'Colaboradores',
-                              style: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                            ),
-                          ].divide(SizedBox(width: 8.0)),
-                        ),
-                      ),
-                    ),
-                    onEnter: ((event) async {
-                      safeSetState(() => _model.mouseRegion7Hovered = true);
-                    }),
-                    onExit: ((event) async {
-                      safeSetState(() => _model.mouseRegion7Hovered = false);
-                    }),
-                  ),
-                  Divider(
-                    thickness: 1.0,
-                    color: Color(0xFF313131),
-                  ),
-                  MouseRegion(
-                    opaque: false,
-                    cursor: MouseCursor.defer ?? MouseCursor.defer,
-                    child: InkWell(
-                      splashColor: Colors.transparent,
-                      focusColor: Colors.transparent,
-                      hoverColor: Colors.transparent,
-                      highlightColor: Colors.transparent,
-                      onTap: () async {
-                        context.pushNamed(
-                          ViewTrackingWidget.routeName,
-                          queryParameters: {
-                            'userAircraftId': serializeParam(
-                              '',
-                              ParamType.String,
-                            ),
-                          }.withoutNulls,
-                        );
-                      },
-                      child: Container(
-                        height: 60.0,
-                        decoration: BoxDecoration(
-                          color: _model.mouseRegion10Hovered!
-                              ? Color(0x72FFFFFF)
-                              : Color(0x00000000),
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        child: InkWell(
-                          splashColor: Colors.transparent,
-                          focusColor: Colors.transparent,
-                          hoverColor: Colors.transparent,
-                          highlightColor: Colors.transparent,
-                          onTap: () async {
-                            context.pushNamed(TrackingsWidget.routeName);
-                          },
-                          child: Row(
-                            mainAxisSize: MainAxisSize.max,
-                            children: [
-                              Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    12.0, 0.0, 0.0, 0.0),
-                                child: Icon(
-                                  Icons.track_changes,
-                                  color: FlutterFlowTheme.of(context)
-                                      .secondaryBackground,
-                                  size: 20.0,
-                                ),
-                              ),
-                              Text(
-                                'Rastreamento',
-                                style: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryBackground,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                              ),
-                            ].divide(SizedBox(width: 8.0)),
-                          ),
-                        ),
-                      ),
-                    ),
-                    onEnter: ((event) async {
-                      safeSetState(() => _model.mouseRegion10Hovered = true);
-                    }),
-                    onExit: ((event) async {
-                      safeSetState(() => _model.mouseRegion10Hovered = false);
-                    }),
-                  ),
-                  Divider(
-                    thickness: 1.0,
-                    color: Color(0xFF313131),
-                  ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    MouseRegion(
-                      opaque: false,
-                      cursor: MouseCursor.defer ?? MouseCursor.defer,
-                      child: InkWell(
-                        splashColor: Colors.transparent,
-                        focusColor: Colors.transparent,
-                        hoverColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onTap: () async {
-                          _model.avioes = !_model.avioes;
-                          safeSetState(() {});
-                        },
-                      child: Container(
-                        height: 60.0,
-                        decoration: BoxDecoration(
-                          color: _model.mouseRegion11Hovered!
-                              ? Color(0x72FFFFFF)
-                              : Color(0x00000000),
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.max,
-                              children: [
-                                Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                      12.0, 0.0, 0.0, 0.0),
-                                  child: Icon(
-                                    Icons.airplanemode_active,
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    size: 20.0,
-                                  ),
-                                ),
-                                Text(
-                                  'Aeronaves',
-                                  style: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                ),
-                                if (!_model.avioes)
-                                  Padding(
-                                    padding: EdgeInsetsDirectional.fromSTEB(
-                                        24.0, 0.0, 0.0, 0.0),
-                                    child: InkWell(
-                                      splashColor: Colors.transparent,
-                                      focusColor: Colors.transparent,
-                                      hoverColor: Colors.transparent,
-                                      highlightColor: Colors.transparent,
-                                      onTap: () async {
-                                        _model.avioes = !_model.avioes;
-                                        safeSetState(() {});
-                                      },
-                                      child: Icon(
-                                        Icons.keyboard_arrow_down_rounded,
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        size: 24.0,
-                                      ),
-                                    ),
-                                  ),
-                                if (_model.avioes)
-                                  Padding(
-                                    padding: EdgeInsetsDirectional.fromSTEB(
-                                        24.0, 0.0, 0.0, 0.0),
-                                    child: InkWell(
-                                      splashColor: Colors.transparent,
-                                      focusColor: Colors.transparent,
-                                      hoverColor: Colors.transparent,
-                                      highlightColor: Colors.transparent,
-                                      onTap: () async {
-                                        _model.vendas = !_model.vendas;
-                                        safeSetState(() {});
-                                      },
-                                      child: Icon(
-                                        Icons.keyboard_arrow_up_rounded,
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        size: 24.0,
-                                      ),
-                                    ),
-                                  ),
-                              ].divide(SizedBox(width: 8.0)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    onEnter: ((event) async {
-                      safeSetState(() => _model.mouseRegion11Hovered = true);
-                    }),
-                    onExit: ((event) async {
-                      safeSetState(() => _model.mouseRegion11Hovered = false);
-                    }),
-                  ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master' &&
-                      _model.avioes)
-                    AnimatedContainer(
-                      duration: Duration(milliseconds: 800),
-                      curve: Curves.elasticOut,
-                      constraints: BoxConstraints(
-                        minHeight: 0.0,
-                      ),
-                      decoration: BoxDecoration(),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.max,
-                        children: [
-                          MouseRegion(
-                            opaque: false,
-                            cursor: MouseCursor.defer ?? MouseCursor.defer,
-                            child: InkWell(
-                              splashColor: Colors.transparent,
-                              focusColor: Colors.transparent,
-                              hoverColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
-                              onTap: () async {
-                                context.pushNamed(
-                                    AvailableAircraftsWidget.routeName);
-                              },
-                              child: Container(
-                                height: 60.0,
-                                decoration: BoxDecoration(
-                                  color: _model
-                                          .mouseRegionAvailableAircraftsHovered1!
-                                      ? Color(0x72FFFFFF)
-                                      : Color(0x00000000),
-                                  borderRadius: BorderRadius.circular(12.0),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.max,
-                                  children: [
-                                    Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                          12.0, 0.0, 0.0, 0.0),
-                                      child: Icon(
-                                        Icons.list,
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        size: 20.0,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Aeronaves disponíveis',
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .secondaryBackground,
-                                            letterSpacing: 0.0,
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                  ].divide(SizedBox(width: 8.0)),
-                                ),
-                              ),
-                            ),
-                            onEnter: ((event) async {
-                              safeSetState(() =>
-                                  _model.mouseRegionAvailableAircraftsHovered1 =
-                                      true);
-                            }),
-                            onExit: ((event) async {
-                              safeSetState(() =>
-                                  _model.mouseRegionAvailableAircraftsHovered1 =
-                                      false);
-                            }),
-                          ),
-                          MouseRegion(
-                            opaque: false,
-                            cursor: MouseCursor.defer ?? MouseCursor.defer,
-                            child: InkWell(
-                              splashColor: Colors.transparent,
-                              focusColor: Colors.transparent,
-                              hoverColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
-                              onTap: () async {
-                                context
-                                    .pushNamed(CreateCategoryWidget.routeName);
-                              },
-                              child: Container(
-                                height: 60.0,
-                                decoration: BoxDecoration(
-                                  color: _model
-                                          .mouseRegionAvailableAircraftsHovered2!
-                                      ? Color(0x72FFFFFF)
-                                      : Color(0x00000000),
-                                  borderRadius: BorderRadius.circular(12.0),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.max,
-                                  children: [
-                                    Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                          12.0, 0.0, 0.0, 0.0),
-                                      child: Icon(
-                                        Icons.view_module,
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        size: 20.0,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Categorias',
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .secondaryBackground,
-                                            letterSpacing: 0.0,
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                  ].divide(SizedBox(width: 8.0)),
-                                ),
-                              ),
-                            ),
-                            onEnter: ((event) async {
-                              safeSetState(() =>
-                                  _model.mouseRegionAvailableAircraftsHovered2 =
-                                      true);
-                            }),
-                            onExit: ((event) async {
-                              safeSetState(() =>
-                                  _model.mouseRegionAvailableAircraftsHovered2 =
-                                      false);
-                            }),
-                          ),
-                          MouseRegion(
-                            opaque: false,
-                            cursor: MouseCursor.defer ?? MouseCursor.defer,
-                            child: InkWell(
-                              splashColor: Colors.transparent,
-                              focusColor: Colors.transparent,
-                              hoverColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
-                              onTap: () async {
-                                context.pushNamed(
-                                    CreateItemsStandardWidget.routeName);
-                              },
-                              child: Container(
-                                height: 60.0,
-                                decoration: BoxDecoration(
-                                  color: _model
-                                          .mouseRegionAvailableAircraftsHovered3!
-                                      ? Color(0x72FFFFFF)
-                                      : Color(0x00000000),
-                                  borderRadius: BorderRadius.circular(12.0),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.max,
-                                  children: [
-                                    Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                          12.0, 0.0, 0.0, 0.0),
-                                      child: Icon(
-                                        Icons.check_box_rounded,
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        size: 20.0,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Itens de série',
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .secondaryBackground,
-                                            letterSpacing: 0.0,
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                  ].divide(SizedBox(width: 8.0)),
-                                ),
-                              ),
-                            ),
-                            onEnter: ((event) async {
-                              safeSetState(() =>
-                                  _model.mouseRegionAvailableAircraftsHovered3 =
-                                      true);
-                            }),
-                            onExit: ((event) async {
-                              safeSetState(() =>
-                                  _model.mouseRegionAvailableAircraftsHovered3 =
-                                      false);
-                            }),
-                          ),
-                          MouseRegion(
-                            opaque: false,
-                            cursor: MouseCursor.defer ?? MouseCursor.defer,
-                            child: InkWell(
-                              splashColor: Colors.transparent,
-                              focusColor: Colors.transparent,
-                              hoverColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
-                              onTap: () async {
-                                context.pushNamed(
-                                    CreateItemsOptionsWidget.routeName);
-                              },
-                              child: Container(
-                                height: 60.0,
-                                decoration: BoxDecoration(
-                                  color: _model
-                                          .mouseRegionAvailableAircraftsHovered4!
-                                      ? Color(0x72FFFFFF)
-                                      : Color(0x00000000),
-                                  borderRadius: BorderRadius.circular(12.0),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.max,
-                                  children: [
-                                    Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                          12.0, 0.0, 0.0, 0.0),
-                                      child: Icon(
-                                        Icons.extension_outlined,
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        size: 20.0,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Itens opcionais',
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .secondaryBackground,
-                                            letterSpacing: 0.0,
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                  ].divide(SizedBox(width: 8.0)),
-                                ),
-                              ),
-                            ),
-                            onEnter: ((event) async {
-                              safeSetState(() =>
-                                  _model.mouseRegionAvailableAircraftsHovered4 =
-                                      true);
-                            }),
-                            onExit: ((event) async {
-                              safeSetState(() =>
-                                  _model.mouseRegionAvailableAircraftsHovered4 =
-                                      false);
-                            }),
-                          ),
-                          MouseRegion(
-                            opaque: false,
-                            cursor: MouseCursor.defer ?? MouseCursor.defer,
-                            child: InkWell(
-                              splashColor: Colors.transparent,
-                              focusColor: Colors.transparent,
-                              hoverColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
-                              onTap: () async {
-                                context.pushNamed(
-                                    RegistedAircraftWidget.routeName);
-                              },
-                              child: Container(
-                                height: 60.0,
-                                decoration: BoxDecoration(
-                                  color: _model
-                                          .mouseRegionAvailableAircraftsHovered5!
-                                      ? Color(0x72FFFFFF)
-                                      : Color(0x00000000),
-                                  borderRadius: BorderRadius.circular(12.0),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.max,
-                                  children: [
-                                    Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                          12.0, 0.0, 0.0, 0.0),
-                                      child: Icon(
-                                        Icons.flight,
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        size: 20.0,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Cadastrar aeronaves',
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .secondaryBackground,
-                                            letterSpacing: 0.0,
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                  ].divide(SizedBox(width: 8.0)),
-                                ),
-                              ),
-                            ),
-                            onEnter: ((event) async {
-                              safeSetState(() =>
-                                  _model.mouseRegionAvailableAircraftsHovered5 =
-                                      true);
-                            }),
-                            onExit: ((event) async {
-                              safeSetState(() =>
-                                  _model.mouseRegionAvailableAircraftsHovered5 =
-                                      false);
-                            }),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (_model.user?.firstOrNull?.profileType != 'Admin Master')
-                    MouseRegion(
-                      opaque: false,
-                      cursor: MouseCursor.defer ?? MouseCursor.defer,
-                      child: InkWell(
-                        splashColor: Colors.transparent,
-                        focusColor: Colors.transparent,
-                        hoverColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onTap: () async {
-                          context
-                              .pushNamed(AvailableAircraftsWidget.routeName);
-                        },
-                        child: Container(
-                          height: 60.0,
-                          decoration: BoxDecoration(
-                            color:
-                                _model.mouseRegionAvailableAircraftsHovered2!
-                                    ? Color(0x72FFFFFF)
-                                    : Color(0x00000000),
-                            borderRadius: BorderRadius.circular(12.0),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.max,
-                            children: [
-                              Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    12.0, 0.0, 0.0, 0.0),
-                                child: Icon(
-                                  Icons.list,
-                                  color: FlutterFlowTheme.of(context)
-                                      .secondaryBackground,
-                                  size: 20.0,
-                                ),
-                              ),
-                              Text(
-                                'Aeronaves disponíveis',
-                                style: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryBackground,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                              ),
-                            ].divide(SizedBox(width: 8.0)),
-                          ),
-                        ),
-                      ),
-                      onEnter: ((event) async {
-                        safeSetState(() =>
-                            _model.mouseRegionAvailableAircraftsHovered2 =
-                                true);
-                      }),
-                      onExit: ((event) async {
-                        safeSetState(() =>
-                            _model.mouseRegionAvailableAircraftsHovered2 =
-                                false);
-                      }),
-                    ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    Divider(
-                      thickness: 1.0,
-                      color: Color(0xFF313131),
-                    ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    MouseRegion(
-                      opaque: false,
-                      cursor: MouseCursor.defer ?? MouseCursor.defer,
-                      child: InkWell(
-                        splashColor: Colors.transparent,
-                        focusColor: Colors.transparent,
-                        hoverColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onTap: () async {
-                          context.pushNamed(ServicesOfferingWidget.routeName);
-                        },
-                      child: Container(
-                        height: 60.0,
-                        decoration: BoxDecoration(
-                          color: _model.mouseRegion12Hovered!
-                              ? Color(0x72FFFFFF)
-                              : Color(0x00000000),
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  12.0, 0.0, 0.0, 0.0),
-                              child: Icon(
-                                Icons.home_repair_service_outlined,
-                                color: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
-                                size: 20.0,
-                              ),
-                            ),
-                            Text(
-                              'Carta de serviços',
-                              style: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                            ),
-                          ].divide(SizedBox(width: 8.0)),
-                        ),
-                      ),
-                    ),
-                    onEnter: ((event) async {
-                      safeSetState(() => _model.mouseRegion12Hovered = true);
-                    }),
-                    onExit: ((event) async {
-                      safeSetState(() => _model.mouseRegion12Hovered = false);
-                    }),
-                  ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    Divider(
-                      thickness: 1.0,
-                      color: Color(0xFF313131),
-                    ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    MouseRegion(
-                      opaque: false,
-                      cursor: MouseCursor.defer ?? MouseCursor.defer,
-                      child: InkWell(
-                        splashColor: Colors.transparent,
-                        focusColor: Colors.transparent,
-                        hoverColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onTap: () async {
-                          context.pushNamed(PartQuoteWidget.routeName);
-                        },
-                      child: Container(
-                        height: 60.0,
-                        decoration: BoxDecoration(
-                          color: _model.mouseRegion13Hovered!
-                              ? Color(0x72FFFFFF)
-                              : Color(0x00000000),
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  12.0, 0.0, 0.0, 0.0),
-                              child: Icon(
-                                Icons.build_outlined,
-                                color: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
-                                size: 20.0,
-                              ),
-                            ),
-                            Text(
-                              'Cotação de peças',
-                              style: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                            ),
-                          ].divide(SizedBox(width: 8.0)),
-                        ),
-                      ),
-                    ),
-                    onEnter: ((event) async {
-                      safeSetState(() => _model.mouseRegion13Hovered = true);
-                    }),
-                    onExit: ((event) async {
-                      safeSetState(() => _model.mouseRegion13Hovered = false);
-                    }),
-                  ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    Divider(
-                      thickness: 1.0,
-                      color: Color(0xFF313131),
-                    ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    MouseRegion(
-                      opaque: false,
-                      cursor: MouseCursor.defer ?? MouseCursor.defer,
-                      child: InkWell(
-                        splashColor: Colors.transparent,
-                        focusColor: Colors.transparent,
-                        hoverColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onTap: () async {
-                          context.pushNamed(CertificatesWidget.routeName);
-                        },
-                      child: Container(
-                        height: 60.0,
-                        decoration: BoxDecoration(
-                          color: _model.mouseRegion14Hovered!
-                              ? Color(0x72FFFFFF)
-                              : Color(0x00000000),
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  12.0, 0.0, 0.0, 0.0),
-                              child: Icon(
-                                Icons.star_border,
-                                color: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
-                                size: 20.0,
-                              ),
-                            ),
-                            Text(
-                              'Certificados',
-                              style: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                            ),
-                          ].divide(SizedBox(width: 8.0)),
-                        ),
-                      ),
-                    ),
-                    onEnter: ((event) async {
-                      safeSetState(() => _model.mouseRegion14Hovered = true);
-                    }),
-                    onExit: ((event) async {
-                      safeSetState(() => _model.mouseRegion14Hovered = false);
-                    }),
-                  ),
-                  if (responsiveVisibility(
-                    context: context,
-                    phone: false,
-                    tablet: false,
-                    tabletLandscape: false,
-                    desktop: false,
-                  ))
-                    Divider(
-                      thickness: 1.0,
-                      color: Color(0xFF313131),
-                    ),
-                  MouseRegion(
-                    opaque: false,
-                    cursor: MouseCursor.defer ?? MouseCursor.defer,
-                    child: Visibility(
-                      visible: responsiveVisibility(
-                        context: context,
-                        phone: false,
-                        tablet: false,
-                        tabletLandscape: false,
-                        desktop: false,
-                      ),
-                      child: Container(
-                        height: 60.0,
-                        decoration: BoxDecoration(
-                          color: _model.mouseRegion15Hovered!
-                              ? Color(0x72FFFFFF)
-                              : Color(0x00000000),
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  12.0, 0.0, 0.0, 0.0),
-                              child: Icon(
-                                Icons.settings_outlined,
-                                color: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
-                                size: 20.0,
-                              ),
-                            ),
-                            Text(
-                              'Configurações',
-                              style: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                            ),
-                          ].divide(SizedBox(width: 8.0)),
-                        ),
-                      ),
-                    ),
-                    onEnter: ((event) async {
-                      safeSetState(() => _model.mouseRegion15Hovered = true);
-                    }),
-                    onExit: ((event) async {
-                      safeSetState(() => _model.mouseRegion15Hovered = false);
-                    }),
-                  ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    Divider(
-                      thickness: 1.0,
-                      color: Color(0xFF313131),
-                    ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    MouseRegion(
-                      opaque: false,
-                      cursor: MouseCursor.defer ?? MouseCursor.defer,
-                      child: InkWell(
-                        splashColor: Colors.transparent,
-                        focusColor: Colors.transparent,
-                        hoverColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onTap: () async {
-                          context.pushNamed(ViewEditRatesWidget.routeName);
-                        },
-                      child: Container(
-                        height: 60.0,
-                        decoration: BoxDecoration(
-                          color: _model.mouseRegion16Hovered!
-                              ? Color(0x72FFFFFF)
-                              : Color(0x00000000),
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  12.0, 0.0, 0.0, 0.0),
-                              child: Icon(
-                                Icons.task_outlined,
-                                color: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
-                                size: 20.0,
-                              ),
-                            ),
-                            Text(
-                              'Taxas e juros ',
-                              style: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                            ),
-                          ].divide(SizedBox(width: 8.0)),
-                        ),
-                      ),
-                    ),
-                    onEnter: ((event) async {
-                      safeSetState(() => _model.mouseRegion16Hovered = true);
-                    }),
-                    onExit: ((event) async {
-                      safeSetState(() => _model.mouseRegion16Hovered = false);
-                    }),
-                  ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    Divider(
-                      thickness: 1.0,
-                      color: Color(0xFF313131),
-                    ),
-                  if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    MouseRegion(
-                      opaque: false,
-                      cursor: MouseCursor.defer ?? MouseCursor.defer,
-                      child: InkWell(
-                        splashColor: Colors.transparent,
-                        focusColor: Colors.transparent,
-                        hoverColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onTap: () async {
-                          context.pushNamed(
-                              ViewEditContractTermsWidget.routeName);
-                        },
-                      child: Container(
-                        height: 60.0,
-                        decoration: BoxDecoration(
-                          color: _model.mouseRegion17Hovered!
-                              ? Color(0x72FFFFFF)
-                              : Color(0x00000000),
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  12.0, 0.0, 0.0, 0.0),
-                              child: Icon(
-                                Icons.lan,
-                                color: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
-                                size: 20.0,
-                              ),
-                            ),
-                            Text(
-                              'Termos e instruções',
-                              style: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                            ),
-                          ].divide(SizedBox(width: 8.0)),
-                        ),
-                      ),
-                    ),
-                    onEnter: ((event) async {
-                      safeSetState(() => _model.mouseRegion17Hovered = true);
-                    }),
-                    onExit: ((event) async {
-                      safeSetState(() => _model.mouseRegion17Hovered = false);
-                    }),
-                  ),
-                  Divider(
-                    thickness: 1.0,
-                    color: Color(0xFF313131),
-                  ),
-                  MouseRegion(
-                    opaque: false,
-                    cursor: MouseCursor.defer ?? MouseCursor.defer,
-                    child: InkWell(
-                      splashColor: Colors.transparent,
-                      focusColor: Colors.transparent,
-                      hoverColor: Colors.transparent,
-                      highlightColor: Colors.transparent,
-                      onTap: () async {
-                        GoRouter.of(context).prepareAuthEvent();
-                        await authManager.signOut();
-                        GoRouter.of(context).clearRedirectLocation();
+  void dispose() {
+    _disposed = true;
+    _model.maybeDispose();
+    super.dispose();
+  }
 
-                        context.goNamedAuth(
-                            LoginWidget.routeName, context.mounted);
-                      },
+  bool _isActive(String routePath) =>
+      widget.currentPath.isNotEmpty && widget.currentPath == routePath;
+
+  bool _isVendasRoute(String path) =>
+      path == LeadsWidget.routePath ||
+      path == ProposalsWidget.routePath ||
+      path == ContractsWidget.routePath ||
+      path == ClientsWidget.routePath;
+
+  bool _isAvioesRoute(String path) =>
+      path == AvailableAircraftsWidget.routePath ||
+      path == CreateCategoryWidget.routePath;
+
+  @override
+  Widget build(BuildContext context) {
+    final user = _model.user?.firstOrNull;
+    final isAdmin = user?.profileType == 'Admin Master';
+
+    return Container(
+      color: const Color(0xFF1B1B1B),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(14, 18, 14, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _MenuHeader(user: user),
+            const SizedBox(height: 18),
+            const _MenuSectionLabel(label: 'Geral'),
+            _MenuItem(
+              icon: Icons.dashboard_rounded,
+              label: 'Dashboard',
+              active: _isActive(HomePageWidget.routePath),
+              onTap: () => context.pushNamed(HomePageWidget.routeName),
+            ),
+            if (isAdmin)
+              _MenuItem(
+                icon: Icons.assignment_rounded,
+                label: 'Solicitações',
+                active: _isActive(ProfileAnalysisWidget.routePath),
+                onTap: () =>
+                    context.pushNamed(ProfileAnalysisWidget.routeName),
+              ),
+            if (isAdmin) ...[
+              const SizedBox(height: 16),
+              const _MenuSectionLabel(label: 'Funil de vendas'),
+              _MenuExpandable(
+                icon: Icons.point_of_sale_rounded,
+                label: 'Vendas',
+                expanded: _model.vendas,
+                active: _isVendasRoute(widget.currentPath),
+                onToggle: () =>
+                    safeSetState(() => _model.vendas = !_model.vendas),
+                children: [
+                  _MenuSubItem(
+                    icon: Icons.person_search_rounded,
+                    label: 'Leads',
+                    active: _isActive(LeadsWidget.routePath),
+                    onTap: () => context.pushNamed(LeadsWidget.routeName),
+                  ),
+                  _MenuSubItem(
+                    icon: Icons.request_quote_outlined,
+                    label: 'Propostas',
+                    active: _isActive(ProposalsWidget.routePath),
+                    onTap: () => context.pushNamed(ProposalsWidget.routeName),
+                  ),
+                  _MenuSubItem(
+                    icon: Icons.description_outlined,
+                    label: 'Contratos',
+                    active: _isActive(ContractsWidget.routePath),
+                    onTap: () => context.pushNamed(ContractsWidget.routeName),
+                  ),
+                  _MenuSubItem(
+                    icon: Icons.groups_outlined,
+                    label: 'Clientes',
+                    active: _isActive(ClientsWidget.routePath),
+                    onTap: () => context.pushNamed(ClientsWidget.routeName),
+                  ),
+                ],
+              ),
+            ],
+            if (isAdmin) ...[
+              const SizedBox(height: 16),
+              const _MenuSectionLabel(label: 'Pessoas'),
+              _MenuItem(
+                icon: Icons.person_outline_rounded,
+                label: 'Pilotos',
+                active: _isActive(PilotsWidget.routePath),
+                onTap: () => context.pushNamed(PilotsWidget.routeName),
+              ),
+              _MenuItem(
+                icon: Icons.build_outlined,
+                label: 'Oficinas',
+                active: _isActive(OficinaWidget.routePath),
+                onTap: () => context.pushNamed(OficinaWidget.routeName),
+              ),
+              _MenuItem(
+                icon: Icons.business_center_outlined,
+                label: 'Vendedores',
+                active: _isActive(SellersWidget.routePath),
+                onTap: () => context.pushNamed(SellersWidget.routeName),
+              ),
+              _MenuItem(
+                icon: Icons.badge_outlined,
+                label: 'Colaboradores',
+                active: _isActive(EmployeesWidget.routePath),
+                onTap: () => context.pushNamed(EmployeesWidget.routeName),
+              ),
+            ],
+            if (isAdmin) ...[
+              const SizedBox(height: 16),
+              const _MenuSectionLabel(label: 'Operação'),
+              _MenuItem(
+                icon: Icons.timeline_rounded,
+                label: 'Rastreamento',
+                active: _isActive(TrackingsWidget.routePath),
+                onTap: () => context.pushNamed(TrackingsWidget.routeName),
+              ),
+              _MenuExpandable(
+                icon: Icons.flight_outlined,
+                label: 'Aeronaves',
+                expanded: _model.avioes,
+                active: _isAvioesRoute(widget.currentPath),
+                onToggle: () =>
+                    safeSetState(() => _model.avioes = !_model.avioes),
+                children: [
+                  _MenuSubItem(
+                    icon: Icons.warehouse_outlined,
+                    label: 'Estoque (unidades)',
+                    active: _isActive(AvailableAircraftsWidget.routePath),
+                    onTap: () =>
+                        context.pushNamed(AvailableAircraftsWidget.routeName),
+                  ),
+                  _MenuSubItem(
+                    icon: Icons.category_outlined,
+                    label: 'Categorias',
+                    active: _isActive(CreateCategoryWidget.routePath),
+                    onTap: () =>
+                        context.pushNamed(CreateCategoryWidget.routeName),
+                  ),
+                ],
+              ),
+              _MenuItem(
+                icon: Icons.miscellaneous_services_outlined,
+                label: 'Carta de serviços',
+                active: _isActive(ServicesOfferingWidget.routePath),
+                onTap: () =>
+                    context.pushNamed(ServicesOfferingWidget.routeName),
+              ),
+              _MenuItem(
+                icon: Icons.precision_manufacturing_outlined,
+                label: 'Cotação de peças',
+                active: _isActive(PartQuoteWidget.routePath),
+                onTap: () => context.pushNamed(PartQuoteWidget.routeName),
+              ),
+              _MenuItem(
+                icon: Icons.workspace_premium_outlined,
+                label: 'Certificados',
+                active: _isActive(CertificatesWidget.routePath),
+                onTap: () => context.pushNamed(CertificatesWidget.routeName),
+              ),
+            ],
+            if (isAdmin) ...[
+              const SizedBox(height: 16),
+              const _MenuSectionLabel(label: 'Configurações'),
+              _MenuItem(
+                icon: Icons.percent_rounded,
+                label: 'Taxas e juros',
+                active: _isActive(ViewEditRatesWidget.routePath),
+                onTap: () => context.pushNamed(ViewEditRatesWidget.routeName),
+              ),
+              _MenuItem(
+                icon: Icons.lan_outlined,
+                label: 'Termos e instruções',
+                active: _isActive(ViewEditContractTermsWidget.routePath),
+                onTap: () =>
+                    context.pushNamed(ViewEditContractTermsWidget.routeName),
+              ),
+            ],
+            const SizedBox(height: 24),
+            _LogoutItem(onLogout: _logout),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _logout() async {
+    GoRouter.of(context).prepareAuthEvent();
+    QueryCache.clear();
+    await authManager.signOut();
+    GoRouter.of(context).clearRedirectLocation();
+    if (!mounted) return;
+    context.goNamedAuth(LoginWidget.routeName, context.mounted);
+  }
+}
+
+// ─────────────────────── HEADER ───────────────────────
+class _MenuHeader extends StatelessWidget {
+  const _MenuHeader({required this.user});
+  final UsersRow? user;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFFC2D51C).withValues(alpha: 0.10),
+            const Color(0xFFC2D51C).withValues(alpha: 0.0),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.asset(
+              'assets/images/Logo_AEROTG_NEGATIVO_V.png',
+              width: 56,
+              height: 56,
+              fit: BoxFit.contain,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'AGSur Painel',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  user?.fullname ?? 'Usuário',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.roboto(
+                    fontSize: 11.5,
+                    color: const Color(0xCCFFFFFF),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                AppStatusBadge(
+                  label: user?.profileType ?? '—',
+                  tone: AppStatusTone.brand,
+                  icon: Icons.shield_outlined,
+                  dense: true,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────── SECTION LABEL ───────────────────────
+class _MenuSectionLabel extends StatelessWidget {
+  const _MenuSectionLabel({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+      child: Text(
+        label.toUpperCase(),
+        style: GoogleFonts.inter(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.6,
+          color: const Color(0x66FFFFFF),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────── ITEM ───────────────────────
+class _MenuItem extends StatefulWidget {
+  const _MenuItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.active = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool active;
+
+  @override
+  State<_MenuItem> createState() => _MenuItemState();
+}
+
+class _MenuItemState extends State<_MenuItem> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final emphasized = widget.active || _hover;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          margin: const EdgeInsets.symmetric(vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
+            color: widget.active
+                ? const Color(0x33C2D51C)
+                : (_hover
+                    ? const Color(0x22C2D51C)
+                    : Colors.transparent),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: widget.active
+                  ? const Color(0x88C2D51C)
+                  : (_hover
+                      ? const Color(0x44C2D51C)
+                      : Colors.transparent),
+            ),
+          ),
+          child: Row(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: emphasized
+                      ? const Color(0x55C2D51C)
+                      : Colors.white.withValues(alpha: 0.04),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(
+                  widget.icon,
+                  size: 16,
+                  color: emphasized ? const Color(0xFFC2D51C) : Colors.white,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: widget.active
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    color: widget.active
+                        ? const Color(0xFFC2D51C)
+                        : Colors.white,
+                  ),
+                ),
+              ),
+              if (widget.active)
+                Container(
+                  width: 4,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFC2D51C),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                )
+              else
+                AnimatedSlide(
+                  duration: const Duration(milliseconds: 180),
+                  offset: _hover ? Offset.zero : const Offset(-0.4, 0),
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 180),
+                    opacity: _hover ? 1 : 0,
+                    child: const Icon(
+                      Icons.chevron_right_rounded,
+                      size: 16,
+                      color: Color(0xFFC2D51C),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────── EXPANDABLE ───────────────────────
+class _MenuExpandable extends StatefulWidget {
+  const _MenuExpandable({
+    required this.icon,
+    required this.label,
+    required this.expanded,
+    required this.onToggle,
+    required this.children,
+    this.active = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool expanded;
+  final bool active;
+  final VoidCallback onToggle;
+  final List<Widget> children;
+
+  @override
+  State<_MenuExpandable> createState() => _MenuExpandableState();
+}
+
+class _MenuExpandableState extends State<_MenuExpandable> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = widget.active;
+    final emphasized = active || _hover;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hover = true),
+          onExit: (_) => setState(() => _hover = false),
+          child: GestureDetector(
+            onTap: widget.onToggle,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              margin: const EdgeInsets.symmetric(vertical: 2),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+              decoration: BoxDecoration(
+                color: active
+                    ? const Color(0x33C2D51C)
+                    : _hover
+                        ? const Color(0x14FFFFFF)
+                        : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: active
+                      ? const Color(0x88C2D51C)
+                      : _hover
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : Colors.transparent,
+                ),
+              ),
+              child: Row(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: emphasized
+                          ? const Color(0x55C2D51C)
+                          : Colors.white.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Icon(
+                      widget.icon,
+                      size: 16,
+                      color: emphasized
+                          ? const Color(0xFFC2D51C)
+                          : Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      widget.label,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight:
+                            active ? FontWeight.w700 : FontWeight.w500,
+                        color: active
+                            ? const Color(0xFFC2D51C)
+                            : Colors.white,
+                      ),
+                    ),
+                  ),
+                  if (active)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
                       child: Container(
-                        height: 60.0,
+                        width: 4,
+                        height: 18,
                         decoration: BoxDecoration(
-                          color: _model.mouseRegion18Hovered!
-                              ? Color(0x65FF5963)
-                              : Color(0x00000000),
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  12.0, 0.0, 0.0, 0.0),
-                              child: Icon(
-                                Icons.power_settings_new,
-                                color: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
-                                size: 20.0,
-                              ),
-                            ),
-                            Text(
-                              'Sair',
-                              style: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                            ),
-                          ].divide(SizedBox(width: 8.0)),
+                          color: const Color(0xFFC2D51C),
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
-                    onEnter: ((event) async {
-                      safeSetState(() => _model.mouseRegion18Hovered = true);
-                    }),
-                    onExit: ((event) async {
-                      safeSetState(() => _model.mouseRegion18Hovered = false);
-                    }),
+                  AnimatedRotation(
+                    duration: const Duration(milliseconds: 220),
+                    turns: widget.expanded ? 0.5 : 0,
+                    child: Icon(
+                      Icons.expand_more_rounded,
+                      size: 18,
+                      color: emphasized
+                          ? const Color(0xCCC2D51C)
+                          : const Color(0x99FFFFFF),
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-        ],
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOut,
+          child: widget.expanded
+              ? Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: widget.children,
+                  ),
+                )
+              : const SizedBox(width: double.infinity, height: 0),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────── SUB ITEM ───────────────────────
+class _MenuSubItem extends StatefulWidget {
+  const _MenuSubItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.active = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool active;
+
+  @override
+  State<_MenuSubItem> createState() => _MenuSubItemState();
+}
+
+class _MenuSubItemState extends State<_MenuSubItem> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final emphasized = widget.active || _hover;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          margin: const EdgeInsets.symmetric(vertical: 1),
+          padding: const EdgeInsets.fromLTRB(14, 9, 12, 9),
+          decoration: BoxDecoration(
+            color: widget.active
+                ? const Color(0x22C2D51C)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border(
+              left: BorderSide(
+                color: emphasized
+                    ? const Color(0xFFC2D51C)
+                    : Colors.white.withValues(alpha: 0.10),
+                width: widget.active ? 3 : 2,
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                widget.icon,
+                size: 14,
+                color: emphasized
+                    ? const Color(0xFFC2D51C)
+                    : const Color(0xCCFFFFFF),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: GoogleFonts.inter(
+                    fontSize: 12.5,
+                    color: widget.active
+                        ? const Color(0xFFC2D51C)
+                        : (_hover ? Colors.white : const Color(0xCCFFFFFF)),
+                    fontWeight: emphasized
+                        ? FontWeight.w700
+                        : FontWeight.w400,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────── LOGOUT ───────────────────────
+class _LogoutItem extends StatefulWidget {
+  const _LogoutItem({required this.onLogout});
+  final Future<void> Function() onLogout;
+
+  @override
+  State<_LogoutItem> createState() => _LogoutItemState();
+}
+
+class _LogoutItemState extends State<_LogoutItem> {
+  bool _hover = false;
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: _busy
+            ? null
+            : () async {
+                setState(() => _busy = true);
+                try {
+                  await widget.onLogout();
+                } finally {
+                  if (mounted) setState(() => _busy = false);
+                }
+              },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: _hover
+                ? const Color(0x33FF5963)
+                : const Color(0x14FF5963),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: _hover
+                  ? const Color(0x99FF5963)
+                  : const Color(0x33FF5963),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: const Color(0x33FF5963),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: _busy
+                    ? const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.6,
+                          color: Color(0xFFFF7B82),
+                        ),
+                      )
+                    : const Icon(
+                        Icons.power_settings_new_rounded,
+                        size: 16,
+                        color: Color(0xFFFF7B82),
+                      ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                _busy ? 'Saindo…' : 'Sair da conta',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFFF7B82),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

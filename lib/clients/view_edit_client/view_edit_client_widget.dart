@@ -10,12 +10,14 @@ import '/pages/shared/modal_register_note/modal_register_note_widget.dart';
 import 'dart:ui';
 import '/index.dart';
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:provider/provider.dart';
+import '/core_ui/core_ui.dart';
 import 'view_edit_client_model.dart';
 export 'view_edit_client_model.dart';
 
@@ -82,75 +84,9 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus();
-        FocusManager.instance.primaryFocus?.unfocus();
-      },
-      child: Scaffold(
-        key: scaffoldKey,
-        backgroundColor: Color(0xFF313131),
-        appBar: AppBar(
-          backgroundColor: Color(0xFF313131),
-          iconTheme: IconThemeData(color: FlutterFlowTheme.of(context).primary),
-          automaticallyImplyLeading: true,
-          title: Text(
-            valueOrDefault<String>(
-              widget!.typeAccess == 'view'
-                  ? valueOrDefault<String>(
-                      'Dados do Cliente  ${widget!.fullname}',
-                      'Dados Cadastrais de Nome do Cliente',
-                    )
-                  : valueOrDefault<String>(
-                      'Editar Dados Cliente  ${widget!.fullname}',
-                      'Editar Dados Cliente [fullname]',
-                    ),
-              'Dados do Cliente [fullname]',
-            ),
-            textAlign: TextAlign.center,
-            style: FlutterFlowTheme.of(context).headlineMedium.override(
-                  font: GoogleFonts.inter(
-                    fontWeight:
-                        FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                  ),
-                  color: Color(0x73FFFFFF),
-                  fontSize: 18.0,
-                  letterSpacing: 0.0,
-                  fontWeight:
-                      FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                  fontStyle:
-                      FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                ),
-          ),
-          actions: [
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-              child: InkWell(
-                splashColor: Colors.transparent,
-                focusColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                onTap: () async {
-                  context.pushNamed(HomePageWidget.routeName);
-                },
-                child: Icon(
-                  Icons.home,
-                  color: FlutterFlowTheme.of(context).primary,
-                  size: 24.0,
-                ),
-              ),
-            ),
-          ],
-          centerTitle: true,
-          elevation: 0.0,
-        ),
-        body: SafeArea(
-          top: true,
-          child: Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(0.0, 28.0, 0.0, 0.0),
-            child: FutureBuilder<ApiCallResponse>(
+    return AppDetailsScaffold(
+      title: 'Detalhes do cliente',
+      body: FutureBuilder<ApiCallResponse>(
               future: GetLeadDetailsCall.call(
                 pLeadId: widget!.leadId,
               ),
@@ -177,13 +113,45 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                     child: Column(
                       mainAxisSize: MainAxisSize.max,
                       children: [
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: double.infinity),
+                            child: AppDetailHero(
+                              avatarText: (widget.fullname ?? '')
+                                  .split(' ')
+                                  .where((p) => p.isNotEmpty)
+                                  .take(2)
+                                  .map((p) => p[0])
+                                  .join()
+                                  .toUpperCase(),
+                              eyebrow: 'CLIENTE',
+                              title: widget.fullname?.isNotEmpty == true
+                                  ? widget.fullname!
+                                  : 'Sem nome',
+                              subtitle: 'Detalhes do cliente convertido',
+                              badge: AppStatusBadge(
+                                label: 'Cliente',
+                                tone: AppStatusTone.success,
+                                icon: Icons.verified_rounded,
+                              ),
+                              chips: [
+                                HeroChip(
+                                  icon: Icons.fingerprint_rounded,
+                                  label: 'ID #'
+                                      '${(widget.leadId ?? '').substring(0, math.min(8, (widget.leadId ?? '').length))}',
+                                ),
+                              ],
+                            ).appFade(),
+                          ),
+                        ),
+                        SizedBox(height: 12.0),
                         Padding(
                           padding: EdgeInsetsDirectional.fromSTEB(
                               16.0, 0.0, 16.0, 16.0),
                           child: Container(
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               color: Color(0xFF404040),
@@ -3464,7 +3432,7 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
 
                             return Container(
                               constraints: BoxConstraints(
-                                maxWidth: 800.0,
+                                maxWidth: double.infinity,
                               ),
                               decoration: BoxDecoration(
                                 color: Color(0xFF404040),
@@ -4013,7 +3981,7 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                           child: Container(
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12.0),
@@ -4066,9 +4034,6 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                 );
               },
             ),
-          ),
-        ),
-      ),
     );
   }
 }

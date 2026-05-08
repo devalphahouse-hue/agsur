@@ -1,19 +1,14 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/supabase/supabase.dart';
-import '/flutter_flow/flutter_flow_drop_down.dart';
-import '/flutter_flow/flutter_flow_theme.dart';
+import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import '/flutter_flow/form_field_controller.dart';
-import 'dart:ui';
-import '/index.dart';
-import 'dart:async';
-import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'create_category_model.dart';
+
 export 'create_category_model.dart';
 
 class CreateCategoryWidget extends StatefulWidget {
@@ -28,828 +23,453 @@ class CreateCategoryWidget extends StatefulWidget {
 
 class _CreateCategoryWidgetState extends State<CreateCategoryWidget> {
   late CreateCategoryModel _model;
-
-  final scaffoldKey = GlobalKey<ScaffoldState>();
+  String _filter = 'all';
 
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => CreateCategoryModel());
-
     _model.tFCategoryNameTextController ??= TextEditingController();
     _model.tFCategoryNameFocusNode ??= FocusNode();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {}));
+    _model.dpdTypeItemValue ??= 'series';
   }
 
   @override
   void dispose() {
     _model.dispose();
-
     super.dispose();
+  }
+
+  void _refresh() => safeSetState(() => _model.requestCompleter = null);
+
+  Future<void> _create() async {
+    final name = _model.tFCategoryNameTextController?.text.trim() ?? '';
+    if (name.isEmpty || (_model.dpdTypeItemValue ?? '').isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Preencha tipo e nome da categoria'),
+          backgroundColor: Color(0xFFFF5963),
+        ),
+      );
+      return;
+    }
+    await CategoryTable().insert({
+      'category_name': name,
+      'item_type': _model.dpdTypeItemValue,
+      'created_by': currentUserUid,
+    });
+    if (!mounted) return;
+    _model.tFCategoryNameTextController?.clear();
+    _refresh();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Categoria cadastrada',
+          style: GoogleFonts.inter(color: const Color(0xFF313131)),
+        ),
+        backgroundColor: const Color(0xFFC2D51C),
+      ),
+    );
+  }
+
+  Future<void> _delete(CategoryRow item) async {
+    await CategoryTable().delete(
+      matchingRows: (rows) => rows.eqOrNull('id', item.id),
+    );
+    if (!mounted) return;
+    _refresh();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Categoria removida',
+          style: GoogleFonts.inter(color: const Color(0xFF313131)),
+        ),
+        backgroundColor: const Color(0xFFC2D51C),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus();
-        FocusManager.instance.primaryFocus?.unfocus();
-      },
-      child: Scaffold(
-        key: scaffoldKey,
-        backgroundColor: Color(0xFF313131),
-        appBar: AppBar(
-          backgroundColor: Color(0xFF313131),
-          iconTheme: IconThemeData(color: FlutterFlowTheme.of(context).primary),
-          automaticallyImplyLeading: true,
-          title: Text(
-            'Categorias',
-            textAlign: TextAlign.center,
-            style: FlutterFlowTheme.of(context).headlineMedium.override(
-                  font: GoogleFonts.inter(
-                    fontWeight:
-                        FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).headlineMedium.fontStyle,
+    return AppListScaffold(
+      eyebrow: 'Operação',
+      title: 'Categorias',
+      description:
+          'Agrupe itens de série e opcionais por categoria para usar nas propostas.',
+      search: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          _FilterChips(
+            label: 'Mostrar',
+            value: _filter,
+            options: const [
+              MapEntry('all', 'Todos'),
+              MapEntry('series', 'Série'),
+              MapEntry('optional', 'Opcionais'),
+            ],
+            onChanged: (v) => setState(() => _filter = v),
+          ),
+        ],
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _CreateForm(
+            controller: _model.tFCategoryNameTextController!,
+            type: _model.dpdTypeItemValue ?? 'series',
+            onTypeChanged: (v) =>
+                safeSetState(() => _model.dpdTypeItemValue = v),
+            onSubmit: _create,
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<List<CategoryRow>>(
+            future: (_model.requestCompleter ??=
+                    Completer<List<CategoryRow>>()
+                      ..complete(CategoryTable().queryRows(
+                        queryFn: (q) =>
+                            q.order('category_name', ascending: true),
+                      )))
+                .future,
+            builder: (context, snap) {
+              if (!snap.hasData) {
+                return Column(
+                  children: List.generate(
+                    4,
+                    (_) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: AppSkeleton.box(height: 56),
+                    ),
                   ),
-                  color: Color(0x73FFFFFF),
-                  fontSize: 18.0,
-                  letterSpacing: 0.0,
-                  fontWeight:
-                      FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                  fontStyle:
-                      FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                ),
+                );
+              }
+              final all = snap.data!;
+              final list = _filter == 'all'
+                  ? all
+                  : all.where((c) => c.itemType == _filter).toList();
+              if (list.isEmpty) {
+                return AppCard(
+                  child: AppEmptyState(
+                    icon: Icons.category_outlined,
+                    title: 'Nenhuma categoria',
+                    description:
+                        'Use o formulário acima para criar a primeira.',
+                    compact: true,
+                  ),
+                );
+              }
+              return Column(
+                children: [
+                  for (int i = 0; i < list.length; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _CategoryRow(
+                        item: list[i],
+                        onDelete: () => _delete(list[i]),
+                      ).appStagger(i),
+                    ),
+                ],
+              );
+            },
           ),
-          actions: [
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-              child: InkWell(
-                splashColor: Colors.transparent,
-                focusColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                onTap: () async {
-                  context.pushNamed(HomePageWidget.routeName);
-                },
-                child: Icon(
-                  Icons.home,
-                  color: FlutterFlowTheme.of(context).primary,
-                  size: 24.0,
+        ],
+      ),
+    );
+  }
+}
+
+class _CreateForm extends StatelessWidget {
+  const _CreateForm({
+    required this.controller,
+    required this.type,
+    required this.onTypeChanged,
+    required this.onSubmit,
+  });
+
+  final TextEditingController controller;
+  final String type;
+  final ValueChanged<String> onTypeChanged;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Tipo (chip toggle)
+          _TypeToggle(
+            value: type,
+            onChanged: onTypeChanged,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              style: GoogleFonts.roboto(color: Colors.white, fontSize: 13.5),
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: 'Nome da categoria',
+                hintStyle: GoogleFonts.roboto(
+                  color: const Color(0x99FFFFFF),
+                  fontSize: 13.5,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 14),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.04),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide:
+                      const BorderSide(color: Color(0x22FFFFFF), width: 1.4),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide:
+                      const BorderSide(color: Color(0x22FFFFFF), width: 1.4),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(
+                      color: Color(0xFFC2D51C), width: 1.4),
                 ),
               ),
+              onSubmitted: (_) => onSubmit(),
             ),
-          ],
-          centerTitle: true,
-          elevation: 0.0,
+          ),
+          const SizedBox(width: 12),
+          _SubmitBtn(onTap: onSubmit),
+        ],
+      ),
+    );
+  }
+}
+
+class _TypeToggle extends StatelessWidget {
+  const _TypeToggle({required this.value, required this.onChanged});
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: const Color(0x14FFFFFF),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0x22FFFFFF)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _seg('series', 'Série'),
+          _seg('optional', 'Opcional'),
+        ],
+      ),
+    );
+  }
+
+  Widget _seg(String v, String label) {
+    final active = v == value;
+    return GestureDetector(
+      onTap: () => onChanged(v),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: active ? const Color(0xFFC2D51C) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
         ),
-        body: SafeArea(
-          top: true,
-          child: Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(0.0, 28.0, 0.0, 0.0),
-            child: Container(
-              width: MediaQuery.sizeOf(context).width * 1.0,
-              decoration: BoxDecoration(),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.max,
-                  children: [
-                    Padding(
-                      padding: EdgeInsetsDirectional.fromSTEB(
-                          16.0, 36.0, 16.0, 16.0),
-                      child: Container(
-                        width: MediaQuery.sizeOf(context).width * 1.0,
-                        constraints: BoxConstraints(
-                          maxWidth: 800.0,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Color(0xFF404040),
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.all(24.0),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Align(
-                                alignment: AlignmentDirectional(-1.0, 0.0),
-                                child: Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                      12.0, 0.0, 12.0, 0.0),
-                                  child: Text(
-                                    'Cadastrar Categorias',
-                                    style: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .override(
-                                          font: GoogleFonts.roboto(
-                                            fontWeight: FontWeight.w500,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                          color: FlutterFlowTheme.of(context)
-                                              .secondaryBackground,
-                                          fontSize: 18.0,
-                                          letterSpacing: 0.0,
-                                          fontWeight: FontWeight.w500,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontStyle,
-                                        ),
-                                  ),
-                                ),
-                              ),
-                              Divider(
-                                thickness: 2.0,
-                                color: Color(0x74FFFFFF),
-                              ),
-                              FlutterFlowDropDown<String>(
-                                controller:
-                                    _model.dpdTypeItemValueController ??=
-                                        FormFieldController<String>(
-                                  _model.dpdTypeItemValue ??= '',
-                                ),
-                                options:
-                                    List<String>.from(['optional', 'series']),
-                                optionLabels: [
-                                  'Item Opcional',
-                                  'Item de série'
-                                ],
-                                onChanged: (val) => safeSetState(
-                                    () => _model.dpdTypeItemValue = val),
-                                height: 48.0,
-                                textStyle: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryBackground,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                hintText:
-                                    'Selecione o tipo de item que irá cadastrar',
-                                icon: Icon(
-                                  Icons.keyboard_arrow_down_rounded,
-                                  color: Color(0x72FFFFFF),
-                                  size: 24.0,
-                                ),
-                                fillColor: Color(0xFF404040),
-                                elevation: 2.0,
-                                borderColor: Color(0x73FFFFFF),
-                                borderWidth: 0.0,
-                                borderRadius: 8.0,
-                                margin: EdgeInsetsDirectional.fromSTEB(
-                                    12.0, 0.0, 12.0, 0.0),
-                                hidesUnderline: true,
-                                isOverButton: false,
-                                isSearchable: false,
-                                isMultiSelect: false,
-                              ),
-                              Row(
-                                mainAxisSize: MainAxisSize.max,
-                                children: [
-                                  Expanded(
-                                    child: Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                          0.0, 8.0, 0.0, 0.0),
-                                      child: TextFormField(
-                                        controller:
-                                            _model.tFCategoryNameTextController,
-                                        focusNode:
-                                            _model.tFCategoryNameFocusNode,
-                                        autofocus: false,
-                                        obscureText: false,
-                                        decoration: InputDecoration(
-                                          isDense: false,
-                                          labelText: 'Nome da Categoria',
-                                          labelStyle: FlutterFlowTheme.of(
-                                                  context)
-                                              .labelMedium
-                                              .override(
-                                                font: GoogleFonts.inter(
-                                                  fontWeight:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .labelMedium
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .labelMedium
-                                                          .fontStyle,
-                                                ),
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .secondaryBackground,
-                                                letterSpacing: 0.0,
-                                                fontWeight:
-                                                    FlutterFlowTheme.of(context)
-                                                        .labelMedium
-                                                        .fontWeight,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .labelMedium
-                                                        .fontStyle,
-                                              ),
-                                          hintText: 'Nome da Categoria',
-                                          hintStyle: FlutterFlowTheme.of(
-                                                  context)
-                                              .labelMedium
-                                              .override(
-                                                font: GoogleFonts.inter(
-                                                  fontWeight:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .labelMedium
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .labelMedium
-                                                          .fontStyle,
-                                                ),
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .secondaryBackground,
-                                                letterSpacing: 0.0,
-                                                fontWeight:
-                                                    FlutterFlowTheme.of(context)
-                                                        .labelMedium
-                                                        .fontWeight,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .labelMedium
-                                                        .fontStyle,
-                                              ),
-                                          enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
-                                              color: Color(0x73FFFFFF),
-                                              width: 1.0,
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(8.0),
-                                          ),
-                                          focusedBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
-                                              color:
-                                                  FlutterFlowTheme.of(context)
-                                                      .primary,
-                                              width: 1.0,
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(8.0),
-                                          ),
-                                          errorBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
-                                              color:
-                                                  FlutterFlowTheme.of(context)
-                                                      .error,
-                                              width: 1.0,
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(8.0),
-                                          ),
-                                          focusedErrorBorder:
-                                              OutlineInputBorder(
-                                            borderSide: BorderSide(
-                                              color:
-                                                  FlutterFlowTheme.of(context)
-                                                      .error,
-                                              width: 1.0,
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(8.0),
-                                          ),
-                                          filled: true,
-                                          fillColor: Color(0xFF404040),
-                                        ),
-                                        style: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .override(
-                                              font: GoogleFonts.inter(
-                                                fontWeight:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontWeight,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontStyle,
-                                              ),
-                                              color:
-                                                  FlutterFlowTheme.of(context)
-                                                      .secondaryBackground,
-                                              letterSpacing: 0.0,
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                        cursorColor:
-                                            FlutterFlowTheme.of(context)
-                                                .primaryText,
-                                        validator: _model
-                                            .tFCategoryNameTextControllerValidator
-                                            .asValidator(context),
-                                      ),
-                                    ),
-                                  ),
-                                ].divide(SizedBox(width: 16.0)),
-                              ),
-                              Align(
-                                alignment: AlignmentDirectional(1.0, 0.0),
-                                child: Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                      0.0, 16.0, 0.0, 0.0),
-                                  child: FFButtonWidget(
-                                    onPressed: () async {
-                                      _model.createCategory =
-                                          await CategoryTable().insert({
-                                        'category_name': _model
-                                            .tFCategoryNameTextController.text,
-                                        'item_type': _model.dpdTypeItemValue,
-                                        'created_by': currentUserUid,
-                                      });
-                                      await Future.wait([
-                                        Future(() async {
-                                          safeSetState(() {
-                                            _model.tFCategoryNameTextController
-                                                ?.clear();
-                                          });
-                                        }),
-                                        Future(() async {
-                                          safeSetState(() {
-                                            _model.dpdTypeItemValueController
-                                                ?.reset();
-                                            _model.dpdTypeItemValue = null;
-                                          });
-                                        }),
-                                      ]);
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Categoria cadastrada com sucesso!',
-                                            style: TextStyle(
-                                              color:
-                                                  FlutterFlowTheme.of(context)
-                                                      .primaryText,
-                                            ),
-                                          ),
-                                          duration:
-                                              Duration(milliseconds: 4000),
-                                          backgroundColor:
-                                              FlutterFlowTheme.of(context)
-                                                  .primary,
-                                        ),
-                                      );
-                                      safeSetState(
-                                          () => _model.requestCompleter = null);
-                                      await _model.waitForRequestCompleted();
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: active ? const Color(0xFF313131) : Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-                                      safeSetState(() {});
-                                    },
-                                    text: 'Cadastrar item',
-                                    options: FFButtonOptions(
-                                      height: 48.0,
-                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                          24.0, 0.0, 24.0, 0.0),
-                                      iconPadding:
-                                          EdgeInsetsDirectional.fromSTEB(
-                                              0.0, 0.0, 0.0, 0.0),
-                                      color:
-                                          FlutterFlowTheme.of(context).primary,
-                                      textStyle: FlutterFlowTheme.of(context)
-                                          .titleSmall
-                                          .override(
-                                            font: GoogleFonts.roboto(
-                                              fontWeight: FontWeight.w500,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .titleSmall
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .primaryText,
-                                            fontSize: 14.0,
-                                            letterSpacing: 0.0,
-                                            fontWeight: FontWeight.w500,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .titleSmall
-                                                    .fontStyle,
-                                          ),
-                                      elevation: 0.0,
-                                      borderRadius: BorderRadius.circular(12.0),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ].divide(SizedBox(height: 16.0)),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding:
-                          EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 24.0),
-                      child: Container(
-                        width: MediaQuery.sizeOf(context).width * 1.0,
-                        constraints: BoxConstraints(
-                          maxWidth: 800.0,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Color(0xFF404040),
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.all(24.0),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Align(
-                                alignment: AlignmentDirectional(-1.0, 0.0),
-                                child: Padding(
-                                  padding: EdgeInsets.all(12.0),
-                                  child: Text(
-                                    'Lista de categorias',
-                                    style: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .override(
-                                          font: GoogleFonts.roboto(
-                                            fontWeight: FontWeight.w500,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                          color: FlutterFlowTheme.of(context)
-                                              .secondaryBackground,
-                                          fontSize: 18.0,
-                                          letterSpacing: 0.0,
-                                          fontWeight: FontWeight.w500,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontStyle,
-                                        ),
-                                  ),
-                                ),
-                              ),
-                              Divider(
-                                thickness: 2.0,
-                                color: Color(0x74FFFFFF),
-                              ),
-                              Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    0.0, 12.0, 0.0, 12.0),
-                                child: FutureBuilder<List<CategoryRow>>(
-                                  future: (_model.requestCompleter ??=
-                                          Completer<List<CategoryRow>>()
-                                            ..complete(
-                                                CategoryTable().queryRows(
-                                              queryFn: (q) => q.order(
-                                                  'category_name',
-                                                  ascending: true),
-                                            )))
-                                      .future,
-                                  builder: (context, snapshot) {
-                                    // Customize what your widget looks like when it's loading.
-                                    if (!snapshot.hasData) {
-                                      return Center(
-                                        child: SizedBox(
-                                          width: 40.0,
-                                          height: 40.0,
-                                          child: SpinKitFoldingCube(
-                                            color: Color(0xFFC2D51C),
-                                            size: 40.0,
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                    List<CategoryRow>
-                                        cLStructureCategoriesCategoryRowList =
-                                        snapshot.data!;
+class _SubmitBtn extends StatefulWidget {
+  const _SubmitBtn({required this.onTap});
+  final VoidCallback onTap;
 
-                                    return ListView.separated(
-                                      padding: EdgeInsets.zero,
-                                      primary: false,
-                                      shrinkWrap: true,
-                                      scrollDirection: Axis.vertical,
-                                      itemCount:
-                                          cLStructureCategoriesCategoryRowList
-                                              .length,
-                                      separatorBuilder: (_, __) =>
-                                          SizedBox(height: 8.0),
-                                      itemBuilder: (context,
-                                          cLStructureCategoriesIndex) {
-                                        final cLStructureCategoriesCategoryRow =
-                                            cLStructureCategoriesCategoryRowList[
-                                                cLStructureCategoriesIndex];
-                                        return Container(
-                                          decoration: BoxDecoration(),
-                                          child: Padding(
-                                            padding:
-                                                EdgeInsetsDirectional.fromSTEB(
-                                                    12.0, 0.0, 12.0, 8.0),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.max,
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: [
-                                                Expanded(
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.max,
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment.start,
-                                                    children: [
-                                                      Align(
-                                                        alignment:
-                                                            AlignmentDirectional(
-                                                                -1.0, 0.0),
-                                                        child: Container(
-                                                          width:
-                                                              MediaQuery.sizeOf(
-                                                                          context)
-                                                                      .width *
-                                                                  0.3,
-                                                          decoration:
-                                                              BoxDecoration(),
-                                                          child: RichText(
-                                                            textScaler:
-                                                                MediaQuery.of(
-                                                                        context)
-                                                                    .textScaler,
-                                                            text: TextSpan(
-                                                              children: [
-                                                                TextSpan(
-                                                                  text:
-                                                                      'Categoria / ',
-                                                                  style: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .override(
-                                                                        font: GoogleFonts
-                                                                            .inter(
-                                                                          fontWeight:
-                                                                              FontWeight.normal,
-                                                                          fontStyle: FlutterFlowTheme.of(context)
-                                                                              .bodyMedium
-                                                                              .fontStyle,
-                                                                        ),
-                                                                        color: FlutterFlowTheme.of(context)
-                                                                            .secondaryBackground,
-                                                                        fontSize:
-                                                                            14.0,
-                                                                        letterSpacing:
-                                                                            0.0,
-                                                                        fontWeight:
-                                                                            FontWeight.normal,
-                                                                        fontStyle: FlutterFlowTheme.of(context)
-                                                                            .bodyMedium
-                                                                            .fontStyle,
-                                                                      ),
-                                                                ),
-                                                                TextSpan(
-                                                                  text: cLStructureCategoriesCategoryRow
-                                                                      .categoryName,
-                                                                  style:
-                                                                      TextStyle(
-                                                                    fontSize:
-                                                                        14.0,
-                                                                  ),
-                                                                )
-                                                              ],
-                                                              style: FlutterFlowTheme
-                                                                      .of(context)
-                                                                  .bodyMedium
-                                                                  .override(
-                                                                    font: GoogleFonts
-                                                                        .inter(
-                                                                      fontWeight:
-                                                                          FontWeight
-                                                                              .normal,
-                                                                      fontStyle: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodyMedium
-                                                                          .fontStyle,
-                                                                    ),
-                                                                    color: Color(
-                                                                        0x74FFFFFF),
-                                                                    fontSize:
-                                                                        14.0,
-                                                                    letterSpacing:
-                                                                        0.0,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .normal,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .fontStyle,
-                                                                  ),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      Align(
-                                                        alignment:
-                                                            AlignmentDirectional(
-                                                                -1.0, 0.0),
-                                                        child: RichText(
-                                                          textScaler:
-                                                              MediaQuery.of(
-                                                                      context)
-                                                                  .textScaler,
-                                                          text: TextSpan(
-                                                            children: [
-                                                              TextSpan(
-                                                                text:
-                                                                    'Tipo de item / ',
-                                                                style: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .override(
-                                                                      font: GoogleFonts
-                                                                          .inter(
-                                                                        fontWeight:
-                                                                            FontWeight.normal,
-                                                                        fontStyle: FlutterFlowTheme.of(context)
-                                                                            .bodyMedium
-                                                                            .fontStyle,
-                                                                      ),
-                                                                      color: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .secondaryBackground,
-                                                                      fontSize:
-                                                                          14.0,
-                                                                      letterSpacing:
-                                                                          0.0,
-                                                                      fontWeight:
-                                                                          FontWeight
-                                                                              .normal,
-                                                                      fontStyle: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodyMedium
-                                                                          .fontStyle,
-                                                                    ),
-                                                              ),
-                                                              TextSpan(
-                                                                text: cLStructureCategoriesCategoryRow
-                                                                    .itemType,
-                                                                style:
-                                                                    TextStyle(
-                                                                  fontSize:
-                                                                      14.0,
-                                                                ),
-                                                              )
-                                                            ],
-                                                            style: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .bodyMedium
-                                                                .override(
-                                                                  font:
-                                                                      GoogleFonts
-                                                                          .inter(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .normal,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  color: Color(
-                                                                      0x74FFFFFF),
-                                                                  fontSize:
-                                                                      14.0,
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .normal,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontStyle,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ].divide(
-                                                        SizedBox(width: 36.0)),
-                                                  ),
-                                                ),
-                                                Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.max,
-                                                  children: [
-                                                    InkWell(
-                                                      splashColor:
-                                                          Colors.transparent,
-                                                      focusColor:
-                                                          Colors.transparent,
-                                                      hoverColor:
-                                                          Colors.transparent,
-                                                      highlightColor:
-                                                          Colors.transparent,
-                                                      onTap: () async {
-                                                        await CategoryTable()
-                                                            .delete(
-                                                          matchingRows:
-                                                              (rows) =>
-                                                                  rows.eqOrNull(
-                                                            'id',
-                                                            cLStructureCategoriesCategoryRow
-                                                                .id,
-                                                          ),
-                                                        );
-                                                        safeSetState(() => _model
-                                                                .requestCompleter =
-                                                            null);
-                                                        await _model
-                                                            .waitForRequestCompleted();
-                                                        ScaffoldMessenger.of(
-                                                                context)
-                                                            .showSnackBar(
-                                                          SnackBar(
-                                                            content: Text(
-                                                              'Categoria excluída com sucesso!',
-                                                              style: GoogleFonts
-                                                                  .roboto(
-                                                                color: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .secondaryBackground,
-                                                              ),
-                                                            ),
-                                                            duration: Duration(
-                                                                milliseconds:
-                                                                    4000),
-                                                            backgroundColor:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .error,
-                                                          ),
-                                                        );
+  @override
+  State<_SubmitBtn> createState() => _SubmitBtnState();
+}
 
-                                                        safeSetState(() {});
-                                                      },
-                                                      child: Icon(
-                                                        Icons.delete,
-                                                        color:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .error,
-                                                        size: 20.0,
-                                                      ),
-                                                    ),
-                                                  ].divide(
-                                                      SizedBox(width: 8.0)),
-                                                ),
-                                              ].divide(SizedBox(width: 24.0)),
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ]
-                      .divide(SizedBox(height: 16.0))
-                      .addToEnd(SizedBox(height: 32.0)),
+class _SubmitBtnState extends State<_SubmitBtn> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFC2D51C), Color(0xFFAEC117)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFC2D51C)
+                    .withValues(alpha: _hover ? 0.45 : 0.25),
+                blurRadius: _hover ? 18 : 10,
+                spreadRadius: -2,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.add_rounded,
+                  size: 16, color: Color(0xFF313131)),
+              const SizedBox(width: 6),
+              Text(
+                'Adicionar',
+                style: GoogleFonts.inter(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF313131),
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryRow extends StatelessWidget {
+  const _CategoryRow({required this.item, required this.onDelete});
+  final CategoryRow item;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final isOpcional = item.itemType == 'optional';
+    return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: isOpcional
+                  ? const Color(0x33F9CF58)
+                  : const Color(0x33C2D51C),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(
+              isOpcional ? Icons.add_circle_outline : Icons.label_outline,
+              size: 16,
+              color: isOpcional
+                  ? const Color(0xFFF9CF58)
+                  : const Color(0xFFC2D51C),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              item.categoryName,
+              style: GoogleFonts.inter(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
               ),
             ),
           ),
-        ),
+          AppStatusBadge(
+            label: isOpcional ? 'Opcional' : 'Série',
+            tone: isOpcional ? AppStatusTone.warning : AppStatusTone.brand,
+            dense: true,
+          ),
+          const SizedBox(width: 8),
+          AppRowAction(
+            icon: Icons.delete_outline_rounded,
+            tooltip: 'Excluir',
+            danger: true,
+            onPressed: onDelete,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterChips extends StatelessWidget {
+  const _FilterChips({
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final List<MapEntry<String, String>> options;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0x14FFFFFF),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0x22FFFFFF)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$label:',
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: const Color(0x99FFFFFF),
+              letterSpacing: 0.6,
+            ),
+          ),
+          const SizedBox(width: 8),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              isDense: true,
+              dropdownColor: const Color(0xFF2A2A2A),
+              icon: const Icon(Icons.expand_more_rounded,
+                  color: Color(0xFFC2D51C), size: 18),
+              style: GoogleFonts.inter(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+              items: [
+                for (final opt in options)
+                  DropdownMenuItem(value: opt.key, child: Text(opt.value)),
+              ],
+              onChanged: (v) {
+                if (v != null) onChanged(v);
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1,4 +1,5 @@
 import '/backend/supabase/supabase.dart';
+import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_drop_down.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -292,94 +293,12 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: AlignmentDirectional(0.0, -1.0),
-      child: Padding(
-        padding: EdgeInsets.all(36.0),
-        child: Container(
-          width: MediaQuery.sizeOf(context).width * 1.0,
-          constraints: BoxConstraints(
-            maxWidth: 800.0,
-            maxHeight: MediaQuery.sizeOf(context).height * 0.9,
-          ),
-          decoration: BoxDecoration(
-            color: Color(0xFF313131),
-            borderRadius: BorderRadius.circular(12.0),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Align(
-                alignment: AlignmentDirectional(1.0, -1.0),
-                child: Padding(
-                  padding:
-                      EdgeInsetsDirectional.fromSTEB(12.0, 12.0, 12.0, 16.0),
-                  child: InkWell(
-                    splashColor: Colors.transparent,
-                    focusColor: Colors.transparent,
-                    hoverColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
-                    onTap: () async {
-                      Navigator.pop(context);
-                    },
-                    child: Icon(
-                      Icons.close_sharp,
-                      color: Color(0x72FFFFFF),
-                      size: 24.0,
-                    ),
-                  ),
-                ),
-              ),
-              Text(
-                valueOrDefault<String>(
-                  widget!.title,
-                  'Preencha os dados abaixo para prosseguir',
-                ),
-                style: FlutterFlowTheme.of(context).bodyMedium.override(
-                      font: GoogleFonts.inter(
-                        fontWeight: FontWeight.w500,
-                        fontStyle:
-                            FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                      ),
-                      color: FlutterFlowTheme.of(context).secondaryBackground,
-                      fontSize: 18.0,
-                      letterSpacing: 0.0,
-                      fontWeight: FontWeight.w500,
-                      fontStyle:
-                          FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                    ),
-              ),
-              Align(
-                alignment: AlignmentDirectional(0.0, 0.0),
-                child: Padding(
-                  padding: EdgeInsetsDirectional.fromSTEB(0.0, 4.0, 0.0, 0.0),
-                  child: Text(
-                    'Preencha os dados abaixo para prosseguir',
-                    textAlign: TextAlign.center,
-                    style: FlutterFlowTheme.of(context).bodyMedium.override(
-                          font: GoogleFonts.inter(
-                            fontWeight: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .fontWeight,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .fontStyle,
-                          ),
-                          color: Color(0x74FFFFFF),
-                          fontSize: 14.0,
-                          letterSpacing: 0.0,
-                          fontWeight: FlutterFlowTheme.of(context)
-                              .bodyMedium
-                              .fontWeight,
-                          fontStyle:
-                              FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                        ),
-                  ),
-                ),
-              ),
-              Flexible(
-                child: Builder(
+    return AppModal(
+      icon: Icons.timeline_rounded,
+      title: widget.title ?? 'Preencha os dados abaixo para prosseguir',
+      description: 'Preencha os dados abaixo para prosseguir.',
+      maxWidth: 760,
+      child: Builder(
                 builder: (context) {
                   if (widget!.order == 15) {
                     return Form(
@@ -3703,11 +3622,6 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                   }
                 },
               ),
-              ),
-            ].divide(SizedBox(height: 8.0)),
-          ),
-        ).animateOnPageLoad(animationsMap['containerOnPageLoadAnimation']!),
-      ),
     );
   }
 

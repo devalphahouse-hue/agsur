@@ -11,6 +11,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:provider/provider.dart';
+import '/core_ui/core_ui.dart';
 import 'view_edit_employees_model.dart';
 export 'view_edit_employees_model.dart';
 
@@ -70,78 +71,9 @@ class _ViewEditEmployeesWidgetState extends State<ViewEditEmployeesWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus();
-        FocusManager.instance.primaryFocus?.unfocus();
-      },
-      child: Scaffold(
-        key: scaffoldKey,
-        backgroundColor: Color(0xFF313131),
-        appBar: AppBar(
-          backgroundColor: Color(0xFF313131),
-          iconTheme: IconThemeData(color: FlutterFlowTheme.of(context).primary),
-          automaticallyImplyLeading: true,
-          title: Text(
-            valueOrDefault<String>(
-              widget!.typeAccess == 'view'
-                  ? valueOrDefault<String>(
-                      'Dados do Colaborador${valueOrDefault<String>(
-                        widget!.fullname,
-                        '[fullname]',
-                      )}',
-                      'Dados Cadastrais do Colaborador',
-                    )
-                  : valueOrDefault<String>(
-                      'Editar Dados Colaborador${widget!.fullname}',
-                      'Editar Dados Colaborador',
-                    ),
-              'Dados do Colaborador',
-            ),
-            textAlign: TextAlign.center,
-            style: FlutterFlowTheme.of(context).headlineMedium.override(
-                  font: GoogleFonts.inter(
-                    fontWeight:
-                        FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                  ),
-                  color: Color(0x73FFFFFF),
-                  fontSize: 18.0,
-                  letterSpacing: 0.0,
-                  fontWeight:
-                      FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                  fontStyle:
-                      FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                ),
-          ),
-          actions: [
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-              child: InkWell(
-                splashColor: Colors.transparent,
-                focusColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                onTap: () async {
-                  context.pushNamed(HomePageWidget.routeName);
-                },
-                child: Icon(
-                  Icons.home,
-                  color: FlutterFlowTheme.of(context).primary,
-                  size: 24.0,
-                ),
-              ),
-            ),
-          ],
-          centerTitle: true,
-          elevation: 0.0,
-        ),
-        body: SafeArea(
-          top: true,
-          child: Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(0.0, 28.0, 0.0, 0.0),
-            child: FutureBuilder<List<UsersRow>>(
+    return AppDetailsScaffold(
+      title: 'Detalhes do colaborador',
+      body: FutureBuilder<List<UsersRow>>(
               future: UsersTable().querySingleRow(
                 queryFn: (q) => q.eqOrNull(
                   'id',
@@ -175,13 +107,64 @@ class _ViewEditEmployeesWidgetState extends State<ViewEditEmployeesWidget> {
                     child: Column(
                       mainAxisSize: MainAxisSize.max,
                       children: [
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: double.infinity),
+                            child: AppDetailHero(
+                              avatarText: ((containerUsersRow?.name ?? '')
+                                      .split(' ')
+                                      .where((p) => p.isNotEmpty)
+                                      .take(2)
+                                      .map((p) => p[0])
+                                      .join())
+                                  .toUpperCase(),
+                              avatarIcon: Icons.badge_outlined,
+                              eyebrow: 'COLABORADOR',
+                              title: containerUsersRow?.name.isNotEmpty == true
+                                  ? containerUsersRow!.name
+                                  : 'Sem nome',
+                              subtitle: [
+                                if (containerUsersRow?.email.isNotEmpty == true)
+                                  containerUsersRow!.email,
+                                if (containerUsersRow?.phone.isNotEmpty == true)
+                                  containerUsersRow!.phone,
+                              ].join(' · '),
+                              badge: AppStatusBadge(
+                                label: switch (containerUsersRow?.status) {
+                                  'approved' => 'Ativo',
+                                  'pending' || 'requested' => 'Em análise',
+                                  'refused' || 'blocked' => 'Inativo',
+                                  _ => '—',
+                                },
+                                tone: switch (containerUsersRow?.status) {
+                                  'approved' => AppStatusTone.success,
+                                  'pending' || 'requested' =>
+                                    AppStatusTone.warning,
+                                  'refused' || 'blocked' =>
+                                    AppStatusTone.danger,
+                                  _ => AppStatusTone.neutral,
+                                },
+                                icon: Icons.shield_outlined,
+                              ),
+                              chips: [
+                                if (containerUsersRow?.profileType.isNotEmpty ==
+                                    true)
+                                  HeroChip(
+                                    icon: Icons.workspace_premium_outlined,
+                                    label: containerUsersRow!.profileType,
+                                  ),
+                              ],
+                            ).appFade(),
+                          ),
+                        ),
+                        SizedBox(height: 12.0),
                         Padding(
                           padding: EdgeInsetsDirectional.fromSTEB(
                               16.0, 0.0, 16.0, 16.0),
                           child: Container(
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               color: Color(0xFF404040),
@@ -2021,7 +2004,7 @@ class _ViewEditEmployeesWidgetState extends State<ViewEditEmployeesWidget> {
                           child: Container(
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12.0),
@@ -2074,9 +2057,6 @@ class _ViewEditEmployeesWidgetState extends State<ViewEditEmployeesWidget> {
                 );
               },
             ),
-          ),
-        ),
-      ),
     );
   }
 }

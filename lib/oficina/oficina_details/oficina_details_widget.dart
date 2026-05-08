@@ -4,6 +4,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
+import '/pages/shared/linked_clients_section/linked_clients_section_widget.dart';
 import '/pages/shared/custom_snac_bar/custom_snac_bar_widget.dart';
 import 'dart:ui';
 import '/index.dart';
@@ -14,6 +15,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:provider/provider.dart';
+import '/core_ui/core_ui.dart';
 import 'oficina_details_model.dart';
 export 'oficina_details_model.dart';
 
@@ -73,62 +75,9 @@ class _OficinaDetailsWidgetState extends State<OficinaDetailsWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus();
-        FocusManager.instance.primaryFocus?.unfocus();
-      },
-      child: Scaffold(
-        key: scaffoldKey,
-        backgroundColor: Color(0xFF313131),
-        appBar: AppBar(
-          backgroundColor: Color(0xFF313131),
-          iconTheme: IconThemeData(color: FlutterFlowTheme.of(context).primary),
-          automaticallyImplyLeading: true,
-          title: Text(
-            'Detalhes oficina',
-            textAlign: TextAlign.center,
-            style: FlutterFlowTheme.of(context).headlineMedium.override(
-                  font: GoogleFonts.inter(
-                    fontWeight:
-                        FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                  ),
-                  color: Color(0x73FFFFFF),
-                  fontSize: 18.0,
-                  letterSpacing: 0.0,
-                  fontWeight:
-                      FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                  fontStyle:
-                      FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                ),
-          ),
-          actions: [
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-              child: InkWell(
-                splashColor: Colors.transparent,
-                focusColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                onTap: () async {
-                  context.pushNamed(HomePageWidget.routeName);
-                },
-                child: Icon(
-                  Icons.home,
-                  color: FlutterFlowTheme.of(context).primary,
-                  size: 24.0,
-                ),
-              ),
-            ),
-          ],
-          centerTitle: true,
-          elevation: 0.0,
-        ),
-        body: SafeArea(
-          top: true,
-          child: FutureBuilder<List<UsersRow>>(
+    return AppDetailsScaffold(
+      title: 'Detalhes da oficina',
+      body: FutureBuilder<List<UsersRow>>(
             future: UsersTable().querySingleRow(
               queryFn: (q) => q.eqOrNull(
                 'id',
@@ -165,71 +114,73 @@ class _OficinaDetailsWidgetState extends State<OficinaDetailsWidget> {
                     child: Column(
                       mainAxisSize: MainAxisSize.max,
                       children: [
-                        Padding(
-                          padding: EdgeInsetsDirectional.fromSTEB(
-                              16.0, 0.0, 16.0, 16.0),
-                          child: Container(
-                            width: MediaQuery.sizeOf(context).width * 1.0,
-                            constraints: BoxConstraints(
-                              maxWidth: 800.0,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Color(0xFF404040),
-                              borderRadius: BorderRadius.circular(12.0),
-                            ),
-                            child: Padding(
-                              padding: EdgeInsets.all(36.0),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Row(
-                                    mainAxisSize: MainAxisSize.max,
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Align(
-                                        alignment:
-                                            AlignmentDirectional(-1.0, 0.0),
-                                        child: Text(
-                                          'Oficina',
-                                          style: FlutterFlowTheme.of(context)
-                                              .bodyMedium
-                                              .override(
-                                                font: GoogleFonts.roboto(
-                                                  fontWeight: FontWeight.w500,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .fontStyle,
-                                                ),
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .secondaryBackground,
-                                                fontSize: 18.0,
-                                                letterSpacing: 0.0,
-                                                fontWeight: FontWeight.w500,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontStyle,
-                                              ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ].divide(SizedBox(height: 16.0)),
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: double.infinity),
+                            child: AppDetailHero(
+                              avatarIcon: Icons.build_outlined,
+                              eyebrow: 'OFICINA',
+                              title: containerUsersRow?.name.isNotEmpty == true
+                                  ? containerUsersRow!.name
+                                  : 'Sem nome',
+                              subtitle: [
+                                if (containerUsersRow?.email.isNotEmpty == true)
+                                  containerUsersRow!.email,
+                                if (containerUsersRow?.phone.isNotEmpty == true)
+                                  containerUsersRow!.phone,
+                              ].join(' · '),
+                              badge: AppStatusBadge(
+                                label: switch (containerUsersRow?.status) {
+                                  'approved' => 'Ativa',
+                                  'pending' => 'Pendente',
+                                  'requested' => 'Em análise',
+                                  'refused' => 'Recusada',
+                                  'blocked' => 'Bloqueada',
+                                  _ => '—',
+                                },
+                                tone: switch (containerUsersRow?.status) {
+                                  'approved' => AppStatusTone.success,
+                                  'pending' || 'requested' =>
+                                    AppStatusTone.warning,
+                                  'refused' || 'blocked' =>
+                                    AppStatusTone.danger,
+                                  _ => AppStatusTone.neutral,
+                                },
+                                icon: Icons.shield_outlined,
                               ),
-                            ),
+                              chips: [
+                                if (containerUsersRow?.cpf.isNotEmpty == true)
+                                  HeroChip(
+                                    icon: Icons.badge_outlined,
+                                    label: containerUsersRow!.cpf,
+                                  ),
+                                if (containerUsersRow?.profileType.isNotEmpty ==
+                                    true)
+                                  HeroChip(
+                                    icon: Icons.workspace_premium_outlined,
+                                    label: containerUsersRow!.profileType,
+                                  ),
+                              ],
+                            ).appFade(),
                           ),
                         ),
+                        SizedBox(height: 12.0),
+                        if (containerUsersRow != null)
+                          LinkedClientsSection(
+                            ownerId: containerUsersRow.id,
+                            pivotTable: 'oficina_clients',
+                            ownerColumn: 'oficina_id',
+                            title: 'Clientes vinculados',
+                            subtitle:
+                                'A oficina vê as aeronaves dos clientes vinculados no app.',
+                          ),
                         Padding(
                           padding: EdgeInsetsDirectional.fromSTEB(
                               16.0, 0.0, 16.0, 16.0),
                           child: Container(
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               color: Color(0xFF404040),
@@ -1929,7 +1880,7 @@ class _OficinaDetailsWidgetState extends State<OficinaDetailsWidget> {
                           child: Container(
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12.0),
@@ -1983,8 +1934,6 @@ class _OficinaDetailsWidgetState extends State<OficinaDetailsWidget> {
               );
             },
           ),
-        ),
-      ),
     );
   }
 }

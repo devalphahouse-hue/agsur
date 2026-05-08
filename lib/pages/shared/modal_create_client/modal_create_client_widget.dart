@@ -1,22 +1,12 @@
+import 'package:flutter/material.dart';
+
 import '/backend/api_requests/api_calls.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/supabase/supabase.dart';
-import '/flutter_flow/flutter_flow_animations.dart';
-import '/flutter_flow/flutter_flow_drop_down.dart';
-import '/flutter_flow/flutter_flow_theme.dart';
+import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import '/flutter_flow/form_field_controller.dart';
-import 'dart:math';
-import 'dart:ui';
-import 'package:auto_size_text/auto_size_text.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'modal_create_client_model.dart';
+
 export 'modal_create_client_model.dart';
 
 class ModalCreateClientWidget extends StatefulWidget {
@@ -27,761 +17,274 @@ class ModalCreateClientWidget extends StatefulWidget {
       _ModalCreateClientWidgetState();
 }
 
-class _ModalCreateClientWidgetState extends State<ModalCreateClientWidget>
-    with TickerProviderStateMixin {
+class _ModalCreateClientWidgetState extends State<ModalCreateClientWidget> {
   late ModalCreateClientModel _model;
-
-  final animationsMap = <String, AnimationInfo>{};
-
-  @override
-  void setState(VoidCallback callback) {
-    super.setState(callback);
-    _model.onUpdate();
-  }
+  bool _showPwd = false;
+  bool _busy = false;
+  LeadsRow? _selectedLead;
+  String? _leadError;
 
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => ModalCreateClientModel());
-
     _model.tFEmailUserTextController ??= TextEditingController();
     _model.tFEmailUserFocusNode ??= FocusNode();
-
     _model.tFPasswordUserTextController ??= TextEditingController();
     _model.tFPasswordUserFocusNode ??= FocusNode();
-
-    animationsMap.addAll({
-      'containerOnPageLoadAnimation': AnimationInfo(
-        trigger: AnimationTrigger.onPageLoad,
-        effectsBuilder: () => [
-          ScaleEffect(
-            curve: Curves.easeInOut,
-            delay: 0.0.ms,
-            duration: 500.0.ms,
-            begin: Offset(0.0, 0.0),
-            end: Offset(1.0, 1.0),
-          ),
-        ],
-      ),
-    });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {}));
   }
 
   @override
   void dispose() {
     _model.maybeDispose();
-
     super.dispose();
+  }
+
+  String _generatePassword() {
+    final src = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
+    return 'Ag${src.substring(src.length - 6)}!';
+  }
+
+  Future<void> _submit() async {
+    if (_busy) return;
+    if (_selectedLead == null) {
+      setState(() => _leadError = 'Selecione um lead');
+      return;
+    }
+    if (_model.formKey.currentState == null ||
+        !_model.formKey.currentState!.validate()) {
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      _model.authUserResponse = await CreateAccountAnotherUserCall.call(
+        email: _model.tFEmailUserTextController!.text,
+        password: _model.tFPasswordUserTextController!.text,
+      );
+      if (!(_model.authUserResponse?.succeeded ?? false)) {
+        if (!mounted) return;
+        Navigator.of(context).pop();
+        await showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Erro'),
+            content: const Text(
+                'Algo deu errado! Não foi possível cadastrar a conta do usuário. Por favor, tente novamente!'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Ok'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+      final newUser = await UsersTable().insert({
+        'id': getJsonField(
+          _model.authUserResponse?.jsonBody ?? '',
+          r'$.user.id',
+        ).toString(),
+        'name': _selectedLead?.name ?? 'vazio',
+        'email': getJsonField(
+          _model.authUserResponse?.jsonBody ?? '',
+          r'$.user.email',
+        ).toString(),
+        'phone': _selectedLead?.phone ?? 'vazio',
+        'profile_type': ProfileType.Cliente.name,
+        'cpf': _selectedLead?.cpf ?? 'vazio',
+        'status': UserStatus.approved.name,
+        'lastname': _selectedLead?.lastName ?? 'vazio',
+        'fullname': _selectedLead?.fullname ?? 'vazio',
+      });
+      await TrackingTable().insert({
+        'user_aircraft': newUser.id,
+        'tracking_description': 'Cadastro Inicial',
+        'order': 0,
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cliente criado com sucesso!',
+              style: TextStyle(color: Color(0xFF313131))),
+          backgroundColor: Color(0xFFC2D51C),
+        ),
+      );
+      Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: AlignmentDirectional(0.0, -1.0),
-      child: Padding(
-        padding: EdgeInsets.all(36.0),
-        child: FutureBuilder<List<LeadsRow>>(
-          future: LeadsTable().queryRows(
-            queryFn: (q) => q
-                .eqOrNull(
-                  'active',
-                  true,
-                )
-                .order('fullname', ascending: true),
+    return FutureBuilder<List<LeadsRow>>(
+      future: LeadsTable().queryRows(
+        queryFn: (q) =>
+            q.eqOrNull('active', true).order('fullname', ascending: true),
+      ),
+      builder: (context, snap) {
+        return AppModal(
+          icon: Icons.person_add_alt_1_rounded,
+          title: 'Criar conta de cliente',
+          description:
+              'Selecione um lead, defina senha temporária e libere o acesso à plataforma.',
+          maxWidth: 560,
+          footer: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              AppSecondaryButton(
+                label: 'Cancelar',
+                onPressed: () => Navigator.of(context).maybePop(),
+              ),
+              const SizedBox(width: 10),
+              AppPrimaryButton(
+                label: 'Criar conta',
+                icon: Icons.check_rounded,
+                busy: _busy,
+                onPressed: snap.hasData ? _submit : null,
+              ),
+            ],
           ),
-          builder: (context, snapshot) {
-            // Customize what your widget looks like when it's loading.
-            if (!snapshot.hasData) {
-              return Center(
-                child: SizedBox(
-                  width: 40.0,
-                  height: 40.0,
-                  child: SpinKitFoldingCube(
-                    color: Color(0xFFC2D51C),
-                    size: 40.0,
+          child: !snap.hasData
+              ? Column(
+                  children: List.generate(
+                    3,
+                    (_) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: AppSkeleton.box(height: 60),
+                    ),
+                  ),
+                )
+              : Form(
+                  key: _model.formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppDropdown<LeadsRow>(
+                        label: 'Lead',
+                        icon: Icons.person_search_rounded,
+                        placeholder: 'Selecione o lead...',
+                        required: true,
+                        searchable: true,
+                        value: _selectedLead,
+                        options: snap.data!,
+                        labelOf: (l) => l.fullname ?? l.name,
+                        errorText: _leadError,
+                        onChanged: (lead) {
+                          setState(() {
+                            _selectedLead = lead;
+                            _leadError = null;
+                            _model.tFEmailUserTextController?.text =
+                                lead.email;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      AppFormField(
+                        controller: _model.tFEmailUserTextController,
+                        focusNode: _model.tFEmailUserFocusNode,
+                        label: 'E-mail',
+                        placeholder: 'email@cliente.com',
+                        icon: Icons.alternate_email_rounded,
+                        required: true,
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (v) => _model
+                            .tFEmailUserTextControllerValidator
+                            ?.call(context, v),
+                      ),
+                      const SizedBox(height: 14),
+                      AppFormField(
+                        controller: _model.tFPasswordUserTextController,
+                        focusNode: _model.tFPasswordUserFocusNode,
+                        label: 'Senha temporária',
+                        placeholder: 'Mínimo 6 caracteres',
+                        icon: Icons.lock_outline_rounded,
+                        required: true,
+                        obscureText: !_showPwd,
+                        helper:
+                            'O cliente pode trocar a senha após o primeiro acesso.',
+                        suffix: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _IconAction(
+                              icon: Icons.auto_fix_high_rounded,
+                              tooltip: 'Gerar senha',
+                              onTap: () => setState(() => _model
+                                  .tFPasswordUserTextController!
+                                  .text = _generatePassword()),
+                            ),
+                            const SizedBox(width: 4),
+                            _IconAction(
+                              icon: _showPwd
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                              tooltip: _showPwd ? 'Esconder' : 'Mostrar',
+                              onTap: () =>
+                                  setState(() => _showPwd = !_showPwd),
+                            ),
+                          ],
+                        ),
+                        validator: (v) => _model
+                            .tFPasswordUserTextControllerValidator
+                            ?.call(context, v),
+                      ),
+                    ],
                   ),
                 ),
-              );
-            }
-            List<LeadsRow> cTMainLeadsRowList = snapshot.data!;
+        );
+      },
+    );
+  }
+}
 
-            return Container(
-              width: MediaQuery.sizeOf(context).width * 1.0,
-              constraints: BoxConstraints(
-                maxWidth: 800.0,
-              ),
-              decoration: BoxDecoration(
-                color: Color(0xFF313131),
-                borderRadius: BorderRadius.circular(12.0),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Align(
-                    alignment: AlignmentDirectional(1.0, -1.0),
-                    child: Padding(
-                      padding: EdgeInsetsDirectional.fromSTEB(
-                          12.0, 12.0, 12.0, 16.0),
-                      child: InkWell(
-                        splashColor: Colors.transparent,
-                        focusColor: Colors.transparent,
-                        hoverColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onTap: () async {
-                          Navigator.pop(context);
-                        },
-                        child: Icon(
-                          Icons.close_sharp,
-                          color: Color(0x72FFFFFF),
-                          size: 24.0,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding:
-                        EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.max,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        AutoSizeText(
-                          'Criar conta de usuário',
-                          minFontSize: 16.0,
-                          style:
-                              FlutterFlowTheme.of(context).bodyMedium.override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FontWeight.w500,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    fontSize: 18.0,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FontWeight.w500,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding:
-                        EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 16.0),
-                    child: Container(
-                      constraints: BoxConstraints(
-                        maxWidth: 330.0,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Color(0xFF313131),
-                        borderRadius: BorderRadius.circular(12.0),
-                      ),
-                      child: Align(
-                        alignment: AlignmentDirectional(0.0, 0.0),
-                        child: Padding(
-                          padding: EdgeInsetsDirectional.fromSTEB(
-                              0.0, 4.0, 0.0, 0.0),
-                          child: Text(
-                            'Para criar uma conta para o cliente e liberar o acesso à plataforma, gere uma senha temporária',
-                            textAlign: TextAlign.center,
-                            style: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .override(
-                                  font: GoogleFonts.inter(
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                                  color: Color(0x74FFFFFF),
-                                  fontSize: 14.0,
-                                  letterSpacing: 0.0,
-                                  fontWeight: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .fontStyle,
-                                ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Form(
-                    key: _model.formKey,
-                    autovalidateMode: AutovalidateMode.disabled,
-                    child: Container(
-                      constraints: BoxConstraints(
-                        maxWidth: 800.0,
-                      ),
-                      decoration: BoxDecoration(),
-                      child: Padding(
-                        padding: EdgeInsets.all(24.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            FlutterFlowDropDown<String>(
-                              controller: _model.dropDownValueController ??=
-                                  FormFieldController<String>(
-                                _model.dropDownValue ??= '',
-                              ),
-                              options: List<String>.from(
-                                  cTMainLeadsRowList.map((e) => e.id).toList()),
-                              optionLabels: cTMainLeadsRowList
-                                  .map((e) => e.fullname)
-                                  .withoutNulls
-                                  .toList(),
-                              onChanged: (val) async {
-                                safeSetState(() => _model.dropDownValue = val);
-                                _model.leadss = await LeadsTable().queryRows(
-                                  queryFn: (q) => q.eqOrNull(
-                                    'id',
-                                    _model.dropDownValue,
-                                  ),
-                                );
-                                safeSetState(() {
-                                  _model.tFEmailUserTextController?.text =
-                                      valueOrDefault<String>(
-                                    _model.leadss?.firstOrNull?.email,
-                                    '-',
-                                  );
-                                });
+class _IconAction extends StatefulWidget {
+  const _IconAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
 
-                                safeSetState(() {});
-                              },
-                              height: 54.0,
-                              searchHintTextStyle: FlutterFlowTheme.of(context)
-                                  .labelMedium
-                                  .override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .labelMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .labelMedium
-                                          .fontStyle,
-                                    ),
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .labelMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .labelMedium
-                                        .fontStyle,
-                                  ),
-                              searchTextStyle: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                              textStyle: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                              hintText: 'Selecione o lead...',
-                              searchHintText: 'Digite o nome aqui...',
-                              searchCursorColor: FlutterFlowTheme.of(context)
-                                  .secondaryBackground,
-                              icon: Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                color: Color(0x72FFFFFF),
-                                size: 24.0,
-                              ),
-                              fillColor: Color(0xFF404040),
-                              elevation: 2.0,
-                              borderColor: Color(0x72FFFFFF),
-                              borderWidth: 0.0,
-                              borderRadius: 8.0,
-                              margin: EdgeInsetsDirectional.fromSTEB(
-                                  12.0, 0.0, 12.0, 0.0),
-                              hidesUnderline: true,
-                              isOverButton: false,
-                              isSearchable: true,
-                              isMultiSelect: false,
-                            ),
-                            Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  0.0, 12.0, 0.0, 0.0),
-                              child: TextFormField(
-                                controller: _model.tFEmailUserTextController,
-                                focusNode: _model.tFEmailUserFocusNode,
-                                autofocus: false,
-                                obscureText: false,
-                                decoration: InputDecoration(
-                                  isDense: false,
-                                  labelText: 'E-mail',
-                                  labelStyle: FlutterFlowTheme.of(context)
-                                      .labelMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontStyle,
-                                      ),
-                                  hintText: 'E-mail do usuário',
-                                  hintStyle: FlutterFlowTheme.of(context)
-                                      .labelMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontStyle,
-                                      ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color: Color(0x72FFFFFF),
-                                      width: 1.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8.0),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color:
-                                          FlutterFlowTheme.of(context).primary,
-                                      width: 1.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8.0),
-                                  ),
-                                  errorBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color: FlutterFlowTheme.of(context).error,
-                                      width: 1.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8.0),
-                                  ),
-                                  focusedErrorBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color: FlutterFlowTheme.of(context).error,
-                                      width: 1.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8.0),
-                                  ),
-                                  filled: true,
-                                  fillColor: Color(0xFF404040),
-                                ),
-                                style: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryBackground,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                cursorColor: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
-                                validator: _model
-                                    .tFEmailUserTextControllerValidator
-                                    .asValidator(context),
-                              ),
-                            ),
-                            Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  0.0, 4.0, 0.0, 0.0),
-                              child: TextFormField(
-                                controller: _model.tFPasswordUserTextController,
-                                focusNode: _model.tFPasswordUserFocusNode,
-                                autofocus: false,
-                                obscureText: !_model.tFPasswordUserVisibility,
-                                decoration: InputDecoration(
-                                  isDense: false,
-                                  labelText: 'Senha',
-                                  labelStyle: FlutterFlowTheme.of(context)
-                                      .labelMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontStyle,
-                                      ),
-                                  hintText: 'Senha',
-                                  hintStyle: FlutterFlowTheme.of(context)
-                                      .labelMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontStyle,
-                                      ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color: Color(0x72FFFFFF),
-                                      width: 1.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8.0),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color:
-                                          FlutterFlowTheme.of(context).primary,
-                                      width: 1.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8.0),
-                                  ),
-                                  errorBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color: FlutterFlowTheme.of(context).error,
-                                      width: 1.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8.0),
-                                  ),
-                                  focusedErrorBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color: FlutterFlowTheme.of(context).error,
-                                      width: 1.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8.0),
-                                  ),
-                                  filled: true,
-                                  fillColor: Color(0xFF404040),
-                                  suffixIcon: InkWell(
-                                    onTap: () async {
-                                      safeSetState(() =>
-                                          _model.tFPasswordUserVisibility =
-                                              !_model.tFPasswordUserVisibility);
-                                    },
-                                    focusNode: FocusNode(skipTraversal: true),
-                                    child: Icon(
-                                      _model.tFPasswordUserVisibility
-                                          ? Icons.visibility_outlined
-                                          : Icons.visibility_off_outlined,
-                                      color: Color(0x74FFFFFF),
-                                      size: 18.0,
-                                    ),
-                                  ),
-                                ),
-                                style: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryBackground,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                cursorColor: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
-                                validator: _model
-                                    .tFPasswordUserTextControllerValidator
-                                    .asValidator(context),
-                              ),
-                            ),
-                            Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  4.0, 16.0, 4.0, 16.0),
-                              child: FFButtonWidget(
-                                onPressed: (_model.dropDownValue == null ||
-                                        _model.dropDownValue == '')
-                                    ? null
-                                    : () async {
-                                        var _shouldSetState = false;
-                                        _model.formRegister = true;
-                                        if (_model.formKey.currentState ==
-                                                null ||
-                                            !_model.formKey.currentState!
-                                                .validate()) {
-                                          safeSetState(() =>
-                                              _model.formRegister = false);
-                                          return;
-                                        }
-                                        _shouldSetState = true;
-                                        _model.getLeadData =
-                                            await LeadsTable().queryRows(
-                                          queryFn: (q) => q.eqOrNull(
-                                            'id',
-                                            _model.dropDownValue,
-                                          ),
-                                        );
-                                        _shouldSetState = true;
-                                        _model.authUserResponse =
-                                            await CreateAccountAnotherUserCall
-                                                .call(
-                                          email: _model
-                                              .tFEmailUserTextController.text,
-                                          password: _model
-                                              .tFPasswordUserTextController
-                                              .text,
-                                        );
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
 
-                                        _shouldSetState = true;
-                                        if ((_model
-                                                .authUserResponse?.succeeded ??
-                                            true)) {
-                                          _model.insertUser =
-                                              await UsersTable().insert({
-                                            'id': getJsonField(
-                                              (_model.authUserResponse
-                                                      ?.jsonBody ??
-                                                  ''),
-                                              r'''$.user.id''',
-                                            ).toString(),
-                                            'name': valueOrDefault<String>(
-                                              _model.getLeadData?.firstOrNull
-                                                  ?.name,
-                                              'vazio',
-                                            ),
-                                            'email': getJsonField(
-                                              (_model.authUserResponse
-                                                      ?.jsonBody ??
-                                                  ''),
-                                              r'''$.user.email''',
-                                            ).toString(),
-                                            'phone': valueOrDefault<String>(
-                                              _model.getLeadData?.firstOrNull
-                                                  ?.phone,
-                                              'vazio',
-                                            ),
-                                            'profile_type':
-                                                valueOrDefault<String>(
-                                              ProfileType.Cliente.name,
-                                              'Cliente',
-                                            ),
-                                            'cpf': valueOrDefault<String>(
-                                              _model.getLeadData?.firstOrNull
-                                                  ?.cpf,
-                                              'vazio',
-                                            ),
-                                            'status': valueOrDefault<String>(
-                                              UserStatus.approved.name,
-                                              'approved',
-                                            ),
-                                            'lastname': valueOrDefault<String>(
-                                              _model.getLeadData?.firstOrNull
-                                                  ?.lastName,
-                                              'vazio',
-                                            ),
-                                            'fullname': valueOrDefault<String>(
-                                              _model.getLeadData?.firstOrNull
-                                                  ?.fullname,
-                                              'vazio',
-                                            ),
-                                          });
-                                          _shouldSetState = true;
-                                          _model.tracking =
-                                              await TrackingTable().insert({
-                                            'user_aircraft':
-                                                _model.insertUser?.id,
-                                            'tracking_description':
-                                                'Cadastro Inicial',
-                                            'order': 0,
-                                          });
-                                          _shouldSetState = true;
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                'Cliente criado com sucesso!',
-                                                style: GoogleFonts.roboto(
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .primaryText,
-                                                ),
-                                              ),
-                                              duration:
-                                                  Duration(milliseconds: 4000),
-                                              backgroundColor:
-                                                  FlutterFlowTheme.of(context)
-                                                      .primary,
-                                            ),
-                                          );
-                                          Navigator.pop(context);
-                                        } else {
-                                          Navigator.pop(context);
-                                          await showDialog(
-                                            context: context,
-                                            builder: (alertDialogContext) {
-                                              return AlertDialog(
-                                                title: Text('Erro'),
-                                                content: Text(
-                                                    'Algo deu errado! Não foi possível cadastrar a conta do usuário. Por favor, tente novamente!'),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed: () =>
-                                                        Navigator.pop(
-                                                            alertDialogContext),
-                                                    child: Text('Ok'),
-                                                  ),
-                                                ],
-                                              );
-                                            },
-                                          );
-                                          if (_shouldSetState)
-                                            safeSetState(() {});
-                                          return;
-                                        }
+  @override
+  State<_IconAction> createState() => _IconActionState();
+}
 
-                                        if (_shouldSetState)
-                                          safeSetState(() {});
-                                      },
-                                text: 'Criar conta',
-                                options: FFButtonOptions(
-                                  width: double.infinity,
-                                  height: 50.0,
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                      24.0, 0.0, 24.0, 0.0),
-                                  iconPadding: EdgeInsetsDirectional.fromSTEB(
-                                      0.0, 0.0, 0.0, 0.0),
-                                  color: FlutterFlowTheme.of(context).primary,
-                                  textStyle: FlutterFlowTheme.of(context)
-                                      .titleSmall
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight: FontWeight.w500,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .titleSmall
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .primaryText,
-                                        fontSize: 14.0,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FontWeight.w500,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .titleSmall
-                                            .fontStyle,
-                                      ),
-                                  elevation: 0.0,
-                                  borderRadius: BorderRadius.circular(8.0),
-                                  disabledColor: Color(0x72FFFFFF),
-                                  disabledTextColor:
-                                      FlutterFlowTheme.of(context)
-                                          .secondaryText,
-                                ),
-                              ),
-                            ),
-                          ].divide(SizedBox(height: 16.0)),
-                        ),
-                      ),
-                    ),
-                  ),
-                ].divide(SizedBox(height: 8.0)),
-              ),
-            ).animateOnPageLoad(animationsMap['containerOnPageLoadAnimation']!);
-          },
+class _IconActionState extends State<_IconAction> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: widget.tooltip,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: _hover
+                  ? const Color(0x22C2D51C)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              widget.icon,
+              size: 15,
+              color: _hover
+                  ? const Color(0xFFC2D51C)
+                  : const Color(0xCCFFFFFF),
+            ),
+          ),
         ),
       ),
     );

@@ -119,6 +119,11 @@ dependencies:
   webview_flutter_wkwebview: 3.22.0
   xml: 6.5.0
 
+  # Observabilidade — captura crashes/erros em produção.
+  # DSN é injetada em build via --dart-define=SENTRY_DSN=...
+  # Sem DSN, Sentry.init é no-op.
+  sentry_flutter: 8.14.2
+
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.0

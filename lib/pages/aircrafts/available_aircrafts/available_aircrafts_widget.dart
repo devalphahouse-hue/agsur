@@ -1,28 +1,19 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import '/auth/supabase_auth/auth_util.dart';
 import '/backend/api_requests/api_calls.dart';
 import '/backend/schema/structs/index.dart';
 import '/backend/supabase/supabase.dart';
-import '/flutter_flow/flutter_flow_drop_down.dart';
-import '/flutter_flow/flutter_flow_theme.dart';
+import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import '/flutter_flow/form_field_controller.dart';
 import '/pages/modal_create_available_aircraft/modal_create_available_aircraft_widget.dart';
 import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
-import '/pages/shared/custom_snac_bar/custom_snac_bar_widget.dart';
-import '/pages/shared/empty_list/empty_list_widget.dart';
-import '/pages/shared/menu/menu_widget.dart';
-import 'dart:ui';
-import '/flutter_flow/custom_functions.dart' as functions;
-import '/index.dart';
-import 'dart:async';
-import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
-import '/auth/supabase_auth/auth_util.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'available_aircrafts_model.dart';
+
 export 'available_aircrafts_model.dart';
 
 class AvailableAircraftsWidget extends StatefulWidget {
@@ -38,1417 +29,561 @@ class AvailableAircraftsWidget extends StatefulWidget {
 
 class _AvailableAircraftsWidgetState extends State<AvailableAircraftsWidget> {
   late AvailableAircraftsModel _model;
+  String _query = '';
+  bool _disposed = false;
 
-  final scaffoldKey = GlobalKey<ScaffoldState>();
+  static const _statusOptions = ['Todos', 'Disponível', 'Vendido', 'Reservado'];
 
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => AvailableAircraftsModel());
+    _model.dPDEntryYearValue ??= DateTime.now().year.toString();
+    _model.dPDStatusValue ??= 'Todos';
 
     SchedulerBinding.instance.addPostFrameCallback((_) async {
-      _model.user = await UsersTable().queryRows(
-        queryFn: (q) => q.eqOrNull('id', currentUserUid),
-      );
-      safeSetState(() {});
+      try {
+        final user = await QueryCache.fetch<List<UsersRow>>(
+          key: 'aircrafts.currentUser:$currentUserUid',
+          ttl: const Duration(minutes: 5),
+          fetcher: () => UsersTable().queryRows(
+            queryFn: (q) => q.eqOrNull('id', currentUserUid),
+          ),
+        );
+        if (_disposed) return;
+        _model.user = user;
+        safeSetState(() {});
+      } catch (_) {}
     });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {}));
   }
 
   @override
   void dispose() {
+    _disposed = true;
     _model.dispose();
-
     super.dispose();
+  }
+
+  bool get _isAdmin =>
+      _model.user?.firstOrNull?.profileType == 'Admin Master';
+
+  void _refresh() => safeSetState(() => _model.apiRequestCompleter = null);
+
+  Future<void> _openCreate() async {
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        elevation: 0,
+        insetPadding: EdgeInsets.zero,
+        backgroundColor: Colors.transparent,
+        alignment: Alignment.center,
+        child: GestureDetector(
+          onTap: () {
+            FocusScope.of(dialogContext).unfocus();
+            FocusManager.instance.primaryFocus?.unfocus();
+          },
+          child: ModalCreateAvailableAircraftWidget(
+            type: 'create',
+            btnAction: (idAeronave, numeroSerie, dataFabricacao,
+                prazoConfiguracao, dataEntrega, createdBy, anoBase, status,
+                updateBy, id) async {
+              await AvailableAircraftsTable().insert({
+                'aircraft_model': idAeronave,
+                'serial_number': numeroSerie,
+                'manufacture_date': supaSerialize<DateTime>(dataFabricacao),
+                'configuration_deadline':
+                    supaSerialize<DateTime>(prazoConfiguracao),
+                'delivery_date': supaSerialize<DateTime>(dataEntrega),
+                'status': status,
+                'created_by': createdBy,
+                'update_by': createdBy,
+                'entry_year': anoBase,
+              });
+              if (!mounted) return;
+              _refresh();
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Aeronave cadastrada',
+                    style: GoogleFonts.inter(color: const Color(0xFF313131)),
+                  ),
+                  backgroundColor: const Color(0xFFC2D51C),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openEdit(ListAvailableAircraftsStruct item) async {
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        elevation: 0,
+        insetPadding: EdgeInsets.zero,
+        backgroundColor: Colors.transparent,
+        alignment: Alignment.center,
+        child: GestureDetector(
+          onTap: () {
+            FocusScope.of(dialogContext).unfocus();
+            FocusManager.instance.primaryFocus?.unfocus();
+          },
+          child: ModalCreateAvailableAircraftWidget(
+            type: 'edit',
+            id: item.id,
+            btnAction: (idAeronave, numeroSerie, dataFabricacao,
+                prazoConfiguracao, dataEntrega, createdBy, anoBase, status,
+                updateBy, id) async {
+              await AvailableAircraftsTable().update(
+                data: {
+                  'aircraft_model': idAeronave,
+                  'serial_number': numeroSerie,
+                  'manufacture_date': supaSerialize<DateTime>(dataFabricacao),
+                  'configuration_deadline':
+                      supaSerialize<DateTime>(prazoConfiguracao),
+                  'delivery_date': supaSerialize<DateTime>(dataEntrega),
+                  'status': status,
+                  'update_by': updateBy,
+                  'entry_year': anoBase,
+                },
+                matchingRows: (rows) => rows.eqOrNull('id', item.id),
+              );
+              if (!mounted) return;
+              _refresh();
+              Navigator.pop(context);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(ListAvailableAircraftsStruct item) async {
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        elevation: 0,
+        insetPadding: EdgeInsets.zero,
+        backgroundColor: Colors.transparent,
+        alignment: Alignment.center,
+        child: GestureDetector(
+          onTap: () {
+            FocusScope.of(dialogContext).unfocus();
+            FocusManager.instance.primaryFocus?.unfocus();
+          },
+          child: AlertDialogWidget(
+            title: 'Deseja excluir esta aeronave?',
+            iconColor: const Color(0xFFFF5963),
+            btnColor: const Color(0xFFFF5963),
+            confirmBtnAction: () async {
+              await AvailableAircraftsTable().delete(
+                matchingRows: (rows) => rows.eqOrNull('id', item.id),
+              );
+              if (!mounted) return;
+              Navigator.of(dialogContext).pop();
+              _refresh();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Aeronave excluída',
+                    style: GoogleFonts.inter(color: const Color(0xFF313131)),
+                  ),
+                  backgroundColor: const Color(0xFFC2D51C),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus();
-        FocusManager.instance.primaryFocus?.unfocus();
-      },
-      child: Scaffold(
-        key: scaffoldKey,
-        backgroundColor: Color(0xFF313131),
-        drawer: Drawer(
-          elevation: 16.0,
-          child: wrapWithModel(
-            model: _model.menuModel,
-            updateCallback: () => safeSetState(() {}),
-            child: MenuWidget(),
+    final years = List<String>.generate(
+      DateTime.now().year - 2018 + 2,
+      (i) => (2018 + i).toString(),
+    );
+
+    return AppListScaffold(
+      eyebrow: 'Operação',
+      title: 'Estoque de aeronaves',
+      description:
+          'Cada item é uma unidade física disponível para venda. Filtre por ano e status.',
+      actions: [
+        if (_isAdmin)
+          _PrimaryAction(
+            icon: Icons.flight_outlined,
+            label: 'Cadastrar aeronave',
+            onTap: _openCreate,
           ),
-        ),
-        appBar: AppBar(
-          backgroundColor: Color(0xFF313131),
-          iconTheme: IconThemeData(color: FlutterFlowTheme.of(context).primary),
-          automaticallyImplyLeading: true,
-          title: Text(
-            'Aeronaves cadastradas',
-            style: FlutterFlowTheme.of(context).headlineMedium.override(
-                  font: GoogleFonts.inter(
-                    fontWeight:
-                        FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                  ),
-                  color: Color(0x73FFFFFF),
-                  fontSize: 18.0,
-                  letterSpacing: 0.0,
-                  fontWeight:
-                      FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                  fontStyle:
-                      FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                ),
+      ],
+      search: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          AppSearchInput(
+            value: _query,
+            placeholder: 'Buscar por modelo ou serial...',
+            onChanged: (v) => setState(() => _query = v),
           ),
-          actions: [
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-              child: InkWell(
-                splashColor: Colors.transparent,
-                focusColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                onTap: () async {
-                  context.pushNamed(HomePageWidget.routeName);
-                },
-                child: Icon(
-                  Icons.home,
-                  color: FlutterFlowTheme.of(context).primary,
-                  size: 24.0,
+          _FilterChips(
+            label: 'Ano',
+            options: years,
+            value: _model.dPDEntryYearValue ?? years.last,
+            onChanged: (v) {
+              safeSetState(() {
+                _model.dPDEntryYearValue = v;
+              });
+              _refresh();
+            },
+          ),
+          _FilterChips(
+            label: 'Status',
+            options: _statusOptions,
+            value: _model.dPDStatusValue ?? 'Todos',
+            onChanged: (v) {
+              safeSetState(() {
+                _model.dPDStatusValue = v;
+              });
+              _refresh();
+            },
+          ),
+        ],
+      ),
+      body: FutureBuilder<ApiCallResponse>(
+        future: (_model.apiRequestCompleter ??= Completer<ApiCallResponse>()
+              ..complete(GetListAvailableAircraftsCall.call(
+                pEntryYear: _model.dPDEntryYearValue,
+                pStatus: _model.dPDStatusValue,
+              )))
+            .future,
+        builder: (context, snap) {
+          if (!snap.hasData) {
+            return Column(
+              children: List.generate(
+                4,
+                (_) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: AppSkeleton.box(height: 96),
                 ),
               ),
-            ),
-          ],
-          centerTitle: true,
-          elevation: 0.0,
-        ),
-        body: SafeArea(
-          top: true,
-          child: Column(
-            mainAxisSize: MainAxisSize.max,
-            mainAxisAlignment: MainAxisAlignment.start,
+            );
+          }
+          final all = (snap.data!.jsonBody as List)
+              .map<ListAvailableAircraftsStruct?>(
+                  ListAvailableAircraftsStruct.maybeFromMap)
+              .whereType<ListAvailableAircraftsStruct>()
+              .toList();
+          final list = _query.isEmpty
+              ? all
+              : all.where((a) {
+                  final q = _query.toLowerCase();
+                  return a.aircraftModel.toLowerCase().contains(q) ||
+                      a.serialNumber.toLowerCase().contains(q);
+                }).toList();
+          if (list.isEmpty) {
+            return AppCard(
+              child: AppEmptyState(
+                icon: Icons.warehouse_outlined,
+                title: 'Nenhuma aeronave',
+                description:
+                    'Nenhuma unidade encontrada para os filtros atuais.',
+              ),
+            );
+          }
+          return Column(
             children: [
-              Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(28.0, 48.0, 28.0, 28.0),
-                child: Row(
-                  mainAxisSize: MainAxisSize.max,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Builder(
-                      builder: (context) => FlutterFlowDropDown<String>(
-                        controller: _model.dPDEntryYearValueController ??=
-                            FormFieldController<String>(
-                          _model.dPDEntryYearValue ??= valueOrDefault<String>(
-                            DateTime.now().year.toString(),
-                            '2025',
-                          ),
-                        ),
-                        options: [
-                          '2025',
-                          '2026',
-                          '2027',
-                          '2028',
-                          '2029',
-                          '2030',
-                          '2031',
-                          '2032',
-                          '2033',
-                          '2034',
-                          '2035'
-                        ],
-                        onChanged: (val) async {
-                          safeSetState(() => _model.dPDEntryYearValue = val);
-                          await Future.wait([
-                            Future(() async {
-                              await showDialog(
-                                context: context,
-                                builder: (dialogContext) {
-                                  return Dialog(
-                                    elevation: 0,
-                                    insetPadding: EdgeInsets.zero,
-                                    backgroundColor: Colors.transparent,
-                                    alignment: AlignmentDirectional(0.0, 0.0)
-                                        .resolve(Directionality.of(context)),
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        FocusScope.of(dialogContext).unfocus();
-                                        FocusManager.instance.primaryFocus
-                                            ?.unfocus();
-                                      },
-                                      child: CustomSnacBarWidget(
-                                        title: 'Atualizando...',
-                                      ),
-                                    ),
-                                  );
-                                },
-                              );
-                            }),
-                            Future(() async {
-                              safeSetState(
-                                  () => _model.apiRequestCompleter = null);
-                              await _model.waitForApiRequestCompleted();
-                            }),
-                          ]);
-                        },
-                        width: 200.0,
-                        height: 48.0,
-                        textStyle:
-                            FlutterFlowTheme.of(context).bodyMedium.override(
-                                  font: GoogleFonts.inter(
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                                  color: Color(0x72FFFFFF),
-                                  letterSpacing: 0.0,
-                                  fontWeight: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .fontStyle,
-                                ),
-                        hintText: 'Selecione o ano',
-                        icon: Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          color: Color(0x72FFFFFF),
-                          size: 24.0,
-                        ),
-                        fillColor: Color(0xFF313131),
-                        elevation: 2.0,
-                        borderColor: Color(0x72FFFFFF),
-                        borderWidth: 2.0,
-                        borderRadius: 8.0,
-                        margin: EdgeInsetsDirectional.fromSTEB(
-                            16.0, 0.0, 12.0, 0.0),
-                        hidesUnderline: true,
-                        isOverButton: false,
-                        isSearchable: false,
-                        isMultiSelect: false,
-                      ),
-                    ),
-                    Builder(
-                      builder: (context) => FlutterFlowDropDown<String>(
-                        controller: _model.dPDStatusValueController ??=
-                            FormFieldController<String>(
-                          _model.dPDStatusValue ??= 'Todos',
-                        ),
-                        options: [
-                          'Disponível',
-                          'Em negociação',
-                          'Entregue',
-                          'Vendido',
-                          'Todos'
-                        ],
-                        onChanged: (val) async {
-                          safeSetState(() => _model.dPDStatusValue = val);
-                          await Future.wait([
-                            Future(() async {
-                              await showDialog(
-                                context: context,
-                                builder: (dialogContext) {
-                                  return Dialog(
-                                    elevation: 0,
-                                    insetPadding: EdgeInsets.zero,
-                                    backgroundColor: Colors.transparent,
-                                    alignment: AlignmentDirectional(0.0, 0.0)
-                                        .resolve(Directionality.of(context)),
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        FocusScope.of(dialogContext).unfocus();
-                                        FocusManager.instance.primaryFocus
-                                            ?.unfocus();
-                                      },
-                                      child: CustomSnacBarWidget(
-                                        title: 'Atualizando...',
-                                      ),
-                                    ),
-                                  );
-                                },
-                              );
-                            }),
-                            Future(() async {
-                              safeSetState(
-                                  () => _model.apiRequestCompleter = null);
-                              await _model.waitForApiRequestCompleted();
-                            }),
-                          ]);
-                        },
-                        width: 200.0,
-                        height: 48.0,
-                        textStyle:
-                            FlutterFlowTheme.of(context).bodyMedium.override(
-                                  font: GoogleFonts.inter(
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                                  color: Color(0x72FFFFFF),
-                                  letterSpacing: 0.0,
-                                  fontWeight: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .fontStyle,
-                                ),
-                        hintText: 'Selecione o status',
-                        icon: Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          color: Color(0x72FFFFFF),
-                          size: 24.0,
-                        ),
-                        fillColor: Color(0xFF313131),
-                        elevation: 2.0,
-                        borderColor: Color(0x72FFFFFF),
-                        borderWidth: 2.0,
-                        borderRadius: 8.0,
-                        margin: EdgeInsetsDirectional.fromSTEB(
-                            16.0, 0.0, 12.0, 0.0),
-                        hidesUnderline: true,
-                        isOverButton: false,
-                        isSearchable: false,
-                        isMultiSelect: false,
-                      ),
-                    ),
-                    if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                    Align(
-                      alignment: AlignmentDirectional(1.0, 0.0),
-                      child: Builder(
-                        builder: (context) => FFButtonWidget(
-                          onPressed: () async {
-                            await showDialog(
-                              context: context,
-                              builder: (dialogContext) {
-                                return Dialog(
-                                  elevation: 0,
-                                  insetPadding: EdgeInsets.zero,
-                                  backgroundColor: Colors.transparent,
-                                  alignment: AlignmentDirectional(0.0, 0.0)
-                                      .resolve(Directionality.of(context)),
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      FocusScope.of(dialogContext).unfocus();
-                                      FocusManager.instance.primaryFocus
-                                          ?.unfocus();
-                                    },
-                                    child: ModalCreateAvailableAircraftWidget(
-                                      type: 'create',
-                                      btnAction: (idAeronave,
-                                          numeroSerie,
-                                          dataFabricacao,
-                                          prazoConfiguracao,
-                                          dataEntrega,
-                                          createdBy,
-                                          anoBase,
-                                          status,
-                                          updateBy,
-                                          id) async {
-                                        await AvailableAircraftsTable().insert({
-                                          'aircraft_model': idAeronave,
-                                          'serial_number': numeroSerie,
-                                          'manufacture_date':
-                                              supaSerialize<DateTime>(
-                                                  dataFabricacao),
-                                          'configuration_deadline':
-                                              supaSerialize<DateTime>(
-                                                  prazoConfiguracao),
-                                          'delivery_date':
-                                              supaSerialize<DateTime>(
-                                                  dataEntrega),
-                                          'status': status,
-                                          'created_by': createdBy,
-                                          'update_by': createdBy,
-                                          'entry_year': anoBase,
-                                        });
-                                        await Future.wait([
-                                          Future(() async {
-                                            await showDialog(
-                                              context: context,
-                                              builder: (dialogContext) {
-                                                return Dialog(
-                                                  elevation: 0,
-                                                  insetPadding: EdgeInsets.zero,
-                                                  backgroundColor:
-                                                      Colors.transparent,
-                                                  alignment:
-                                                      AlignmentDirectional(
-                                                              0.0, 1.0)
-                                                          .resolve(
-                                                              Directionality.of(
-                                                                  context)),
-                                                  child: GestureDetector(
-                                                    onTap: () {
-                                                      FocusScope.of(
-                                                              dialogContext)
-                                                          .unfocus();
-                                                      FocusManager
-                                                          .instance.primaryFocus
-                                                          ?.unfocus();
-                                                    },
-                                                    child: CustomSnacBarWidget(
-                                                      title:
-                                                          'Adicionando aeronave...',
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                            );
-                                          }),
-                                          Future(() async {
-                                            safeSetState(() => _model
-                                                .apiRequestCompleter = null);
-                                            await _model
-                                                .waitForApiRequestCompleted();
-                                          }),
-                                        ]);
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Aeronave adicionada à lista com sucesso!',
-                                              style: TextStyle(
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .primaryText,
-                                              ),
-                                            ),
-                                            duration:
-                                                Duration(milliseconds: 4000),
-                                            backgroundColor:
-                                                FlutterFlowTheme.of(context)
-                                                    .primary,
-                                          ),
-                                        );
-                                        Navigator.pop(context);
-                                      },
-                                    ),
-                                  ),
-                                );
-                              },
-                            );
-                          },
-                          text: 'Cadastrar aeronave',
-                          options: FFButtonOptions(
-                            height: 48.0,
-                            padding: EdgeInsetsDirectional.fromSTEB(
-                                36.0, 0.0, 36.0, 0.0),
-                            iconPadding: EdgeInsetsDirectional.fromSTEB(
-                                0.0, 0.0, 0.0, 0.0),
-                            color: FlutterFlowTheme.of(context).primary,
-                            textStyle: FlutterFlowTheme.of(context)
-                                .titleSmall
-                                .override(
-                                  font: GoogleFonts.roboto(
-                                    fontWeight: FontWeight.w500,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .titleSmall
-                                        .fontStyle,
-                                  ),
-                                  color:
-                                      FlutterFlowTheme.of(context).primaryText,
-                                  fontSize: 14.0,
-                                  letterSpacing: 0.0,
-                                  fontWeight: FontWeight.w500,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .titleSmall
-                                      .fontStyle,
-                                ),
-                            elevation: 0.0,
-                            borderRadius: BorderRadius.circular(12.0),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ].divide(SizedBox(width: 24.0)),
+              for (int i = 0; i < list.length; i++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _AircraftRow(
+                    item: list[i],
+                    canManage: _isAdmin,
+                    onTap: () => _openEdit(list[i]),
+                    onDelete: () => _confirmDelete(list[i]),
+                  ).appStagger(i),
                 ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AircraftRow extends StatelessWidget {
+  const _AircraftRow({
+    required this.item,
+    required this.canManage,
+    required this.onTap,
+    required this.onDelete,
+  });
+
+  final ListAvailableAircraftsStruct item;
+  final bool canManage;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  AppStatusTone get _statusTone {
+    final s = item.status.toLowerCase();
+    if (s.contains('vendido')) return AppStatusTone.danger;
+    if (s.contains('reserv')) return AppStatusTone.warning;
+    if (s.contains('dispon')) return AppStatusTone.success;
+    return AppStatusTone.brand;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPhoto = item.aircraftPhotoUrl.isNotEmpty;
+    return AppCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: const Color(0x14FFFFFF),
+              borderRadius: BorderRadius.circular(11),
+              border: Border.all(color: const Color(0x22FFFFFF)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: hasPhoto
+                ? Image.network(
+                    item.aircraftPhotoUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.flight_outlined,
+                      color: Color(0xFFC2D51C),
+                      size: 26,
+                    ),
+                  )
+                : const Icon(
+                    Icons.flight_outlined,
+                    color: Color(0xFFC2D51C),
+                    size: 26,
+                  ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  item.aircraftModel.isNotEmpty
+                      ? item.aircraftModel
+                      : 'Modelo não informado',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  children: [
+                    if (item.serialNumber.isNotEmpty)
+                      _Meta(Icons.tag_rounded, 'S/N ${item.serialNumber}'),
+                    if (item.entryYear.isNotEmpty)
+                      _Meta(Icons.event_outlined, 'Ano ${item.entryYear}'),
+                    if (item.deliveryDate.isNotEmpty)
+                      _Meta(Icons.flight_takeoff_rounded,
+                          _shortDate(item.deliveryDate)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppStatusBadge(
+                label: item.status.isEmpty ? '—' : item.status,
+                tone: _statusTone,
+                dense: true,
               ),
-              Padding(
-                padding: EdgeInsets.all(24.0),
-                child: FutureBuilder<ApiCallResponse>(
-                  future: (_model.apiRequestCompleter ??=
-                          Completer<ApiCallResponse>()
-                            ..complete(GetListAvailableAircraftsCall.call(
-                              pEntryYear: _model.dPDEntryYearValue == null ||
-                                      _model.dPDEntryYearValue == ''
-                                  ? '2025'
-                                  : _model.dPDEntryYearValue,
-                              pStatus: _model.dPDStatusValue,
-                            )))
-                      .future,
-                  builder: (context, snapshot) {
-                    // Customize what your widget looks like when it's loading.
-                    if (!snapshot.hasData) {
-                      return Center(
-                        child: SizedBox(
-                          width: 40.0,
-                          height: 40.0,
-                          child: SpinKitFoldingCube(
-                            color: Color(0xFFC2D51C),
-                            size: 40.0,
-                          ),
-                        ),
-                      );
-                    }
-                    final cTMainGetListAvailableAircraftsResponse =
-                        snapshot.data!;
+              if (canManage) ...[
+                const SizedBox(height: 8),
+                AppRowAction(
+                  icon: Icons.delete_outline_rounded,
+                  tooltip: 'Excluir',
+                  danger: true,
+                  onPressed: onDelete,
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
-                    return Container(
-                      width: MediaQuery.sizeOf(context).width * 1.0,
-                      decoration: BoxDecoration(
-                        color: Color(0xFF404040),
-                        borderRadius: BorderRadius.circular(12.0),
-                      ),
-                      child: Padding(
-                        padding: EdgeInsets.all(24.0),
-                        child: Builder(
-                          builder: (context) {
-                            final listAvailableAircrafts =
-                                (cTMainGetListAvailableAircraftsResponse
-                                                .jsonBody
-                                                .toList()
-                                                .map<ListAvailableAircraftsStruct?>(
-                                                    ListAvailableAircraftsStruct
-                                                        .maybeFromMap)
-                                                .toList()
-                                            as Iterable<
-                                                ListAvailableAircraftsStruct?>)
-                                        .withoutNulls
-                                        ?.map((e) => e)
-                                        .toList()
-                                        ?.toList() ??
-                                    [];
-                            if (listAvailableAircrafts.isEmpty) {
-                              return Center(
-                                child: EmptyListWidget(),
-                              );
-                            }
+  String _shortDate(String iso) {
+    try {
+      final d = DateTime.parse(iso);
+      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    } catch (_) {
+      return iso;
+    }
+  }
+}
 
-                            return ListView.separated(
-                              padding: EdgeInsets.zero,
-                              shrinkWrap: true,
-                              scrollDirection: Axis.vertical,
-                              itemCount: listAvailableAircrafts.length,
-                              separatorBuilder: (_, __) =>
-                                  SizedBox(height: 16.0),
-                              itemBuilder:
-                                  (context, listAvailableAircraftsIndex) {
-                                final listAvailableAircraftsItem =
-                                    listAvailableAircrafts[
-                                        listAvailableAircraftsIndex];
-                                return Container(
-                                  width: 100.0,
-                                  height: 124.0,
-                                  decoration: BoxDecoration(
-                                    color: Color(0xFF313131),
-                                    borderRadius: BorderRadius.circular(12.0),
-                                  ),
-                                  child: Padding(
-                                    padding: EdgeInsetsDirectional.fromSTEB(
-                                        24.0, 16.0, 24.0, 16.0),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.max,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.max,
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.start,
-                                            children: [
-                                              Padding(
-                                                padding: EdgeInsetsDirectional
-                                                    .fromSTEB(
-                                                        0.0, 0.0, 12.0, 0.0),
-                                                child: Container(
-                                                  width: 60.0,
-                                                  height: 60.0,
-                                                  clipBehavior: Clip.antiAlias,
-                                                  decoration: BoxDecoration(
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                  child: Image.network(
-                                                    valueOrDefault<String>(
-                                                      functions.convertToImagePath(
-                                                          listAvailableAircraftsItem
-                                                              .aircraftPhotoUrl),
-                                                      'https://bkzybtmxxzpxtztesdye.supabase.co/storage/v1/object/public/AGSur//transferir.png',
-                                                    ),
-                                                    fit: BoxFit.cover,
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: RichText(
-                                                  textScaler:
-                                                      MediaQuery.of(context)
-                                                          .textScaler,
-                                                  text: TextSpan(
-                                                    children: [
-                                                      TextSpan(
-                                                        text: 'Aeronave',
-                                                        style:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .override(
-                                                                  font: GoogleFonts
-                                                                      .raleway(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .normal,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .secondaryBackground,
-                                                                  fontSize:
-                                                                      14.0,
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .normal,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontStyle,
-                                                                ),
-                                                      ),
-                                                      TextSpan(
-                                                        text: ' / \n',
-                                                        style: TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                          fontSize: 14.0,
-                                                        ),
-                                                      ),
-                                                      TextSpan(
-                                                        text: valueOrDefault<
-                                                            String>(
-                                                          listAvailableAircraftsItem
-                                                              .aircraftModel,
-                                                          'Modelo',
-                                                        ),
-                                                        style: TextStyle(
-                                                          color:
-                                                              Color(0x72FFFFFF),
-                                                          fontSize: 14.0,
-                                                        ),
-                                                      )
-                                                    ],
-                                                    style: FlutterFlowTheme.of(
-                                                            context)
-                                                        .bodyMedium
-                                                        .override(
-                                                          font:
-                                                              GoogleFonts.inter(
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .normal,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontStyle,
-                                                          ),
-                                                          color: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .secondaryBackground,
-                                                          fontSize: 14.0,
-                                                          letterSpacing: 0.0,
-                                                          fontWeight:
-                                                              FontWeight.normal,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: RichText(
-                                                  textScaler:
-                                                      MediaQuery.of(context)
-                                                          .textScaler,
-                                                  text: TextSpan(
-                                                    children: [
-                                                      TextSpan(
-                                                        text: 'Número de série',
-                                                        style:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .override(
-                                                                  font: GoogleFonts
-                                                                      .raleway(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .normal,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .secondaryBackground,
-                                                                  fontSize:
-                                                                      14.0,
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .normal,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontStyle,
-                                                                ),
-                                                      ),
-                                                      TextSpan(
-                                                        text: ' / \n',
-                                                        style: TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                          fontSize: 14.0,
-                                                        ),
-                                                      ),
-                                                      TextSpan(
-                                                        text: valueOrDefault<
-                                                            String>(
-                                                          listAvailableAircraftsItem
-                                                              .serialNumber,
-                                                          '000',
-                                                        ),
-                                                        style: TextStyle(
-                                                          color:
-                                                              Color(0x72FFFFFF),
-                                                          fontSize: 14.0,
-                                                        ),
-                                                      )
-                                                    ],
-                                                    style: FlutterFlowTheme.of(
-                                                            context)
-                                                        .bodyMedium
-                                                        .override(
-                                                          font:
-                                                              GoogleFonts.inter(
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .normal,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontStyle,
-                                                          ),
-                                                          color: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .secondaryBackground,
-                                                          fontSize: 14.0,
-                                                          letterSpacing: 0.0,
-                                                          fontWeight:
-                                                              FontWeight.normal,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: RichText(
-                                                  textScaler:
-                                                      MediaQuery.of(context)
-                                                          .textScaler,
-                                                  text: TextSpan(
-                                                    children: [
-                                                      TextSpan(
-                                                        text:
-                                                            'Prazo de configuração',
-                                                        style:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .override(
-                                                                  font: GoogleFonts
-                                                                      .raleway(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .normal,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .secondaryBackground,
-                                                                  fontSize:
-                                                                      14.0,
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .normal,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontStyle,
-                                                                ),
-                                                      ),
-                                                      TextSpan(
-                                                        text: ' / \n',
-                                                        style: TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                          fontSize: 14.0,
-                                                        ),
-                                                      ),
-                                                      TextSpan(
-                                                        text: valueOrDefault<
-                                                            String>(
-                                                          listAvailableAircraftsItem
-                                                              .configurationDeadline,
-                                                          '00/00/0000',
-                                                        ),
-                                                        style: TextStyle(
-                                                          color:
-                                                              Color(0x72FFFFFF),
-                                                          fontSize: 14.0,
-                                                        ),
-                                                      )
-                                                    ],
-                                                    style: FlutterFlowTheme.of(
-                                                            context)
-                                                        .bodyMedium
-                                                        .override(
-                                                          font:
-                                                              GoogleFonts.inter(
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .normal,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontStyle,
-                                                          ),
-                                                          color: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .secondaryBackground,
-                                                          fontSize: 14.0,
-                                                          letterSpacing: 0.0,
-                                                          fontWeight:
-                                                              FontWeight.normal,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: RichText(
-                                                  textScaler:
-                                                      MediaQuery.of(context)
-                                                          .textScaler,
-                                                  text: TextSpan(
-                                                    children: [
-                                                      TextSpan(
-                                                        text:
-                                                            'Data de fabricação',
-                                                        style:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .override(
-                                                                  font: GoogleFonts
-                                                                      .raleway(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .normal,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .secondaryBackground,
-                                                                  fontSize:
-                                                                      14.0,
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .normal,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontStyle,
-                                                                ),
-                                                      ),
-                                                      TextSpan(
-                                                        text: ' / \n',
-                                                        style: TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                          fontSize: 14.0,
-                                                        ),
-                                                      ),
-                                                      TextSpan(
-                                                        text: valueOrDefault<
-                                                            String>(
-                                                          listAvailableAircraftsItem
-                                                              .manufactureDate,
-                                                          '00/00/0000',
-                                                        ),
-                                                        style: TextStyle(
-                                                          color:
-                                                              Color(0x72FFFFFF),
-                                                          fontSize: 14.0,
-                                                        ),
-                                                      )
-                                                    ],
-                                                    style: FlutterFlowTheme.of(
-                                                            context)
-                                                        .bodyMedium
-                                                        .override(
-                                                          font:
-                                                              GoogleFonts.inter(
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .normal,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontStyle,
-                                                          ),
-                                                          color: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .secondaryBackground,
-                                                          fontSize: 14.0,
-                                                          letterSpacing: 0.0,
-                                                          fontWeight:
-                                                              FontWeight.normal,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: RichText(
-                                                  textScaler:
-                                                      MediaQuery.of(context)
-                                                          .textScaler,
-                                                  text: TextSpan(
-                                                    children: [
-                                                      TextSpan(
-                                                        text: 'Data de entrega',
-                                                        style:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .override(
-                                                                  font: GoogleFonts
-                                                                      .raleway(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .normal,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .secondaryBackground,
-                                                                  fontSize:
-                                                                      14.0,
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .normal,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontStyle,
-                                                                ),
-                                                      ),
-                                                      TextSpan(
-                                                        text: ' / \n',
-                                                        style: TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                          fontSize: 14.0,
-                                                        ),
-                                                      ),
-                                                      TextSpan(
-                                                        text: valueOrDefault<
-                                                            String>(
-                                                          listAvailableAircraftsItem
-                                                              .deliveryDate,
-                                                          '00/00/0000',
-                                                        ),
-                                                        style: TextStyle(
-                                                          color:
-                                                              Color(0x72FFFFFF),
-                                                          fontSize: 14.0,
-                                                        ),
-                                                      )
-                                                    ],
-                                                    style: FlutterFlowTheme.of(
-                                                            context)
-                                                        .bodyMedium
-                                                        .override(
-                                                          font:
-                                                              GoogleFonts.inter(
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .normal,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontStyle,
-                                                          ),
-                                                          color: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .secondaryBackground,
-                                                          fontSize: 14.0,
-                                                          letterSpacing: 0.0,
-                                                          fontWeight:
-                                                              FontWeight.normal,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                  ),
-                                                ),
-                                              ),
-                                              Container(
-                                                width: 120.0,
-                                                height: 36.0,
-                                                decoration: BoxDecoration(
-                                                  color: () {
-                                                    if (listAvailableAircraftsItem
-                                                            .status ==
-                                                        'Em negociação') {
-                                                      return Color(0xFFFF8010);
-                                                    } else if (listAvailableAircraftsItem
-                                                            .status ==
-                                                        'Entregue') {
-                                                      return Color(0xFF2F2EFF);
-                                                    } else if (listAvailableAircraftsItem
-                                                            .status ==
-                                                        'Vendido') {
-                                                      return Color(0xFFFF2835);
-                                                    } else {
-                                                      return Color(0xFF04A518);
-                                                    }
-                                                  }(),
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          8.0),
-                                                ),
-                                                alignment: AlignmentDirectional(
-                                                    -1.0, 0.0),
-                                                child: Align(
-                                                  alignment:
-                                                      AlignmentDirectional(
-                                                          0.0, 0.0),
-                                                  child: Text(
-                                                    () {
-                                                      if (listAvailableAircraftsItem
-                                                              .status ==
-                                                          'Em negociação') {
-                                                        return 'Em negociação';
-                                                      } else if (listAvailableAircraftsItem
-                                                              .status ==
-                                                          'Entregue') {
-                                                        return 'Entregue';
-                                                      } else if (listAvailableAircraftsItem
-                                                              .status ==
-                                                          'Vendido') {
-                                                        return 'Vendido';
-                                                      } else {
-                                                        return 'Disponível';
-                                                      }
-                                                    }(),
-                                                    style: FlutterFlowTheme.of(
-                                                            context)
-                                                        .bodyMedium
-                                                        .override(
-                                                          font:
-                                                              GoogleFonts.inter(
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .normal,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontStyle,
-                                                          ),
-                                                          color: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .secondaryBackground,
-                                                          letterSpacing: 0.0,
-                                                          fontWeight:
-                                                              FontWeight.normal,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ].divide(SizedBox(width: 16.0)),
-                                          ),
-                                        ),
-                                        Row(
-                                          mainAxisSize: MainAxisSize.max,
-                                          children: [
-                                            if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                                            Builder(
-                                              builder: (context) => InkWell(
-                                                splashColor: Colors.transparent,
-                                                focusColor: Colors.transparent,
-                                                hoverColor: Colors.transparent,
-                                                highlightColor:
-                                                    Colors.transparent,
-                                                onTap: () async {
-                                                  await showDialog(
-                                                    context: context,
-                                                    builder: (dialogContext) {
-                                                      return Dialog(
-                                                        elevation: 0,
-                                                        insetPadding:
-                                                            EdgeInsets.zero,
-                                                        backgroundColor:
-                                                            Colors.transparent,
-                                                        alignment:
-                                                            AlignmentDirectional(
-                                                                    0.0, 0.0)
-                                                                .resolve(
-                                                                    Directionality.of(
-                                                                        context)),
-                                                        child: GestureDetector(
-                                                          onTap: () {
-                                                            FocusScope.of(
-                                                                    dialogContext)
-                                                                .unfocus();
-                                                            FocusManager
-                                                                .instance
-                                                                .primaryFocus
-                                                                ?.unfocus();
-                                                          },
-                                                          child:
-                                                              AlertDialogWidget(
-                                                            title:
-                                                                'Deseja excluir esta aeronave?',
-                                                            iconColor: Color(
-                                                                0xFFE71622),
-                                                            btnColor: Color(
-                                                                0xFFE71622),
-                                                            confirmBtnAction:
-                                                                () async {
-                                                              await AvailableAircraftsTable()
-                                                                  .delete(
-                                                                matchingRows:
-                                                                    (rows) => rows
-                                                                        .eqOrNull(
-                                                                  'id',
-                                                                  listAvailableAircraftsItem
-                                                                      .id,
-                                                                ),
-                                                              );
-                                                              await showDialog(
-                                                                barrierColor: Color(
-                                                                    0x9A000000),
-                                                                barrierDismissible:
-                                                                    false,
-                                                                context:
-                                                                    context,
-                                                                builder:
-                                                                    (dialogContext) {
-                                                                  return Dialog(
-                                                                    elevation:
-                                                                        0,
-                                                                    insetPadding:
-                                                                        EdgeInsets
-                                                                            .zero,
-                                                                    backgroundColor:
-                                                                        Colors
-                                                                            .transparent,
-                                                                    alignment: AlignmentDirectional(
-                                                                            0.0,
-                                                                            1.0)
-                                                                        .resolve(
-                                                                            Directionality.of(context)),
-                                                                    child:
-                                                                        GestureDetector(
-                                                                      onTap:
-                                                                          () {
-                                                                        FocusScope.of(dialogContext)
-                                                                            .unfocus();
-                                                                        FocusManager
-                                                                            .instance
-                                                                            .primaryFocus
-                                                                            ?.unfocus();
-                                                                      },
-                                                                      child:
-                                                                          CustomSnacBarWidget(
-                                                                        title:
-                                                                            'Excluindo aeronave',
-                                                                      ),
-                                                                    ),
-                                                                  );
-                                                                },
-                                                              );
+class _Meta extends StatelessWidget {
+  const _Meta(this.icon, this.text);
+  final IconData icon;
+  final String text;
 
-                                                              safeSetState(() =>
-                                                                  _model.apiRequestCompleter =
-                                                                      null);
-                                                              await _model
-                                                                  .waitForApiRequestCompleted();
-                                                              Navigator.pop(
-                                                                  context);
-                                                            },
-                                                          ),
-                                                        ),
-                                                      );
-                                                    },
-                                                  );
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: const Color(0x99FFFFFF)),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: GoogleFonts.roboto(
+            fontSize: 11.5,
+            color: const Color(0x99FFFFFF),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
-                                                  safeSetState(() {});
-                                                },
-                                                child: Container(
-                                                  width: 40.0,
-                                                  height: 40.0,
-                                                  decoration: BoxDecoration(
-                                                    color: Color(0x34FF5963),
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                  child: Icon(
-                                                    Icons.delete,
-                                                    color: FlutterFlowTheme.of(
-                                                            context)
-                                                        .error,
-                                                    size: 20.0,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            if (_model.user?.firstOrNull?.profileType == 'Admin Master')
-                                            Builder(
-                                              builder: (context) => InkWell(
-                                                splashColor: Colors.transparent,
-                                                focusColor: Colors.transparent,
-                                                hoverColor: Colors.transparent,
-                                                highlightColor:
-                                                    Colors.transparent,
-                                                onTap: () async {
-                                                  await showDialog(
-                                                    context: context,
-                                                    builder: (dialogContext) {
-                                                      return Dialog(
-                                                        elevation: 0,
-                                                        insetPadding:
-                                                            EdgeInsets.zero,
-                                                        backgroundColor:
-                                                            Colors.transparent,
-                                                        alignment:
-                                                            AlignmentDirectional(
-                                                                    0.0, 0.0)
-                                                                .resolve(
-                                                                    Directionality.of(
-                                                                        context)),
-                                                        child: GestureDetector(
-                                                          onTap: () {
-                                                            FocusScope.of(
-                                                                    dialogContext)
-                                                                .unfocus();
-                                                            FocusManager
-                                                                .instance
-                                                                .primaryFocus
-                                                                ?.unfocus();
-                                                          },
-                                                          child:
-                                                              ModalCreateAvailableAircraftWidget(
-                                                            type: 'view',
-                                                            aircraftId:
-                                                                listAvailableAircraftsItem
-                                                                    .aircraftModelId,
-                                                            id: listAvailableAircraftsItem
-                                                                .id,
-                                                            aircraftModel:
-                                                                listAvailableAircraftsItem
-                                                                    .aircraftModel,
-                                                            btnAction: (idAeronave,
-                                                                numeroSerie,
-                                                                dataFabricacao,
-                                                                prazoConfiguracao,
-                                                                dataEntrega,
-                                                                createdBy,
-                                                                anoBase,
-                                                                status,
-                                                                updateBy,
-                                                                id) async {
-                                                              await AvailableAircraftsTable()
-                                                                  .insert({
-                                                                'aircraft_model':
-                                                                    idAeronave,
-                                                                'serial_number':
-                                                                    numeroSerie,
-                                                                'manufacture_date':
-                                                                    supaSerialize<
-                                                                            DateTime>(
-                                                                        dataFabricacao),
-                                                                'configuration_deadline':
-                                                                    supaSerialize<
-                                                                            DateTime>(
-                                                                        prazoConfiguracao),
-                                                                'delivery_date':
-                                                                    supaSerialize<
-                                                                            DateTime>(
-                                                                        dataEntrega),
-                                                                'status':
-                                                                    status,
-                                                                'created_by':
-                                                                    createdBy,
-                                                                'update_by':
-                                                                    createdBy,
-                                                                'entry_year':
-                                                                    anoBase,
-                                                                'id': id,
-                                                              });
-                                                              await AvailableAircraftsTable()
-                                                                  .update(
-                                                                data: {
-                                                                  'aircraft_model':
-                                                                      idAeronave,
-                                                                  'serial_number':
-                                                                      numeroSerie,
-                                                                  'manufacture_date':
-                                                                      supaSerialize<
-                                                                              DateTime>(
-                                                                          dataFabricacao),
-                                                                  'configuration_deadline':
-                                                                      supaSerialize<
-                                                                              DateTime>(
-                                                                          prazoConfiguracao),
-                                                                  'delivery_date':
-                                                                      supaSerialize<
-                                                                              DateTime>(
-                                                                          dataEntrega),
-                                                                  'status':
-                                                                      status,
-                                                                  'update_by':
-                                                                      updateBy,
-                                                                },
-                                                                matchingRows:
-                                                                    (rows) => rows
-                                                                        .eqOrNull(
-                                                                  'id',
-                                                                  id,
-                                                                ),
-                                                              );
-                                                              safeSetState(() =>
-                                                                  _model.apiRequestCompleter =
-                                                                      null);
-                                                              await _model
-                                                                  .waitForApiRequestCompleted();
-                                                              ScaffoldMessenger
-                                                                      .of(context)
-                                                                  .showSnackBar(
-                                                                SnackBar(
-                                                                  content: Text(
-                                                                    'Aeronave adicionada à lista com sucesso!',
-                                                                    style:
-                                                                        TextStyle(
-                                                                      color: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .primaryText,
-                                                                    ),
-                                                                  ),
-                                                                  duration: Duration(
-                                                                      milliseconds:
-                                                                          4000),
-                                                                  backgroundColor:
-                                                                      FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .primary,
-                                                                ),
-                                                              );
-                                                            },
-                                                          ),
-                                                        ),
-                                                      );
-                                                    },
-                                                  );
-                                                },
-                                                child: Container(
-                                                  width: 40.0,
-                                                  height: 40.0,
-                                                  decoration: BoxDecoration(
-                                                    color: Color(0xFF404040),
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                  child: Icon(
-                                                    Icons.arrow_forward,
-                                                    color: FlutterFlowTheme.of(
-                                                            context)
-                                                        .primary,
-                                                    size: 20.0,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ].divide(SizedBox(width: 12.0)),
-                                        ),
-                                      ].divide(SizedBox(width: 48.0)),
-                                    ),
-                                  ),
-                                );
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                    );
-                  },
+class _FilterChips extends StatelessWidget {
+  const _FilterChips({
+    required this.label,
+    required this.options,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final List<String> options;
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0x14FFFFFF),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0x22FFFFFF)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$label:',
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: const Color(0x99FFFFFF),
+              letterSpacing: 0.6,
+            ),
+          ),
+          const SizedBox(width: 8),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              isDense: true,
+              dropdownColor: const Color(0xFF2A2A2A),
+              icon: const Icon(Icons.expand_more_rounded,
+                  color: Color(0xFFC2D51C), size: 18),
+              style: GoogleFonts.inter(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+              items: [
+                for (final opt in options)
+                  DropdownMenuItem(value: opt, child: Text(opt)),
+              ],
+              onChanged: (v) {
+                if (v != null) onChanged(v);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrimaryAction extends StatefulWidget {
+  const _PrimaryAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  State<_PrimaryAction> createState() => _PrimaryActionState();
+}
+
+class _PrimaryActionState extends State<_PrimaryAction> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFC2D51C), Color(0xFFAEC117)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFC2D51C)
+                    .withValues(alpha: _hover ? 0.45 : 0.25),
+                blurRadius: _hover ? 18 : 10,
+                spreadRadius: -2,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, size: 16, color: const Color(0xFF313131)),
+              const SizedBox(width: 8),
+              Text(
+                widget.label,
+                style: GoogleFonts.inter(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF313131),
                 ),
               ),
             ],

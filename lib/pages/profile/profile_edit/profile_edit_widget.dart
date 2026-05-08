@@ -11,6 +11,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:provider/provider.dart';
+import '/core_ui/core_ui.dart';
 import 'profile_edit_model.dart';
 export 'profile_edit_model.dart';
 
@@ -81,73 +82,9 @@ class _ProfileEditWidgetState extends State<ProfileEditWidget> {
             ? profileEditUsersRowList.first
             : null;
 
-        return GestureDetector(
-          onTap: () {
-            FocusScope.of(context).unfocus();
-            FocusManager.instance.primaryFocus?.unfocus();
-          },
-          child: Scaffold(
-            key: scaffoldKey,
-            backgroundColor: Color(0xFF313131),
-            drawer: Drawer(
-              elevation: 16.0,
-              child: wrapWithModel(
-                model: _model.menuModel,
-                updateCallback: () => safeSetState(() {}),
-                child: MenuWidget(),
-              ),
-            ),
-            appBar: AppBar(
-              backgroundColor: Color(0xFF313131),
-              iconTheme:
-                  IconThemeData(color: FlutterFlowTheme.of(context).primary),
-              automaticallyImplyLeading: true,
-              title: Text(
-                'Editar perfil',
-                style: FlutterFlowTheme.of(context).headlineMedium.override(
-                      font: GoogleFonts.inter(
-                        fontWeight: FlutterFlowTheme.of(context)
-                            .headlineMedium
-                            .fontWeight,
-                        fontStyle: FlutterFlowTheme.of(context)
-                            .headlineMedium
-                            .fontStyle,
-                      ),
-                      color: Color(0x72FFFFFF),
-                      fontSize: 18.0,
-                      letterSpacing: 0.0,
-                      fontWeight: FlutterFlowTheme.of(context)
-                          .headlineMedium
-                          .fontWeight,
-                      fontStyle:
-                          FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                    ),
-              ),
-              actions: [
-                Padding(
-                  padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-                  child: InkWell(
-                    splashColor: Colors.transparent,
-                    focusColor: Colors.transparent,
-                    hoverColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
-                    onTap: () async {
-                      context.pushNamed(HomePageWidget.routeName);
-                    },
-                    child: Icon(
-                      Icons.home,
-                      color: FlutterFlowTheme.of(context).primary,
-                      size: 24.0,
-                    ),
-                  ),
-                ),
-              ],
-              centerTitle: true,
-              elevation: 0.0,
-            ),
-            body: SafeArea(
-              top: true,
-              child: SingleChildScrollView(
+        return AppDetailsScaffold(
+          title: 'Editar perfil',
+          body: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.max,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -641,8 +578,6 @@ class _ProfileEditWidgetState extends State<ProfileEditWidget> {
                   ],
                 ),
               ),
-            ),
-          ),
         );
       },
     );

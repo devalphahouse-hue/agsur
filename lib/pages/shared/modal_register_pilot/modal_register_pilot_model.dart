@@ -18,6 +18,8 @@ class ModalRegisterPilotModel
   ///  State fields for stateful widgets in this component.
 
   final formKey = GlobalKey<FormState>();
+  // IDs dos clientes vinculados ao piloto (multi-select).
+  Set<String> selectedClientIds = <String>{};
   // State field(s) for TFName widget.
   FocusNode? tFNameFocusNode;
   TextEditingController? tFNameTextController;

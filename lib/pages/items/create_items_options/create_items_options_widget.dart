@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '/core_ui/core_ui.dart';
 import 'create_items_options_model.dart';
 export 'create_items_options_model.dart';
 
@@ -62,64 +63,9 @@ class _CreateItemsOptionsWidgetState extends State<CreateItemsOptionsWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus();
-        FocusManager.instance.primaryFocus?.unfocus();
-      },
-      child: Scaffold(
-        key: scaffoldKey,
-        backgroundColor: Color(0xFF313131),
-        appBar: AppBar(
-          backgroundColor: Color(0xFF313131),
-          iconTheme: IconThemeData(color: FlutterFlowTheme.of(context).primary),
-          automaticallyImplyLeading: true,
-          title: Text(
-            'Itens Opcionais',
-            textAlign: TextAlign.center,
-            style: FlutterFlowTheme.of(context).headlineMedium.override(
-                  font: GoogleFonts.inter(
-                    fontWeight:
-                        FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                  ),
-                  color: Color(0x73FFFFFF),
-                  fontSize: 18.0,
-                  letterSpacing: 0.0,
-                  fontWeight:
-                      FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                  fontStyle:
-                      FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                ),
-          ),
-          actions: [
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-              child: InkWell(
-                splashColor: Colors.transparent,
-                focusColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                onTap: () async {
-                  context.pushNamed(HomePageWidget.routeName);
-                },
-                child: Icon(
-                  Icons.home,
-                  color: FlutterFlowTheme.of(context).primary,
-                  size: 24.0,
-                ),
-              ),
-            ),
-          ],
-          centerTitle: true,
-          elevation: 0.0,
-        ),
-        body: SafeArea(
-          top: true,
-          child: Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(0.0, 28.0, 0.0, 0.0),
-            child: Container(
+    return AppDetailsScaffold(
+      title: 'Itens — opções',
+      body: Container(
               width: MediaQuery.sizeOf(context).width * 1.0,
               decoration: BoxDecoration(),
               child: SingleChildScrollView(
@@ -153,7 +99,7 @@ class _CreateItemsOptionsWidgetState extends State<CreateItemsOptionsWidget> {
                           return Container(
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             constraints: BoxConstraints(
-                              maxWidth: 800.0,
+                              maxWidth: double.infinity,
                             ),
                             decoration: BoxDecoration(
                               color: Color(0xFF404040),
@@ -871,7 +817,7 @@ class _CreateItemsOptionsWidgetState extends State<CreateItemsOptionsWidget> {
                         return Container(
                           width: MediaQuery.sizeOf(context).width * 1.0,
                           constraints: BoxConstraints(
-                            maxWidth: 800.0,
+                            maxWidth: double.infinity,
                           ),
                           decoration: BoxDecoration(),
                           child: Builder(
@@ -894,7 +840,7 @@ class _CreateItemsOptionsWidgetState extends State<CreateItemsOptionsWidget> {
                                           cTStructureCategoryVarIndex];
                                   return Container(
                                     constraints: BoxConstraints(
-                                      maxWidth: 800.0,
+                                      maxWidth: double.infinity,
                                     ),
                                     decoration: BoxDecoration(
                                       color: Color(0xFF404040),
@@ -1360,9 +1306,6 @@ class _CreateItemsOptionsWidgetState extends State<CreateItemsOptionsWidget> {
                 ),
               ),
             ),
-          ),
-        ),
-      ),
     );
   }
 }

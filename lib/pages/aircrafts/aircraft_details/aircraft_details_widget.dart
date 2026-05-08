@@ -15,6 +15,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '/core_ui/core_ui.dart';
 import 'aircraft_details_model.dart';
 export 'aircraft_details_model.dart';
 
@@ -63,62 +64,9 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus();
-        FocusManager.instance.primaryFocus?.unfocus();
-      },
-      child: Scaffold(
-        key: scaffoldKey,
-        backgroundColor: Color(0xFF313131),
-        appBar: AppBar(
-          backgroundColor: Color(0xFF313131),
-          iconTheme: IconThemeData(color: FlutterFlowTheme.of(context).primary),
-          automaticallyImplyLeading: true,
-          title: Text(
-            'Detalhes da aeronave',
-            textAlign: TextAlign.center,
-            style: FlutterFlowTheme.of(context).headlineMedium.override(
-                  font: GoogleFonts.inter(
-                    fontWeight:
-                        FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                  ),
-                  color: Color(0x73FFFFFF),
-                  fontSize: 18.0,
-                  letterSpacing: 0.0,
-                  fontWeight:
-                      FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                  fontStyle:
-                      FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                ),
-          ),
-          actions: [
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-              child: InkWell(
-                splashColor: Colors.transparent,
-                focusColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                onTap: () async {
-                  context.pushNamed(HomePageWidget.routeName);
-                },
-                child: Icon(
-                  Icons.home,
-                  color: FlutterFlowTheme.of(context).primary,
-                  size: 24.0,
-                ),
-              ),
-            ),
-          ],
-          centerTitle: true,
-          elevation: 0.0,
-        ),
-        body: SafeArea(
-          top: true,
-          child: Builder(
+    return AppDetailsScaffold(
+      title: 'Detalhes da aeronave',
+      body: Builder(
             builder: (context) {
               if (_model.isEdit) {
                 return Padding(
@@ -169,7 +117,7 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                                     width:
                                         MediaQuery.sizeOf(context).width * 1.0,
                                     constraints: BoxConstraints(
-                                      maxWidth: 800.0,
+                                      maxWidth: double.infinity,
                                     ),
                                     decoration: BoxDecoration(
                                       color: Color(0xFF404040),
@@ -849,7 +797,7 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                                 child: Container(
                                   width: MediaQuery.sizeOf(context).width * 1.0,
                                   constraints: BoxConstraints(
-                                    maxWidth: 800.0,
+                                    maxWidth: double.infinity,
                                   ),
                                   decoration: BoxDecoration(
                                     color: Color(0xFF404040),
@@ -1231,7 +1179,7 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                                 child: Container(
                                   width: MediaQuery.sizeOf(context).width * 1.0,
                                   constraints: BoxConstraints(
-                                    maxWidth: 800.0,
+                                    maxWidth: double.infinity,
                                   ),
                                   decoration: BoxDecoration(
                                     color: Color(0xFF404040),
@@ -1988,7 +1936,7 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                                 child: Container(
                                   width: MediaQuery.sizeOf(context).width * 1.0,
                                   constraints: BoxConstraints(
-                                    maxWidth: 800.0,
+                                    maxWidth: double.infinity,
                                   ),
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(12.0),
@@ -2282,7 +2230,7 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                               child: Container(
                                 width: MediaQuery.sizeOf(context).width * 1.0,
                                 constraints: BoxConstraints(
-                                  maxWidth: 800.0,
+                                  maxWidth: double.infinity,
                                 ),
                                 decoration: BoxDecoration(
                                   color: Color(0xFF404040),
@@ -2398,7 +2346,7 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                               child: Container(
                                 width: MediaQuery.sizeOf(context).width * 1.0,
                                 constraints: BoxConstraints(
-                                  maxWidth: 800.0,
+                                  maxWidth: double.infinity,
                                 ),
                                 decoration: BoxDecoration(
                                   color: Color(0xFF404040),
@@ -2501,7 +2449,7 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                               child: Container(
                                 width: MediaQuery.sizeOf(context).width * 1.0,
                                 constraints: BoxConstraints(
-                                  maxWidth: 800.0,
+                                  maxWidth: double.infinity,
                                 ),
                                 decoration: BoxDecoration(
                                   color: Color(0xFF404040),
@@ -3070,8 +3018,6 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
               }
             },
           ),
-        ),
-      ),
     );
   }
 }

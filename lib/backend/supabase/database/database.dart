@@ -44,3 +44,6 @@ export 'tables/leads.dart';
 export 'tables/requested_parts.dart';
 export 'tables/proposal.dart';
 export 'tables/tracking_details.dart';
+export 'tables/oficina_clients.dart';
+export 'tables/pilot_clients.dart';
+export 'tables/service_letter.dart';

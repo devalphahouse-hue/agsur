@@ -2,14 +2,13 @@
   "buildCommand": null,
   "outputDirectory": "build/web",
   "framework": null,
-  "cleanUrls": true,
   "rewrites": [
     {
       "source": "/privacidade",
       "destination": "/privacidade.html"
     },
     {
-      "source": "/(.*)",
+      "source": "/:path*",
       "destination": "/index.html"
     }
   ],

@@ -97,7 +97,8 @@ class _MenuWidgetState extends State<MenuWidget> {
 
   bool _isAvioesRoute(String path) =>
       path == AvailableAircraftsWidget.routePath ||
-      path == CreateCategoryWidget.routePath;
+      path == CreateCategoryWidget.routePath ||
+      path == CreateAircraftWidget.routePath;
 
   @override
   Widget build(BuildContext context) {
@@ -211,6 +212,13 @@ class _MenuWidgetState extends State<MenuWidget> {
                 onToggle: () =>
                     safeSetState(() => _model.avioes = !_model.avioes),
                 children: [
+                  _MenuSubItem(
+                    icon: Icons.add_circle_outline,
+                    label: 'Cadastrar Aeronave',
+                    active: _isActive(CreateAircraftWidget.routePath),
+                    onTap: () =>
+                        context.pushNamed(CreateAircraftWidget.routeName),
+                  ),
                   _MenuSubItem(
                     icon: Icons.warehouse_outlined,
                     label: 'Estoque (unidades)',

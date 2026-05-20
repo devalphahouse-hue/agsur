@@ -1,24 +1,18 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/supabase/supabase.dart';
-import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/upload_data.dart';
+import '/flutter_flow/custom_functions.dart' as functions;
 import '/pages/shared/warming_air_craft_photo/warming_air_craft_photo_widget.dart';
 import '/pages/shared/warming_m_pecas/warming_m_pecas_widget.dart';
 import '/pages/shared/warming_m_proprietario/warming_m_proprietario_widget.dart';
 import '/pages/shared/warming_m_voo/warming_m_voo_widget.dart';
-import 'dart:ui';
-import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
 import 'package:easy_debounce/easy_debounce.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import '/core_ui/core_ui.dart';
 import 'create_aircraft_model.dart';
 export 'create_aircraft_model.dart';
@@ -35,8 +29,8 @@ class CreateAircraftWidget extends StatefulWidget {
 
 class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
   late CreateAircraftModel _model;
-
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _submitting = false;
 
   @override
   void initState() {
@@ -64,2106 +58,961 @@ class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
   @override
   void dispose() {
     _model.dispose();
-
     super.dispose();
   }
+
+  // ───────────────────────── uploads ─────────────────────────
+
+  Future<void> _pickPhoto() async {
+    final selected = await selectMedia(
+      storageFolderPath: '',
+      mediaSource: MediaSource.photoGallery,
+      multiImage: false,
+    );
+    if (selected == null) return;
+    if (!selected.every((m) => validateFileFormat(m.storagePath, context))) {
+      return;
+    }
+    safeSetState(() => _model.isDataUploading_uploadAircraft = true);
+    try {
+      final files = selected
+          .map((m) => FFUploadedFile(
+                name: m.storagePath.split('/').last,
+                bytes: m.bytes,
+                height: m.dimensions?.height,
+                width: m.dimensions?.width,
+                blurHash: m.blurHash,
+                originalFilename: m.originalFilename,
+              ))
+          .toList();
+      final urls = await uploadSupabaseStorageFiles(
+        bucketName: 'AGSur',
+        selectedFiles: selected,
+      );
+      if (files.length == selected.length && urls.length == selected.length) {
+        safeSetState(() {
+          _model.uploadedLocalFile_uploadAircraft = files.first;
+          _model.uploadedFileUrl_uploadAircraft = urls.first;
+        });
+      }
+    } finally {
+      safeSetState(() => _model.isDataUploading_uploadAircraft = false);
+    }
+  }
+
+  void _clearPhoto() {
+    safeSetState(() {
+      _model.uploadedLocalFile_uploadAircraft =
+          FFUploadedFile(bytes: Uint8List.fromList([]), originalFilename: '');
+      _model.uploadedFileUrl_uploadAircraft = '';
+      _model.isDataUploading_uploadAircraft = false;
+    });
+  }
+
+  Future<void> _pickPdfSlot(_PdfSlot slot) async {
+    final selected = await selectFiles(
+      storageFolderPath: '',
+      allowedExtensions: ['pdf'],
+      multiFile: false,
+    );
+    if (selected == null) return;
+    safeSetState(() => _setSlotUploading(slot, true));
+    try {
+      final files = selected
+          .map((m) => FFUploadedFile(
+                name: m.storagePath.split('/').last,
+                bytes: m.bytes,
+                originalFilename: m.originalFilename,
+              ))
+          .toList();
+      final urls = await uploadSupabaseStorageFiles(
+        bucketName: 'AGSur',
+        selectedFiles: selected,
+      );
+      if (files.length == selected.length && urls.length == selected.length) {
+        safeSetState(() => _setSlotUploaded(slot, files.first, urls.first));
+      }
+    } finally {
+      safeSetState(() => _setSlotUploading(slot, false));
+    }
+  }
+
+  void _clearPdfSlot(_PdfSlot slot) {
+    safeSetState(() {
+      _setSlotUploaded(
+        slot,
+        FFUploadedFile(bytes: Uint8List.fromList([]), originalFilename: ''),
+        '',
+      );
+      _setSlotUploading(slot, false);
+    });
+  }
+
+  void _setSlotUploading(_PdfSlot slot, bool v) {
+    switch (slot) {
+      case _PdfSlot.oem:
+        _model.isDataUploading_uploadOEM = v;
+        break;
+      case _PdfSlot.afm:
+        _model.isDataUploading_uploadManualVoo = v;
+        break;
+      case _PdfSlot.ipc:
+        _model.isDataUploading_uploadManualPeca = v;
+        break;
+    }
+  }
+
+  void _setSlotUploaded(_PdfSlot slot, FFUploadedFile file, String url) {
+    switch (slot) {
+      case _PdfSlot.oem:
+        _model.uploadedLocalFile_uploadOEM = file;
+        _model.uploadedFileUrl_uploadOEM = url;
+        break;
+      case _PdfSlot.afm:
+        _model.uploadedLocalFile_uploadManualVoo = file;
+        _model.uploadedFileUrl_uploadManualVoo = url;
+        break;
+      case _PdfSlot.ipc:
+        _model.uploadedLocalFile_uploadManualPeca = file;
+        _model.uploadedFileUrl_uploadManualPeca = url;
+        break;
+    }
+  }
+
+  // ───────────────────────── submit ─────────────────────────
+
+  Future<void> _showMissingDialog(Widget dialogChild) async {
+    await showDialog(
+      barrierDismissible: false,
+      context: context,
+      builder: (dialogContext) => Dialog(
+        elevation: 0,
+        insetPadding: EdgeInsets.zero,
+        backgroundColor: Colors.transparent,
+        alignment: AlignmentDirectional.center
+            .resolve(Directionality.of(context)),
+        child: GestureDetector(
+          onTap: () {
+            FocusScope.of(dialogContext).unfocus();
+            FocusManager.instance.primaryFocus?.unfocus();
+          },
+          child: dialogChild,
+        ),
+      ),
+    );
+  }
+
+  void _snack(String msg, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          msg,
+          style: TextStyle(
+            color: error ? Colors.white : FlutterFlowTheme.of(context).primaryText,
+          ),
+        ),
+        duration: const Duration(milliseconds: 3500),
+        backgroundColor: error
+            ? const Color(0xFFFF5963)
+            : FlutterFlowTheme.of(context).primary,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submit() async {
+    if (_submitting) return;
+
+    final formOk = _model.formKey.currentState?.validate() ?? false;
+    if (!formOk) {
+      _snack('Preencha os campos obrigatórios.', error: true);
+      return;
+    }
+    if (_model.uploadedFileUrl_uploadAircraft.isEmpty) {
+      await _showMissingDialog(WarmingAirCraftPhotoWidget());
+      return;
+    }
+    if (_model.uploadedFileUrl_uploadOEM.isEmpty) {
+      await _showMissingDialog(WarmingMProprietarioWidget());
+      return;
+    }
+    if (_model.uploadedFileUrl_uploadManualVoo.isEmpty) {
+      await _showMissingDialog(WarmingMVooWidget());
+      return;
+    }
+    if (_model.uploadedFileUrl_uploadManualPeca.isEmpty) {
+      await _showMissingDialog(WarmingMPecasWidget());
+      return;
+    }
+
+    setState(() => _submitting = true);
+    try {
+      _model.createAircraft = await AircraftsTable().insert({
+        'aircraft_model': _model.tFAircraftNameTextController.text,
+        'aircraft_year': _model.tFAircraftYearTextController.text,
+        'aircraft_description': _model.tFDescriptionTextController.text,
+        'aircraft_photo_url': _model.uploadedFileUrl_uploadAircraft,
+        'hopper': valueOrDefault<double>(
+          double.tryParse(_model.tFAircraftHopperTextController.text),
+          0.0,
+        ),
+        'price': valueOrDefault<double>(
+          functions.parsePriceToDouble(_model.tFPriceTextController.text),
+          0.0,
+        ),
+        'created_by': currentUserUid,
+      });
+      final aircraftId = _model.createAircraft?.id;
+
+      _model.createManualProprietario = await AircraftManualsTable().insert({
+        'aircraft_id': aircraftId,
+        'documention_name': valueOrDefault<String>(
+          functions.fileNamePath(_model.uploadedFileUrl_uploadOEM),
+          'arquivo.pdf',
+        ),
+        'documention_url': _model.uploadedFileUrl_uploadOEM,
+        'type': 'Manual do proprietário',
+      });
+      _model.createManualVoo = await AircraftManualsTable().insert({
+        'aircraft_id': aircraftId,
+        'documention_name': valueOrDefault<String>(
+          functions.fileNamePath(_model.uploadedFileUrl_uploadManualVoo),
+          'arquivo.pdf',
+        ),
+        'documention_url': _model.uploadedFileUrl_uploadManualVoo,
+        'type': 'Manual de voo',
+      });
+      _model.createManualPecas = await AircraftManualsTable().insert({
+        'aircraft_id': aircraftId,
+        'documention_name': valueOrDefault<String>(
+          functions.fileNamePath(_model.uploadedFileUrl_uploadManualPeca),
+          'arquivo.pdf',
+        ),
+        'documention_url': _model.uploadedFileUrl_uploadManualPeca,
+        'type': 'Manual de peças',
+      });
+
+      _snack('Aeronave cadastrada com sucesso!');
+
+      safeSetState(() {
+        _model.tFPriceTextController?.clear();
+        _model.tFAircraftNameTextController?.clear();
+        _model.tFAircraftYearTextController?.clear();
+        _model.tFDescriptionTextController?.clear();
+        _model.tFAircraftHopperTextController?.clear();
+      });
+
+      if (mounted) {
+        context.pushNamed(RegistedAircraftWidget.routeName);
+      }
+    } catch (e) {
+      _snack('Erro ao cadastrar: $e', error: true);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  // ───────────────────────── build ─────────────────────────
 
   @override
   Widget build(BuildContext context) {
     return AppDetailsScaffold(
       title: 'Cadastrar aeronave (catálogo)',
-      body: Container(
-              width: MediaQuery.sizeOf(context).width * 1.0,
-              decoration: BoxDecoration(),
-              child: SingleChildScrollView(
+      subtitle:
+          'Defina o modelo, mídia e documentação. Unidades físicas são cadastradas em Estoque.',
+      maxBodyWidth: 880,
+      body: Form(
+        key: _model.formKey,
+        autovalidateMode: AutovalidateMode.disabled,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _InfoBanner().appStagger(0),
+            const SizedBox(height: 18),
+            _SectionCard(
+              icon: Icons.flight_takeoff_rounded,
+              title: 'Dados cadastrais',
+              subtitle: 'Identificação principal do modelo no catálogo.',
+              child: Column(
+                children: [
+                  _PhotoUploadCard(
+                    photoUrl: _model.uploadedFileUrl_uploadAircraft,
+                    isUploading: _model.isDataUploading_uploadAircraft,
+                    onPick: _pickPhoto,
+                    onClear: _clearPhoto,
+                  ),
+                  const SizedBox(height: 16),
+                  AppFormField(
+                    controller: _model.tFAircraftNameTextController,
+                    focusNode: _model.tFAircraftNameFocusNode,
+                    label: 'Modelo da aeronave',
+                    placeholder: 'Ex.: Cessna 208B',
+                    icon: Icons.flight_outlined,
+                    required: true,
+                    textInputAction: TextInputAction.next,
+                    validator: (v) => _model
+                        .tFAircraftNameTextControllerValidator
+                        ?.call(context, v),
+                  ),
+                  const SizedBox(height: 14),
+                  AppFormField(
+                    controller: _model.tFPriceTextController,
+                    focusNode: _model.tFPriceFocusNode,
+                    label: 'Preço de venda',
+                    placeholder: '\$ 0.00',
+                    icon: Icons.attach_money_rounded,
+                    required: true,
+                    keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true),
+                    onChanged: (_) => EasyDebounce.debounce(
+                      '_model.tFPriceTextController',
+                      const Duration(milliseconds: 500),
+                      () async {
+                        safeSetState(() {
+                          _model.tFPriceTextController?.text =
+                              valueOrDefault<String>(
+                            functions.formatarMoedaEmDolar(
+                                _model.tFPriceTextController.text),
+                            '0',
+                          );
+                          _model.tFPriceFocusNode?.requestFocus();
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            _model.tFPriceTextController?.selection =
+                                TextSelection.collapsed(
+                              offset: _model
+                                  .tFPriceTextController!.text.length,
+                            );
+                          });
+                        });
+                      },
+                    ),
+                    validator: (v) => _model.tFPriceTextControllerValidator
+                        ?.call(context, v),
+                  ),
+                ],
+              ),
+            ).appStagger(1),
+            const SizedBox(height: 16),
+            _SectionCard(
+              icon: Icons.description_outlined,
+              title: 'Descrição',
+              subtitle: 'Especificações e detalhes que aparecem no catálogo.',
+              child: Column(
+                children: [
+                  AppFormField(
+                    controller: _model.tFAircraftYearTextController,
+                    focusNode: _model.tFAircraftYearFocusNode,
+                    label: 'Ano de fabricação',
+                    placeholder: 'Ex.: 2024',
+                    icon: Icons.event_outlined,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp('[0-9]'))
+                    ],
+                    validator: (v) => _model
+                        .tFAircraftYearTextControllerValidator
+                        ?.call(context, v),
+                  ),
+                  const SizedBox(height: 14),
+                  AppFormField(
+                    controller: _model.tFAircraftHopperTextController,
+                    focusNode: _model.tFAircraftHopperFocusNode,
+                    label: 'Hopper (capacidade)',
+                    placeholder: 'Litros',
+                    icon: Icons.water_drop_outlined,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp('[0-9]'))
+                    ],
+                    validator: (v) => _model
+                        .tFAircraftHopperTextControllerValidator
+                        ?.call(context, v),
+                  ),
+                  const SizedBox(height: 14),
+                  AppFormField(
+                    controller: _model.tFDescriptionTextController,
+                    focusNode: _model.tFDescriptionFocusNode,
+                    label: 'Descrição',
+                    placeholder:
+                        'Características, equipamentos, observações…',
+                    icon: Icons.notes_rounded,
+                    maxLines: 5,
+                    validator: (v) => _model
+                        .tFDescriptionTextControllerValidator
+                        ?.call(context, v),
+                  ),
+                ],
+              ),
+            ).appStagger(2),
+            const SizedBox(height: 16),
+            _SectionCard(
+              icon: Icons.menu_book_outlined,
+              title: 'Manuais (PDF)',
+              subtitle:
+                  'OEM, AFM e IPC são obrigatórios para concluir o cadastro.',
+              child: Column(
+                children: [
+                  _ManualUploadTile(
+                    label: 'OEM — Manual do proprietário',
+                    fileUrl: _model.uploadedFileUrl_uploadOEM,
+                    isUploading: _model.isDataUploading_uploadOEM,
+                    icon: Icons.workspace_premium_outlined,
+                    onPick: () => _pickPdfSlot(_PdfSlot.oem),
+                    onClear: () => _clearPdfSlot(_PdfSlot.oem),
+                  ),
+                  const SizedBox(height: 12),
+                  _ManualUploadTile(
+                    label: 'AFM — Manual de voo',
+                    fileUrl: _model.uploadedFileUrl_uploadManualVoo,
+                    isUploading: _model.isDataUploading_uploadManualVoo,
+                    icon: Icons.flight_takeoff_outlined,
+                    onPick: () => _pickPdfSlot(_PdfSlot.afm),
+                    onClear: () => _clearPdfSlot(_PdfSlot.afm),
+                  ),
+                  const SizedBox(height: 12),
+                  _ManualUploadTile(
+                    label: 'IPC — Manual de peças',
+                    fileUrl: _model.uploadedFileUrl_uploadManualPeca,
+                    isUploading: _model.isDataUploading_uploadManualPeca,
+                    icon: Icons.precision_manufacturing_outlined,
+                    onPick: () => _pickPdfSlot(_PdfSlot.ipc),
+                    onClear: () => _clearPdfSlot(_PdfSlot.ipc),
+                  ),
+                ],
+              ),
+            ).appStagger(3),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                AppSecondaryButton(
+                  label: 'Cancelar',
+                  icon: Icons.close_rounded,
+                  onPressed: _submitting
+                      ? null
+                      : () => Navigator.of(context).maybePop(),
+                ),
+                const SizedBox(width: 12),
+                AppPrimaryButton(
+                  label: _submitting ? 'Cadastrando…' : 'Cadastrar modelo',
+                  icon: Icons.check_circle_outline_rounded,
+                  busy: _submitting,
+                  onPressed: _submit,
+                ),
+              ],
+            ).appStagger(4),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum _PdfSlot { oem, afm, ipc }
+
+class _InfoBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: const Color(0x22C2D51C),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0x55C2D51C)),
+            ),
+            child: const Icon(
+              Icons.menu_book_outlined,
+              color: Color(0xFFC2D51C),
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Cadastro de modelo no catálogo',
+                  style: GoogleFonts.inter(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Defina aqui as características do modelo (nome, foto, ano, hopper, descrição). Depois você adiciona as unidades físicas em "Estoque (unidades)".',
+                  style: GoogleFonts.roboto(
+                    fontSize: 12.5,
+                    color: const Color(0xCCFFFFFF),
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    required this.child,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: const Color(0x22C2D51C),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(icon, color: const Color(0xFFC2D51C), size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
                 child: Column(
-                  mainAxisSize: MainAxisSize.max,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Padding(
-                      padding: EdgeInsetsDirectional.fromSTEB(
-                          16.0, 0.0, 16.0, 0.0),
-                      child: Container(
-                        width: MediaQuery.sizeOf(context).width * 1.0,
-                        constraints: BoxConstraints(maxWidth: 800.0),
-                        padding: EdgeInsetsDirectional.fromSTEB(
-                            16.0, 12.0, 16.0, 12.0),
-                        decoration: BoxDecoration(
-                          color: Color(0xFF404040),
-                          borderRadius: BorderRadius.circular(8.0),
-                          border: Border.all(
-                            color: FlutterFlowTheme.of(context)
-                                .primary
-                                .withValues(alpha: 0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              Icons.menu_book_outlined,
-                              color: FlutterFlowTheme.of(context).primary,
-                              size: 22.0,
-                            ),
-                            SizedBox(width: 12.0),
-                            Expanded(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Cadastro de modelo no catálogo',
-                                    style: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .override(
-                                          font: GoogleFonts.roboto(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                          color: Colors.white,
-                                          fontSize: 14.0,
-                                          letterSpacing: 0.0,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                  ),
-                                  SizedBox(height: 4.0),
-                                  Text(
-                                    'Defina aqui as características do modelo (nome, foto, ano, hopper, descrição). Depois você adiciona as unidades físicas em "Estoque (unidades)".',
-                                    style: FlutterFlowTheme.of(context)
-                                        .bodySmall
-                                        .override(
-                                          font: GoogleFonts.roboto(),
-                                          color: Color(0xCCFFFFFF),
-                                          fontSize: 12.0,
-                                          letterSpacing: 0.0,
-                                          lineHeight: 1.4,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                    Text(
+                      title,
+                      style: GoogleFonts.inter(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: -0.1,
                       ),
                     ),
-                    Form(
-                      key: _model.formKey,
-                      autovalidateMode: AutovalidateMode.disabled,
-                      child: Padding(
-                        padding: EdgeInsetsDirectional.fromSTEB(
-                            16.0, 36.0, 16.0, 16.0),
-                        child: Container(
-                          width: MediaQuery.sizeOf(context).width * 1.0,
-                          constraints: BoxConstraints(
-                            maxWidth: double.infinity,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Color(0xFF404040),
-                            borderRadius: BorderRadius.circular(12.0),
-                          ),
-                          child: Padding(
-                            padding: EdgeInsets.all(24.0),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Align(
-                                  alignment: AlignmentDirectional(-1.0, 0.0),
-                                  child: Padding(
-                                    padding: EdgeInsetsDirectional.fromSTEB(
-                                        12.0, 0.0, 12.0, 0.0),
-                                    child: Text(
-                                      'Dados Cadastrais da Aeronave',
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .override(
-                                            font: GoogleFonts.roboto(
-                                              fontWeight: FontWeight.w500,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .secondaryBackground,
-                                            fontSize: 18.0,
-                                            letterSpacing: 0.0,
-                                            fontWeight: FontWeight.w500,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                  ),
-                                ),
-                                Divider(
-                                  thickness: 2.0,
-                                  color: Color(0x74FFFFFF),
-                                ),
-                                if (_model.uploadedFileUrl_uploadAircraft !=
-                                        null &&
-                                    _model.uploadedFileUrl_uploadAircraft != '')
-                                  Padding(
-                                    padding: EdgeInsets.all(12.0),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(12.0),
-                                      child: Image.network(
-                                        _model.uploadedFileUrl_uploadAircraft,
-                                        width:
-                                            MediaQuery.sizeOf(context).width *
-                                                2.0,
-                                        height: 200.0,
-                                        fit: BoxFit.contain,
-                                      ),
-                                    ),
-                                  ),
-                                Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                      0.0, 0.0, 0.0, 16.0),
-                                  child: Container(
-                                    width: double.infinity,
-                                    height: 50.0,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8.0),
-                                      border: Border.all(
-                                        color: valueOrDefault<Color>(
-                                          _model.uploadedFileUrl_uploadAircraft !=
-                                                      null &&
-                                                  _model.uploadedFileUrl_uploadAircraft !=
-                                                      ''
-                                              ? Color(0x72FFFFFF)
-                                              : FlutterFlowTheme.of(context)
-                                                  .error,
-                                          Color(0x73FFFFFF),
-                                        ),
-                                        width: 2.0,
-                                      ),
-                                    ),
-                                    child: Builder(
-                                      builder: (context) {
-                                        if (_model.uploadedFileUrl_uploadAircraft ==
-                                                null ||
-                                            _model.uploadedFileUrl_uploadAircraft ==
-                                                '') {
-                                          return InkWell(
-                                            splashColor: Colors.transparent,
-                                            focusColor: Colors.transparent,
-                                            hoverColor: Colors.transparent,
-                                            highlightColor: Colors.transparent,
-                                            onTap: () async {
-                                              final selectedMedia =
-                                                  await selectMedia(
-                                                storageFolderPath: '',
-                                                mediaSource:
-                                                    MediaSource.photoGallery,
-                                                multiImage: false,
-                                              );
-                                              if (selectedMedia != null &&
-                                                  selectedMedia.every((m) =>
-                                                      validateFileFormat(
-                                                          m.storagePath,
-                                                          context))) {
-                                                safeSetState(() => _model
-                                                        .isDataUploading_uploadAircraft =
-                                                    true);
-                                                var selectedUploadedFiles =
-                                                    <FFUploadedFile>[];
-
-                                                var downloadUrls = <String>[];
-                                                try {
-                                                  selectedUploadedFiles =
-                                                      selectedMedia
-                                                          .map((m) =>
-                                                              FFUploadedFile(
-                                                                name: m
-                                                                    .storagePath
-                                                                    .split('/')
-                                                                    .last,
-                                                                bytes: m.bytes,
-                                                                height: m
-                                                                    .dimensions
-                                                                    ?.height,
-                                                                width: m
-                                                                    .dimensions
-                                                                    ?.width,
-                                                                blurHash:
-                                                                    m.blurHash,
-                                                                originalFilename:
-                                                                    m.originalFilename,
-                                                              ))
-                                                          .toList();
-
-                                                  downloadUrls =
-                                                      await uploadSupabaseStorageFiles(
-                                                    bucketName: 'AGSur',
-                                                    selectedFiles:
-                                                        selectedMedia,
-                                                  );
-                                                } finally {
-                                                  _model.isDataUploading_uploadAircraft =
-                                                      false;
-                                                }
-                                                if (selectedUploadedFiles
-                                                            .length ==
-                                                        selectedMedia.length &&
-                                                    downloadUrls.length ==
-                                                        selectedMedia.length) {
-                                                  safeSetState(() {
-                                                    _model.uploadedLocalFile_uploadAircraft =
-                                                        selectedUploadedFiles
-                                                            .first;
-                                                    _model.uploadedFileUrl_uploadAircraft =
-                                                        downloadUrls.first;
-                                                  });
-                                                } else {
-                                                  safeSetState(() {});
-                                                  return;
-                                                }
-                                              }
-                                            },
-                                            child: Container(
-                                              width: 300.0,
-                                              height: 50.0,
-                                              decoration: BoxDecoration(
-                                                image: DecorationImage(
-                                                  fit: BoxFit.contain,
-                                                  image: Image.asset(
-                                                    'assets/images/Clique_aqui_para_adicionar_uma_foto_(1).png',
-                                                  ).image,
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        } else {
-                                          return Align(
-                                            alignment:
-                                                AlignmentDirectional(0.0, 0.0),
-                                            child: InkWell(
-                                              splashColor: Colors.transparent,
-                                              focusColor: Colors.transparent,
-                                              hoverColor: Colors.transparent,
-                                              highlightColor:
-                                                  Colors.transparent,
-                                              onTap: () async {
-                                                safeSetState(() {
-                                                  _model.isDataUploading_uploadAircraft =
-                                                      false;
-                                                  _model.uploadedLocalFile_uploadAircraft =
-                                                      FFUploadedFile(
-                                                          bytes: Uint8List
-                                                              .fromList([]),
-                                                          originalFilename: '');
-                                                  _model.uploadedFileUrl_uploadAircraft =
-                                                      '';
-                                                });
-                                              },
-                                              child: Text(
-                                                'Deletar imagem',
-                                                style: FlutterFlowTheme.of(
-                                                        context)
-                                                    .bodyMedium
-                                                    .override(
-                                                      font: GoogleFonts.inter(
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontStyle,
-                                                      ),
-                                                      color:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .error,
-                                                      letterSpacing: 0.0,
-                                                      fontWeight:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .bodyMedium
-                                                              .fontWeight,
-                                                      fontStyle:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .bodyMedium
-                                                              .fontStyle,
-                                                    ),
-                                              ),
-                                            ),
-                                          );
-                                        }
-                                      },
-                                    ),
-                                  ),
-                                ),
-                                TextFormField(
-                                  controller:
-                                      _model.tFAircraftNameTextController,
-                                  focusNode: _model.tFAircraftNameFocusNode,
-                                  autofocus: false,
-                                  obscureText: false,
-                                  decoration: InputDecoration(
-                                    isDense: false,
-                                    labelText: 'Modelo da Aeronave',
-                                    labelStyle: FlutterFlowTheme.of(context)
-                                        .labelMedium
-                                        .override(
-                                          font: GoogleFonts.inter(
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontStyle,
-                                          ),
-                                          color: FlutterFlowTheme.of(context)
-                                              .secondaryBackground,
-                                          letterSpacing: 0.0,
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontStyle,
-                                        ),
-                                    hintText: 'Modelo da Aeronave',
-                                    hintStyle: FlutterFlowTheme.of(context)
-                                        .labelMedium
-                                        .override(
-                                          font: GoogleFonts.inter(
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontStyle,
-                                          ),
-                                          color: FlutterFlowTheme.of(context)
-                                              .secondaryBackground,
-                                          letterSpacing: 0.0,
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontStyle,
-                                        ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                        color: Color(0x73FFFFFF),
-                                        width: 1.0,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8.0),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                        color: FlutterFlowTheme.of(context)
-                                            .primary,
-                                        width: 1.0,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8.0),
-                                    ),
-                                    errorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                        color:
-                                            FlutterFlowTheme.of(context).error,
-                                        width: 1.0,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8.0),
-                                    ),
-                                    focusedErrorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                        color:
-                                            FlutterFlowTheme.of(context).error,
-                                        width: 1.0,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8.0),
-                                    ),
-                                    filled: true,
-                                    fillColor: Color(0xFF404040),
-                                  ),
-                                  style: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                  cursorColor: FlutterFlowTheme.of(context)
-                                      .secondaryBackground,
-                                  validator: _model
-                                      .tFAircraftNameTextControllerValidator
-                                      .asValidator(context),
-                                ),
-                                TextFormField(
-                                  controller: _model.tFPriceTextController,
-                                  focusNode: _model.tFPriceFocusNode,
-                                  onChanged: (_) => EasyDebounce.debounce(
-                                    '_model.tFPriceTextController',
-                                    Duration(milliseconds: 500),
-                                    () async {
-                                      safeSetState(() {
-                                        _model.tFPriceTextController?.text =
-                                            valueOrDefault<String>(
-                                          functions.formatarMoedaEmDolar(_model
-                                              .tFPriceTextController.text),
-                                          '0',
-                                        );
-                                        _model.tFPriceFocusNode?.requestFocus();
-                                        WidgetsBinding.instance
-                                            .addPostFrameCallback((_) {
-                                          _model.tFPriceTextController
-                                                  ?.selection =
-                                              TextSelection.collapsed(
-                                            offset: _model
-                                                .tFPriceTextController!
-                                                .text
-                                                .length,
-                                          );
-                                        });
-                                      });
-                                    },
-                                  ),
-                                  autofocus: false,
-                                  obscureText: false,
-                                  decoration: InputDecoration(
-                                    isDense: false,
-                                    labelText: 'Preço de Venda',
-                                    labelStyle: FlutterFlowTheme.of(context)
-                                        .labelMedium
-                                        .override(
-                                          font: GoogleFonts.inter(
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontStyle,
-                                          ),
-                                          color: FlutterFlowTheme.of(context)
-                                              .secondaryBackground,
-                                          letterSpacing: 0.0,
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontStyle,
-                                        ),
-                                    hintText: '\$ 0.00',
-                                    hintStyle: FlutterFlowTheme.of(context)
-                                        .labelMedium
-                                        .override(
-                                          font: GoogleFonts.inter(
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontStyle,
-                                          ),
-                                          color: FlutterFlowTheme.of(context)
-                                              .secondaryBackground,
-                                          letterSpacing: 0.0,
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontStyle,
-                                        ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                        color: Color(0x73FFFFFF),
-                                        width: 1.0,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8.0),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                        color: FlutterFlowTheme.of(context)
-                                            .primary,
-                                        width: 1.0,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8.0),
-                                    ),
-                                    errorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                        color:
-                                            FlutterFlowTheme.of(context).error,
-                                        width: 1.0,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8.0),
-                                    ),
-                                    focusedErrorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                        color:
-                                            FlutterFlowTheme.of(context).error,
-                                        width: 1.0,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8.0),
-                                    ),
-                                    filled: true,
-                                    fillColor: Color(0xFF404040),
-                                  ),
-                                  style: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                          decimal: true),
-                                  cursorColor: FlutterFlowTheme.of(context)
-                                      .secondaryBackground,
-                                  validator: _model
-                                      .tFPriceTextControllerValidator
-                                      .asValidator(context),
-                                ),
-                              ].divide(SizedBox(height: 16.0)),
-                            ),
-                          ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle!,
+                        style: GoogleFonts.roboto(
+                          fontSize: 12,
+                          color: const Color(0x99FFFFFF),
                         ),
                       ),
-                    ),
-                    Padding(
-                      padding:
-                          EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 12.0),
-                      child: Container(
-                        width: MediaQuery.sizeOf(context).width * 1.0,
-                        constraints: BoxConstraints(
-                          maxWidth: double.infinity,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Color(0xFF404040),
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.all(24.0),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Align(
-                                alignment: AlignmentDirectional(-1.0, 0.0),
-                                child: Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                      12.0, 0.0, 12.0, 0.0),
-                                  child: Text(
-                                    'Descrição da Aeronave',
-                                    style: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .override(
-                                          font: GoogleFonts.roboto(
-                                            fontWeight: FontWeight.w500,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                          color: FlutterFlowTheme.of(context)
-                                              .secondaryBackground,
-                                          fontSize: 18.0,
-                                          letterSpacing: 0.0,
-                                          fontWeight: FontWeight.w500,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontStyle,
-                                        ),
-                                  ),
-                                ),
-                              ),
-                              Divider(
-                                thickness: 2.0,
-                                color: Color(0x74FFFFFF),
-                              ),
-                              Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    0.0, 12.0, 0.0, 0.0),
-                                child: TextFormField(
-                                  controller:
-                                      _model.tFAircraftYearTextController,
-                                  focusNode: _model.tFAircraftYearFocusNode,
-                                  autofocus: false,
-                                  obscureText: false,
-                                  decoration: InputDecoration(
-                                    isDense: false,
-                                    labelText: 'Ano de Fabricação',
-                                    labelStyle: FlutterFlowTheme.of(context)
-                                        .labelMedium
-                                        .override(
-                                          font: GoogleFonts.inter(
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontStyle,
-                                          ),
-                                          color: FlutterFlowTheme.of(context)
-                                              .secondaryBackground,
-                                          letterSpacing: 0.0,
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontStyle,
-                                        ),
-                                    hintText: 'Ano de Fabricação',
-                                    hintStyle: FlutterFlowTheme.of(context)
-                                        .labelMedium
-                                        .override(
-                                          font: GoogleFonts.inter(
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontStyle,
-                                          ),
-                                          color: FlutterFlowTheme.of(context)
-                                              .secondaryBackground,
-                                          letterSpacing: 0.0,
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontStyle,
-                                        ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                        color: Color(0x73FFFFFF),
-                                        width: 1.0,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8.0),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                        color: FlutterFlowTheme.of(context)
-                                            .primary,
-                                        width: 1.0,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8.0),
-                                    ),
-                                    errorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                        color:
-                                            FlutterFlowTheme.of(context).error,
-                                        width: 1.0,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8.0),
-                                    ),
-                                    focusedErrorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                        color:
-                                            FlutterFlowTheme.of(context).error,
-                                        width: 1.0,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8.0),
-                                    ),
-                                    filled: true,
-                                    fillColor: Color(0xFF404040),
-                                  ),
-                                  style: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                  cursorColor: FlutterFlowTheme.of(context)
-                                      .secondaryBackground,
-                                  validator: _model
-                                      .tFAircraftYearTextControllerValidator
-                                      .asValidator(context),
-                                ),
-                              ),
-                              TextFormField(
-                                controller:
-                                    _model.tFAircraftHopperTextController,
-                                focusNode: _model.tFAircraftHopperFocusNode,
-                                autofocus: false,
-                                obscureText: false,
-                                decoration: InputDecoration(
-                                  isDense: false,
-                                  labelText: 'Hopper',
-                                  labelStyle: FlutterFlowTheme.of(context)
-                                      .labelMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontStyle,
-                                      ),
-                                  hintText: 'Hopper',
-                                  hintStyle: FlutterFlowTheme.of(context)
-                                      .labelMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontStyle,
-                                      ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color: Color(0x73FFFFFF),
-                                      width: 1.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8.0),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color:
-                                          FlutterFlowTheme.of(context).primary,
-                                      width: 1.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8.0),
-                                  ),
-                                  errorBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color: FlutterFlowTheme.of(context).error,
-                                      width: 1.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8.0),
-                                  ),
-                                  focusedErrorBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color: FlutterFlowTheme.of(context).error,
-                                      width: 1.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8.0),
-                                  ),
-                                  filled: true,
-                                  fillColor: Color(0xFF404040),
-                                ),
-                                style: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryBackground,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                keyboardType: TextInputType.number,
-                                cursorColor: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
-                                validator: _model
-                                    .tFAircraftHopperTextControllerValidator
-                                    .asValidator(context),
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.allow(
-                                      RegExp('[0-9]'))
-                                ],
-                              ),
-                              TextFormField(
-                                controller: _model.tFDescriptionTextController,
-                                focusNode: _model.tFDescriptionFocusNode,
-                                autofocus: false,
-                                obscureText: false,
-                                decoration: InputDecoration(
-                                  isDense: false,
-                                  labelText: 'Descrição',
-                                  labelStyle: FlutterFlowTheme.of(context)
-                                      .labelMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontStyle,
-                                      ),
-                                  hintText:
-                                      'Adicione a descrição da aeronave aqui',
-                                  hintStyle: FlutterFlowTheme.of(context)
-                                      .labelMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontStyle,
-                                      ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color: Color(0x73FFFFFF),
-                                      width: 1.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8.0),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color:
-                                          FlutterFlowTheme.of(context).primary,
-                                      width: 1.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8.0),
-                                  ),
-                                  errorBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color: FlutterFlowTheme.of(context).error,
-                                      width: 1.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8.0),
-                                  ),
-                                  focusedErrorBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color: FlutterFlowTheme.of(context).error,
-                                      width: 1.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8.0),
-                                  ),
-                                  filled: true,
-                                  fillColor: Color(0xFF404040),
-                                ),
-                                style: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryBackground,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                maxLines: null,
-                                minLines: 5,
-                                cursorColor: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
-                                validator: _model
-                                    .tFDescriptionTextControllerValidator
-                                    .asValidator(context),
-                              ),
-                            ].divide(SizedBox(height: 16.0)),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding:
-                          EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 12.0),
-                      child: Container(
-                        width: MediaQuery.sizeOf(context).width * 1.0,
-                        constraints: BoxConstraints(
-                          maxWidth: double.infinity,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Color(0xFF404040),
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.all(24.0),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.max,
-                            children: [
-                              Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.max,
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Container(
-                                        height: 50.0,
-                                        decoration: BoxDecoration(
-                                          borderRadius:
-                                              BorderRadius.circular(8.0),
-                                          border: Border.all(
-                                            color: Color(0x73FFFFFF),
-                                            width: 2.0,
-                                          ),
-                                        ),
-                                        child: Builder(
-                                          builder: (context) {
-                                            if (_model.uploadedFileUrl_uploadOEM ==
-                                                    null ||
-                                                _model.uploadedFileUrl_uploadOEM ==
-                                                    '') {
-                                              return Visibility(
-                                                visible: _model
-                                                            .uploadedFileUrl_uploadOEM ==
-                                                        null ||
-                                                    _model.uploadedFileUrl_uploadOEM ==
-                                                        '',
-                                                child: InkWell(
-                                                  splashColor:
-                                                      Colors.transparent,
-                                                  focusColor:
-                                                      Colors.transparent,
-                                                  hoverColor:
-                                                      Colors.transparent,
-                                                  highlightColor:
-                                                      Colors.transparent,
-                                                  onTap: () async {
-                                                    final selectedFiles =
-                                                        await selectFiles(
-                                                      storageFolderPath: '',
-                                                      allowedExtensions: [
-                                                        'pdf'
-                                                      ],
-                                                      multiFile: false,
-                                                    );
-                                                    if (selectedFiles != null) {
-                                                      safeSetState(() => _model
-                                                              .isDataUploading_uploadOEM =
-                                                          true);
-                                                      var selectedUploadedFiles =
-                                                          <FFUploadedFile>[];
-
-                                                      var downloadUrls =
-                                                          <String>[];
-                                                      try {
-                                                        selectedUploadedFiles =
-                                                            selectedFiles
-                                                                .map((m) =>
-                                                                    FFUploadedFile(
-                                                                      name: m
-                                                                          .storagePath
-                                                                          .split(
-                                                                              '/')
-                                                                          .last,
-                                                                      bytes: m
-                                                                          .bytes,
-                                                                      originalFilename:
-                                                                          m.originalFilename,
-                                                                    ))
-                                                                .toList();
-
-                                                        downloadUrls =
-                                                            await uploadSupabaseStorageFiles(
-                                                          bucketName: 'AGSur',
-                                                          selectedFiles:
-                                                              selectedFiles,
-                                                        );
-                                                      } finally {
-                                                        _model.isDataUploading_uploadOEM =
-                                                            false;
-                                                      }
-                                                      if (selectedUploadedFiles
-                                                                  .length ==
-                                                              selectedFiles
-                                                                  .length &&
-                                                          downloadUrls.length ==
-                                                              selectedFiles
-                                                                  .length) {
-                                                        safeSetState(() {
-                                                          _model.uploadedLocalFile_uploadOEM =
-                                                              selectedUploadedFiles
-                                                                  .first;
-                                                          _model.uploadedFileUrl_uploadOEM =
-                                                              downloadUrls
-                                                                  .first;
-                                                        });
-                                                      } else {
-                                                        safeSetState(() {});
-                                                        return;
-                                                      }
-                                                    }
-                                                  },
-                                                  child: Container(
-                                                    height: 50.0,
-                                                    constraints: BoxConstraints(
-                                                      minWidth: 200.0,
-                                                      maxWidth: 300.0,
-                                                    ),
-                                                    decoration: BoxDecoration(
-                                                      image: DecorationImage(
-                                                        fit: BoxFit.contain,
-                                                        image: Image.asset(
-                                                          'assets/images/OEM.png',
-                                                        ).image,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              );
-                                            } else {
-                                              return Align(
-                                                alignment: AlignmentDirectional(
-                                                    0.0, 0.0),
-                                                child: Text(
-                                                  valueOrDefault<String>(
-                                                    functions.fileNamePath(_model
-                                                        .uploadedFileUrl_uploadOEM),
-                                                    'arquivo.pdf',
-                                                  ),
-                                                  style: FlutterFlowTheme.of(
-                                                          context)
-                                                      .bodyMedium
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        color: FlutterFlowTheme
-                                                                .of(context)
-                                                            .secondaryBackground,
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontStyle,
-                                                      ),
-                                                ),
-                                              );
-                                            }
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                    Builder(
-                                      builder: (context) {
-                                        if (_model.uploadedFileUrl_uploadOEM !=
-                                                null &&
-                                            _model.uploadedFileUrl_uploadOEM !=
-                                                '') {
-                                          return Row(
-                                            mainAxisSize: MainAxisSize.max,
-                                            children: [
-                                              FlutterFlowIconButton(
-                                                borderRadius: 8.0,
-                                                buttonSize: 44.0,
-                                                fillColor:
-                                                    FlutterFlowTheme.of(context)
-                                                        .primary,
-                                                icon: Icon(
-                                                  Icons.check_rounded,
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .primaryText,
-                                                  size: 28.0,
-                                                ),
-                                                onPressed: () {
-                                                  print(
-                                                      'IconButtonCheckProprietario pressed ...');
-                                                },
-                                              ),
-                                              FlutterFlowIconButton(
-                                                borderRadius: 8.0,
-                                                buttonSize: 44.0,
-                                                fillColor: Color(0xFFFF818B),
-                                                icon: FaIcon(
-                                                  FontAwesomeIcons.fileExcel,
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .primaryText,
-                                                  size: 28.0,
-                                                ),
-                                                onPressed: () async {
-                                                  safeSetState(() {
-                                                    _model.isDataUploading_uploadOEM =
-                                                        false;
-                                                    _model.uploadedLocalFile_uploadOEM =
-                                                        FFUploadedFile(
-                                                            bytes: Uint8List
-                                                                .fromList([]),
-                                                            originalFilename:
-                                                                '');
-                                                    _model.uploadedFileUrl_uploadOEM =
-                                                        '';
-                                                  });
-                                                },
-                                              ),
-                                            ].divide(SizedBox(width: 8.0)),
-                                          );
-                                        } else {
-                                          return FlutterFlowIconButton(
-                                            borderRadius: 8.0,
-                                            buttonSize: 44.0,
-                                            fillColor: Color(0xFF313131),
-                                            icon: Icon(
-                                              Icons.assignment_outlined,
-                                              color: Color(0x72FFFFFF),
-                                              size: 28.0,
-                                            ),
-                                            onPressed: () {
-                                              print(
-                                                  'IconButtonProprietario pressed ...');
-                                            },
-                                          );
-                                        }
-                                      },
-                                    ),
-                                  ].divide(SizedBox(width: 16.0)),
-                                ),
-                              ),
-                              Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.max,
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Container(
-                                        height: 50.0,
-                                        decoration: BoxDecoration(
-                                          borderRadius:
-                                              BorderRadius.circular(8.0),
-                                          border: Border.all(
-                                            color: Color(0x73FFFFFF),
-                                            width: 2.0,
-                                          ),
-                                        ),
-                                        child: Builder(
-                                          builder: (context) {
-                                            if (_model.uploadedFileUrl_uploadManualVoo ==
-                                                    null ||
-                                                _model.uploadedFileUrl_uploadManualVoo ==
-                                                    '') {
-                                              return Visibility(
-                                                visible: _model
-                                                            .uploadedFileUrl_uploadManualVoo ==
-                                                        null ||
-                                                    _model.uploadedFileUrl_uploadManualVoo ==
-                                                        '',
-                                                child: InkWell(
-                                                  splashColor:
-                                                      Colors.transparent,
-                                                  focusColor:
-                                                      Colors.transparent,
-                                                  hoverColor:
-                                                      Colors.transparent,
-                                                  highlightColor:
-                                                      Colors.transparent,
-                                                  onTap: () async {
-                                                    final selectedFiles =
-                                                        await selectFiles(
-                                                      storageFolderPath: '',
-                                                      allowedExtensions: [
-                                                        'pdf'
-                                                      ],
-                                                      multiFile: false,
-                                                    );
-                                                    if (selectedFiles != null) {
-                                                      safeSetState(() => _model
-                                                              .isDataUploading_uploadManualVoo =
-                                                          true);
-                                                      var selectedUploadedFiles =
-                                                          <FFUploadedFile>[];
-
-                                                      var downloadUrls =
-                                                          <String>[];
-                                                      try {
-                                                        selectedUploadedFiles =
-                                                            selectedFiles
-                                                                .map((m) =>
-                                                                    FFUploadedFile(
-                                                                      name: m
-                                                                          .storagePath
-                                                                          .split(
-                                                                              '/')
-                                                                          .last,
-                                                                      bytes: m
-                                                                          .bytes,
-                                                                      originalFilename:
-                                                                          m.originalFilename,
-                                                                    ))
-                                                                .toList();
-
-                                                        downloadUrls =
-                                                            await uploadSupabaseStorageFiles(
-                                                          bucketName: 'AGSur',
-                                                          selectedFiles:
-                                                              selectedFiles,
-                                                        );
-                                                      } finally {
-                                                        _model.isDataUploading_uploadManualVoo =
-                                                            false;
-                                                      }
-                                                      if (selectedUploadedFiles
-                                                                  .length ==
-                                                              selectedFiles
-                                                                  .length &&
-                                                          downloadUrls.length ==
-                                                              selectedFiles
-                                                                  .length) {
-                                                        safeSetState(() {
-                                                          _model.uploadedLocalFile_uploadManualVoo =
-                                                              selectedUploadedFiles
-                                                                  .first;
-                                                          _model.uploadedFileUrl_uploadManualVoo =
-                                                              downloadUrls
-                                                                  .first;
-                                                        });
-                                                      } else {
-                                                        safeSetState(() {});
-                                                        return;
-                                                      }
-                                                    }
-                                                  },
-                                                  child: Container(
-                                                    height: 50.0,
-                                                    constraints: BoxConstraints(
-                                                      minWidth: 200.0,
-                                                      maxWidth: 300.0,
-                                                    ),
-                                                    decoration: BoxDecoration(
-                                                      image: DecorationImage(
-                                                        fit: BoxFit.contain,
-                                                        image: Image.asset(
-                                                          'assets/images/AFM.png',
-                                                        ).image,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              );
-                                            } else {
-                                              return Align(
-                                                alignment: AlignmentDirectional(
-                                                    0.0, 0.0),
-                                                child: Text(
-                                                  valueOrDefault<String>(
-                                                    functions.fileNamePath(_model
-                                                        .uploadedFileUrl_uploadOEM),
-                                                    'arquivo.pdf',
-                                                  ),
-                                                  style: FlutterFlowTheme.of(
-                                                          context)
-                                                      .bodyMedium
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        color: FlutterFlowTheme
-                                                                .of(context)
-                                                            .secondaryBackground,
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontStyle,
-                                                      ),
-                                                ),
-                                              );
-                                            }
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                    Builder(
-                                      builder: (context) {
-                                        if (_model.uploadedFileUrl_uploadManualVoo !=
-                                                null &&
-                                            _model.uploadedFileUrl_uploadManualVoo !=
-                                                '') {
-                                          return Row(
-                                            mainAxisSize: MainAxisSize.max,
-                                            children: [
-                                              FlutterFlowIconButton(
-                                                borderRadius: 8.0,
-                                                buttonSize: 44.0,
-                                                fillColor:
-                                                    FlutterFlowTheme.of(context)
-                                                        .primary,
-                                                icon: Icon(
-                                                  Icons.check_rounded,
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .primaryText,
-                                                  size: 28.0,
-                                                ),
-                                                onPressed: () {
-                                                  print(
-                                                      'IconButtonCheckVoo pressed ...');
-                                                },
-                                              ),
-                                              FlutterFlowIconButton(
-                                                borderRadius: 8.0,
-                                                buttonSize: 44.0,
-                                                fillColor: Color(0xFFFF818B),
-                                                icon: FaIcon(
-                                                  FontAwesomeIcons.fileExcel,
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .primaryText,
-                                                  size: 28.0,
-                                                ),
-                                                onPressed: () async {
-                                                  safeSetState(() {
-                                                    _model.isDataUploading_uploadManualVoo =
-                                                        false;
-                                                    _model.uploadedLocalFile_uploadManualVoo =
-                                                        FFUploadedFile(
-                                                            bytes: Uint8List
-                                                                .fromList([]),
-                                                            originalFilename:
-                                                                '');
-                                                    _model.uploadedFileUrl_uploadManualVoo =
-                                                        '';
-                                                  });
-                                                },
-                                              ),
-                                            ].divide(SizedBox(width: 8.0)),
-                                          );
-                                        } else {
-                                          return FlutterFlowIconButton(
-                                            borderRadius: 8.0,
-                                            buttonSize: 44.0,
-                                            fillColor: Color(0xFF313131),
-                                            icon: Icon(
-                                              Icons.assignment_outlined,
-                                              color: Color(0x72FFFFFF),
-                                              size: 28.0,
-                                            ),
-                                            onPressed: () {
-                                              print(
-                                                  'IconButtonVoo pressed ...');
-                                            },
-                                          );
-                                        }
-                                      },
-                                    ),
-                                  ].divide(SizedBox(width: 16.0)),
-                                ),
-                              ),
-                              Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.max,
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Container(
-                                        height: 50.0,
-                                        decoration: BoxDecoration(
-                                          borderRadius:
-                                              BorderRadius.circular(8.0),
-                                          border: Border.all(
-                                            color: Color(0x73FFFFFF),
-                                            width: 2.0,
-                                          ),
-                                        ),
-                                        child: Builder(
-                                          builder: (context) {
-                                            if (_model.uploadedFileUrl_uploadManualPeca ==
-                                                    null ||
-                                                _model.uploadedFileUrl_uploadManualPeca ==
-                                                    '') {
-                                              return Visibility(
-                                                visible: _model
-                                                            .uploadedFileUrl_uploadManualPeca ==
-                                                        null ||
-                                                    _model.uploadedFileUrl_uploadManualPeca ==
-                                                        '',
-                                                child: InkWell(
-                                                  splashColor:
-                                                      Colors.transparent,
-                                                  focusColor:
-                                                      Colors.transparent,
-                                                  hoverColor:
-                                                      Colors.transparent,
-                                                  highlightColor:
-                                                      Colors.transparent,
-                                                  onTap: () async {
-                                                    final selectedFiles =
-                                                        await selectFiles(
-                                                      storageFolderPath: '',
-                                                      allowedExtensions: [
-                                                        'pdf'
-                                                      ],
-                                                      multiFile: false,
-                                                    );
-                                                    if (selectedFiles != null) {
-                                                      safeSetState(() => _model
-                                                              .isDataUploading_uploadManualPeca =
-                                                          true);
-                                                      var selectedUploadedFiles =
-                                                          <FFUploadedFile>[];
-
-                                                      var downloadUrls =
-                                                          <String>[];
-                                                      try {
-                                                        selectedUploadedFiles =
-                                                            selectedFiles
-                                                                .map((m) =>
-                                                                    FFUploadedFile(
-                                                                      name: m
-                                                                          .storagePath
-                                                                          .split(
-                                                                              '/')
-                                                                          .last,
-                                                                      bytes: m
-                                                                          .bytes,
-                                                                      originalFilename:
-                                                                          m.originalFilename,
-                                                                    ))
-                                                                .toList();
-
-                                                        downloadUrls =
-                                                            await uploadSupabaseStorageFiles(
-                                                          bucketName: 'AGSur',
-                                                          selectedFiles:
-                                                              selectedFiles,
-                                                        );
-                                                      } finally {
-                                                        _model.isDataUploading_uploadManualPeca =
-                                                            false;
-                                                      }
-                                                      if (selectedUploadedFiles
-                                                                  .length ==
-                                                              selectedFiles
-                                                                  .length &&
-                                                          downloadUrls.length ==
-                                                              selectedFiles
-                                                                  .length) {
-                                                        safeSetState(() {
-                                                          _model.uploadedLocalFile_uploadManualPeca =
-                                                              selectedUploadedFiles
-                                                                  .first;
-                                                          _model.uploadedFileUrl_uploadManualPeca =
-                                                              downloadUrls
-                                                                  .first;
-                                                        });
-                                                      } else {
-                                                        safeSetState(() {});
-                                                        return;
-                                                      }
-                                                    }
-                                                  },
-                                                  child: Container(
-                                                    height: 50.0,
-                                                    constraints: BoxConstraints(
-                                                      minWidth: 200.0,
-                                                      maxWidth: 300.0,
-                                                    ),
-                                                    decoration: BoxDecoration(
-                                                      image: DecorationImage(
-                                                        fit: BoxFit.contain,
-                                                        image: Image.asset(
-                                                          'assets/images/IPC.png',
-                                                        ).image,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              );
-                                            } else {
-                                              return Align(
-                                                alignment: AlignmentDirectional(
-                                                    0.0, 0.0),
-                                                child: Text(
-                                                  valueOrDefault<String>(
-                                                    functions.fileNamePath(_model
-                                                        .uploadedFileUrl_uploadOEM),
-                                                    'arquivo.pdf',
-                                                  ),
-                                                  style: FlutterFlowTheme.of(
-                                                          context)
-                                                      .bodyMedium
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        color: FlutterFlowTheme
-                                                                .of(context)
-                                                            .secondaryBackground,
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontStyle,
-                                                      ),
-                                                ),
-                                              );
-                                            }
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                    Builder(
-                                      builder: (context) {
-                                        if (_model.uploadedFileUrl_uploadManualPeca !=
-                                                null &&
-                                            _model.uploadedFileUrl_uploadManualPeca !=
-                                                '') {
-                                          return Row(
-                                            mainAxisSize: MainAxisSize.max,
-                                            children: [
-                                              FlutterFlowIconButton(
-                                                borderRadius: 8.0,
-                                                buttonSize: 44.0,
-                                                fillColor:
-                                                    FlutterFlowTheme.of(context)
-                                                        .primary,
-                                                icon: Icon(
-                                                  Icons.check_rounded,
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .primaryText,
-                                                  size: 28.0,
-                                                ),
-                                                onPressed: () {
-                                                  print(
-                                                      'IconButtonCheckPeca pressed ...');
-                                                },
-                                              ),
-                                              FlutterFlowIconButton(
-                                                borderRadius: 8.0,
-                                                buttonSize: 44.0,
-                                                fillColor: Color(0xFFFF818B),
-                                                icon: FaIcon(
-                                                  FontAwesomeIcons.fileExcel,
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .primaryText,
-                                                  size: 28.0,
-                                                ),
-                                                onPressed: () async {
-                                                  safeSetState(() {
-                                                    _model.isDataUploading_uploadManualPeca =
-                                                        false;
-                                                    _model.uploadedLocalFile_uploadManualPeca =
-                                                        FFUploadedFile(
-                                                            bytes: Uint8List
-                                                                .fromList([]),
-                                                            originalFilename:
-                                                                '');
-                                                    _model.uploadedFileUrl_uploadManualPeca =
-                                                        '';
-                                                  });
-                                                },
-                                              ),
-                                            ].divide(SizedBox(width: 8.0)),
-                                          );
-                                        } else {
-                                          return FlutterFlowIconButton(
-                                            borderRadius: 8.0,
-                                            buttonSize: 44.0,
-                                            fillColor: Color(0xFF313131),
-                                            icon: Icon(
-                                              Icons.assignment_outlined,
-                                              color: Color(0x72FFFFFF),
-                                              size: 28.0,
-                                            ),
-                                            onPressed: () {
-                                              print(
-                                                  'IconButtonPeca pressed ...');
-                                            },
-                                          );
-                                        }
-                                      },
-                                    ),
-                                  ].divide(SizedBox(width: 16.0)),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding:
-                          EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 12.0),
-                      child: Container(
-                        width: MediaQuery.sizeOf(context).width * 1.0,
-                        constraints: BoxConstraints(
-                          maxWidth: double.infinity,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.max,
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            Align(
-                              alignment: AlignmentDirectional(1.0, 0.0),
-                              child: Builder(
-                                builder: (context) => FFButtonWidget(
-                                  onPressed: () async {
-                                    var _shouldSetState = false;
-                                    if (_model.uploadedFileUrl_uploadAircraft ==
-                                            null ||
-                                        _model.uploadedFileUrl_uploadAircraft ==
-                                            '') {
-                                      await showDialog(
-                                        barrierDismissible: false,
-                                        context: context,
-                                        builder: (dialogContext) {
-                                          return Dialog(
-                                            elevation: 0,
-                                            insetPadding: EdgeInsets.zero,
-                                            backgroundColor: Colors.transparent,
-                                            alignment: AlignmentDirectional(
-                                                    0.0, 0.0)
-                                                .resolve(
-                                                    Directionality.of(context)),
-                                            child: GestureDetector(
-                                              onTap: () {
-                                                FocusScope.of(dialogContext)
-                                                    .unfocus();
-                                                FocusManager
-                                                    .instance.primaryFocus
-                                                    ?.unfocus();
-                                              },
-                                              child:
-                                                  WarmingAirCraftPhotoWidget(),
-                                            ),
-                                          );
-                                        },
-                                      );
-
-                                      if (_shouldSetState) safeSetState(() {});
-                                      return;
-                                    }
-                                    if (_model.uploadedFileUrl_uploadOEM ==
-                                            null ||
-                                        _model.uploadedFileUrl_uploadOEM ==
-                                            '') {
-                                      await showDialog(
-                                        barrierDismissible: false,
-                                        context: context,
-                                        builder: (dialogContext) {
-                                          return Dialog(
-                                            elevation: 0,
-                                            insetPadding: EdgeInsets.zero,
-                                            backgroundColor: Colors.transparent,
-                                            alignment: AlignmentDirectional(
-                                                    0.0, 0.0)
-                                                .resolve(
-                                                    Directionality.of(context)),
-                                            child: GestureDetector(
-                                              onTap: () {
-                                                FocusScope.of(dialogContext)
-                                                    .unfocus();
-                                                FocusManager
-                                                    .instance.primaryFocus
-                                                    ?.unfocus();
-                                              },
-                                              child:
-                                                  WarmingMProprietarioWidget(),
-                                            ),
-                                          );
-                                        },
-                                      );
-
-                                      if (_shouldSetState) safeSetState(() {});
-                                      return;
-                                    }
-                                    if (_model.uploadedFileUrl_uploadManualVoo ==
-                                            null ||
-                                        _model.uploadedFileUrl_uploadManualVoo ==
-                                            '') {
-                                      await showDialog(
-                                        barrierDismissible: false,
-                                        context: context,
-                                        builder: (dialogContext) {
-                                          return Dialog(
-                                            elevation: 0,
-                                            insetPadding: EdgeInsets.zero,
-                                            backgroundColor: Colors.transparent,
-                                            alignment: AlignmentDirectional(
-                                                    0.0, 0.0)
-                                                .resolve(
-                                                    Directionality.of(context)),
-                                            child: GestureDetector(
-                                              onTap: () {
-                                                FocusScope.of(dialogContext)
-                                                    .unfocus();
-                                                FocusManager
-                                                    .instance.primaryFocus
-                                                    ?.unfocus();
-                                              },
-                                              child: WarmingMVooWidget(),
-                                            ),
-                                          );
-                                        },
-                                      );
-
-                                      if (_shouldSetState) safeSetState(() {});
-                                      return;
-                                    }
-                                    if (_model.uploadedFileUrl_uploadManualPeca ==
-                                            null ||
-                                        _model.uploadedFileUrl_uploadManualPeca ==
-                                            '') {
-                                      await showDialog(
-                                        barrierDismissible: false,
-                                        context: context,
-                                        builder: (dialogContext) {
-                                          return Dialog(
-                                            elevation: 0,
-                                            insetPadding: EdgeInsets.zero,
-                                            backgroundColor: Colors.transparent,
-                                            alignment: AlignmentDirectional(
-                                                    0.0, 0.0)
-                                                .resolve(
-                                                    Directionality.of(context)),
-                                            child: GestureDetector(
-                                              onTap: () {
-                                                FocusScope.of(dialogContext)
-                                                    .unfocus();
-                                                FocusManager
-                                                    .instance.primaryFocus
-                                                    ?.unfocus();
-                                              },
-                                              child: WarmingMPecasWidget(),
-                                            ),
-                                          );
-                                        },
-                                      );
-
-                                      if (_shouldSetState) safeSetState(() {});
-                                      return;
-                                    }
-                                    _model.createAircraft =
-                                        await AircraftsTable().insert({
-                                      'aircraft_model': _model
-                                          .tFAircraftNameTextController.text,
-                                      'aircraft_year': _model
-                                          .tFAircraftYearTextController.text,
-                                      'aircraft_description': _model
-                                          .tFDescriptionTextController.text,
-                                      'aircraft_photo_url':
-                                          _model.uploadedFileUrl_uploadAircraft,
-                                      'hopper': valueOrDefault<double>(
-                                        double.tryParse(_model
-                                            .tFAircraftHopperTextController
-                                            .text),
-                                        0.0,
-                                      ),
-                                      'price': valueOrDefault<double>(
-                                        functions.parsePriceToDouble(
-                                            _model.tFPriceTextController.text),
-                                        0.0,
-                                      ),
-                                      'created_by': currentUserUid,
-                                    });
-                                    _shouldSetState = true;
-                                    _model.createManualProprietario =
-                                        await AircraftManualsTable().insert({
-                                      'aircraft_id': _model.createAircraft?.id,
-                                      'documention_name':
-                                          valueOrDefault<String>(
-                                        functions.fileNamePath(
-                                            _model.uploadedFileUrl_uploadOEM),
-                                        'arquivo.pdf',
-                                      ),
-                                      'documention_url':
-                                          _model.uploadedFileUrl_uploadOEM,
-                                      'type': 'Manual do proprietário',
-                                    });
-                                    _shouldSetState = true;
-                                    _model.createManualVoo =
-                                        await AircraftManualsTable().insert({
-                                      'aircraft_id': _model.createAircraft?.id,
-                                      'documention_name':
-                                          valueOrDefault<String>(
-                                        functions.fileNamePath(
-                                            valueOrDefault<String>(
-                                          _model
-                                              .uploadedFileUrl_uploadManualVoo,
-                                          'arquivo.pdf',
-                                        )),
-                                        'arquivo.pdf',
-                                      ),
-                                      'documention_url': _model
-                                          .uploadedFileUrl_uploadManualVoo,
-                                      'type': 'Manual de voo',
-                                    });
-                                    _shouldSetState = true;
-                                    _model.createManualPecas =
-                                        await AircraftManualsTable().insert({
-                                      'aircraft_id': _model.createAircraft?.id,
-                                      'documention_name':
-                                          valueOrDefault<String>(
-                                        functions.fileNamePath(
-                                            valueOrDefault<String>(
-                                          _model
-                                              .uploadedFileUrl_uploadManualPeca,
-                                          'arquivo.pdf',
-                                        )),
-                                        'arquivo.pdf',
-                                      ),
-                                      'documention_url': _model
-                                          .uploadedFileUrl_uploadManualPeca,
-                                      'type': 'Manual de peças',
-                                    });
-                                    _shouldSetState = true;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Aeronave cadastrada com sucesso!',
-                                          style: TextStyle(
-                                            color: FlutterFlowTheme.of(context)
-                                                .primaryText,
-                                          ),
-                                        ),
-                                        duration: Duration(milliseconds: 4000),
-                                        backgroundColor:
-                                            FlutterFlowTheme.of(context)
-                                                .primary,
-                                      ),
-                                    );
-                                    safeSetState(() {
-                                      _model.tFPriceTextController?.clear();
-                                      _model.tFAircraftNameTextController
-                                          ?.clear();
-                                      _model.tFAircraftYearTextController
-                                          ?.clear();
-                                      _model.tFDescriptionTextController
-                                          ?.clear();
-                                      _model.tFAircraftHopperTextController
-                                          ?.clear();
-                                    });
-
-                                    context.pushNamed(
-                                        RegistedAircraftWidget.routeName);
-
-                                    if (_shouldSetState) safeSetState(() {});
-                                  },
-                                  text: 'Cadastrar modelo',
-                                  options: FFButtonOptions(
-                                    height: 48.0,
-                                    padding: EdgeInsetsDirectional.fromSTEB(
-                                        24.0, 0.0, 24.0, 0.0),
-                                    iconPadding: EdgeInsetsDirectional.fromSTEB(
-                                        0.0, 0.0, 0.0, 0.0),
-                                    color: FlutterFlowTheme.of(context).primary,
-                                    textStyle: FlutterFlowTheme.of(context)
-                                        .titleSmall
-                                        .override(
-                                          font: GoogleFonts.roboto(
-                                            fontWeight: FontWeight.w500,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .titleSmall
-                                                    .fontStyle,
-                                          ),
-                                          color: FlutterFlowTheme.of(context)
-                                              .primaryText,
-                                          fontSize: 14.0,
-                                          letterSpacing: 0.0,
-                                          fontWeight: FontWeight.w500,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .titleSmall
-                                                  .fontStyle,
-                                        ),
-                                    elevation: 0.0,
-                                    borderRadius: BorderRadius.circular(12.0),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ].divide(SizedBox(width: 24.0)),
-                        ),
-                      ),
-                    ),
-                  ]
-                      .divide(SizedBox(height: 16.0))
-                      .addToEnd(SizedBox(height: 32.0)),
+                    ],
+                  ],
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(height: 1, color: const Color(0x14FFFFFF)),
+          const SizedBox(height: 18),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _PhotoUploadCard extends StatefulWidget {
+  const _PhotoUploadCard({
+    required this.photoUrl,
+    required this.isUploading,
+    required this.onPick,
+    required this.onClear,
+  });
+
+  final String photoUrl;
+  final bool isUploading;
+  final Future<void> Function() onPick;
+  final VoidCallback onClear;
+
+  @override
+  State<_PhotoUploadCard> createState() => _PhotoUploadCardState();
+}
+
+class _PhotoUploadCardState extends State<_PhotoUploadCard> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPhoto = widget.photoUrl.isNotEmpty;
+
+    return MouseRegion(
+      cursor: widget.isUploading
+          ? SystemMouseCursors.basic
+          : SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.isUploading || hasPhoto ? null : widget.onPick,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          height: 220,
+          decoration: BoxDecoration(
+            color: const Color(0x14FFFFFF),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: hasPhoto
+                  ? const Color(0x55C2D51C)
+                  : _hover
+                      ? const Color(0x77C2D51C)
+                      : const Color(0x44FFFFFF),
+              width: 1.4,
             ),
+            boxShadow: _hover && !hasPhoto
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFFC2D51C).withValues(alpha: 0.18),
+                      blurRadius: 18,
+                      spreadRadius: -2,
+                    ),
+                  ]
+                : null,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(13),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (hasPhoto)
+                  Image.network(
+                    widget.photoUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _placeholderEmpty(),
+                  )
+                else
+                  _placeholderEmpty(),
+                if (widget.isUploading)
+                  Container(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: Color(0xFFC2D51C),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (hasPhoto && !widget.isUploading)
+                  Positioned(
+                    bottom: 10,
+                    right: 10,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _floatingChip(
+                          label: 'Trocar',
+                          icon: Icons.swap_horiz_rounded,
+                          onTap: widget.onPick,
+                        ),
+                        const SizedBox(width: 8),
+                        _floatingChip(
+                          label: 'Remover',
+                          icon: Icons.delete_outline_rounded,
+                          danger: true,
+                          onTap: widget.onClear,
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _placeholderEmpty() => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: const Color(0x22C2D51C),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(
+                Icons.add_a_photo_outlined,
+                color: Color(0xFFC2D51C),
+                size: 26,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Adicionar foto da aeronave',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'PNG / JPG · Recomendado 16:9',
+              style: GoogleFonts.roboto(
+                fontSize: 11.5,
+                color: const Color(0x99FFFFFF),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _floatingChip({
+    required String label,
+    required IconData icon,
+    VoidCallback? onTap,
+    bool danger = false,
+  }) {
+    final color = danger ? const Color(0xFFFF7B82) : const Color(0xFFC2D51C);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.65),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withValues(alpha: 0.6)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 14),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ManualUploadTile extends StatefulWidget {
+  const _ManualUploadTile({
+    required this.label,
+    required this.fileUrl,
+    required this.isUploading,
+    required this.icon,
+    required this.onPick,
+    required this.onClear,
+  });
+
+  final String label;
+  final String fileUrl;
+  final bool isUploading;
+  final IconData icon;
+  final Future<void> Function() onPick;
+  final VoidCallback onClear;
+
+  @override
+  State<_ManualUploadTile> createState() => _ManualUploadTileState();
+}
+
+class _ManualUploadTileState extends State<_ManualUploadTile> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasFile = widget.fileUrl.isNotEmpty;
+    final fileName = hasFile
+        ? valueOrDefault<String>(
+            functions.fileNamePath(widget.fileUrl),
+            'arquivo.pdf',
+          )
+        : '';
+
+    return MouseRegion(
+      cursor: widget.isUploading
+          ? SystemMouseCursors.basic
+          : SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.isUploading ? null : widget.onPick,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: const Color(0x14FFFFFF),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: hasFile
+                  ? const Color(0x66C2D51C)
+                  : _hover
+                      ? const Color(0x77C2D51C)
+                      : const Color(0x33FFFFFF),
+              width: 1.2,
+            ),
+            boxShadow: _hover && !hasFile
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFFC2D51C).withValues(alpha: 0.14),
+                      blurRadius: 14,
+                      spreadRadius: -2,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: hasFile
+                      ? const Color(0x33C2D51C)
+                      : const Color(0x22FFFFFF),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  hasFile ? Icons.picture_as_pdf_rounded : widget.icon,
+                  size: 18,
+                  color: hasFile
+                      ? const Color(0xFFC2D51C)
+                      : const Color(0xCCFFFFFF),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.label,
+                      style: GoogleFonts.inter(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: 0.1,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      hasFile ? fileName : 'Selecione um arquivo PDF',
+                      style: GoogleFonts.roboto(
+                        fontSize: 11.5,
+                        color: hasFile
+                            ? const Color(0xFFC2D51C)
+                            : const Color(0x99FFFFFF),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (widget.isUploading)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFFC2D51C),
+                  ),
+                )
+              else if (hasFile) ...[
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0x33C2D51C),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.check_rounded,
+                          size: 12, color: Color(0xFFC2D51C)),
+                      SizedBox(width: 4),
+                      Text(
+                        'Carregado',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: Color(0xFFC2D51C),
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: widget.onClear,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: const Color(0x22FF5963),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 16,
+                        color: Color(0xFFFF7B82),
+                      ),
+                    ),
+                  ),
+                ),
+              ] else
+                const Icon(
+                  Icons.upload_rounded,
+                  size: 18,
+                  color: Color(0xCCFFFFFF),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

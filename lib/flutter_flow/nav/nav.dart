@@ -87,14 +87,36 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
       debugLogDiagnostics: true,
       refreshListenable: appStateNotifier,
       navigatorKey: appNavigatorKey,
-      errorBuilder: (context, state) =>
-          appStateNotifier.loggedIn ? HomePageWidget() : LoginWidget(),
+      // HARDENING MANUAL — não regerar.
+      // '/' e qualquer rota não-encontrada NUNCA devem construir
+      // HomePageWidget direto (ele depende do AppShell do ShellRoute);
+      // sem o redirect a tela aparece sem menu/topbar.
+      redirect: (context, state) {
+        final loc = state.matchedLocation;
+        if (loc == '/' || loc.isEmpty) {
+          return appStateNotifier.loggedIn
+              ? HomePageWidget.routePath
+              : LoginWidget.routePath;
+        }
+        return null;
+      },
+      errorBuilder: (context, state) => _ShellRedirectScreen(
+        target: appStateNotifier.loggedIn
+            ? HomePageWidget.routePath
+            : LoginWidget.routePath,
+      ),
       routes: [
         FFRoute(
           name: '_initialize',
           path: '/',
-          builder: (context, _) =>
-              appStateNotifier.loggedIn ? HomePageWidget() : LoginWidget(),
+          // Builder de fallback — o redirect acima cobre todos os casos,
+          // mas precisamos de algo construído caso o redirect retorne null
+          // por race de hot-reload.
+          builder: (context, _) => _ShellRedirectScreen(
+            target: appStateNotifier.loggedIn
+                ? HomePageWidget.routePath
+                : LoginWidget.routePath,
+          ),
         ).toRoute(appStateNotifier),
         FFRoute(
           name: LoginWidget.routeName,
@@ -700,5 +722,51 @@ extension GoRouterLocationExtension on GoRouter {
         ? lastMatch.matches
         : routerDelegate.currentConfiguration;
     return matchList.uri.toString();
+  }
+}
+
+/// HARDENING MANUAL — não regerar.
+/// Renderizado por '/' (ou erro de rota) enquanto o redirect global
+/// dispara para /homePage ou /login. Evita ver HomePageWidget cru sem
+/// AppShell (menu lateral) por uma fração de frame.
+class _ShellRedirectScreen extends StatefulWidget {
+  const _ShellRedirectScreen({required this.target});
+
+  final String target;
+
+  @override
+  State<_ShellRedirectScreen> createState() => _ShellRedirectScreenState();
+}
+
+class _ShellRedirectScreenState extends State<_ShellRedirectScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        GoRouter.of(context).go(widget.target);
+      } catch (_) {
+        // Caso o router ainda não esteja pronto, ignoramos —
+        // o `redirect:` global já cobre a próxima resolução.
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Color(0xFF313131),
+      body: Center(
+        child: SizedBox(
+          width: 28,
+          height: 28,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.2,
+            color: Color(0xFFC2D51C),
+          ),
+        ),
+      ),
+    );
   }
 }

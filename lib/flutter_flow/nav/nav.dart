@@ -91,19 +91,32 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
       // '/' e qualquer rota não-encontrada NUNCA devem construir
       // HomePageWidget direto (ele depende do AppShell do ShellRoute);
       // sem o redirect a tela aparece sem menu/topbar.
+      //
+      // Race de cold-start: no primeiro frame após reabrir o navegador,
+      // `appStateNotifier.user` ainda é null (o `userStream` só emite no
+      // próximo microtask). Mas `SupaFlow.client.auth.currentUser` já está
+      // preenchido logo depois de `SupaFlow.initialize()` em `main()`.
+      // Usar os dois como fonte da verdade evita o usuário logado cair em
+      // /login (ou ver a Home sem shell, dependendo da versão cacheada).
       redirect: (context, state) {
         final loc = state.matchedLocation;
+        final loggedIn = appStateNotifier.loggedIn ||
+            SupaFlow.client.auth.currentUser != null;
+
         if (loc == '/' || loc.isEmpty) {
-          return appStateNotifier.loggedIn
+          return loggedIn
               ? HomePageWidget.routePath
               : LoginWidget.routePath;
+        }
+        // Sessão restaurada com URL ainda em /login (reabertura do
+        // navegador na rota antiga ou race): manda para /homePage.
+        if (loc == LoginWidget.routePath && loggedIn) {
+          return HomePageWidget.routePath;
         }
         return null;
       },
       errorBuilder: (context, state) => _ShellRedirectScreen(
-        target: appStateNotifier.loggedIn
-            ? HomePageWidget.routePath
-            : LoginWidget.routePath,
+        target: _resolveTarget(appStateNotifier),
       ),
       routes: [
         FFRoute(
@@ -113,9 +126,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           // mas precisamos de algo construído caso o redirect retorne null
           // por race de hot-reload.
           builder: (context, _) => _ShellRedirectScreen(
-            target: appStateNotifier.loggedIn
-                ? HomePageWidget.routePath
-                : LoginWidget.routePath,
+            target: _resolveTarget(appStateNotifier),
           ),
         ).toRoute(appStateNotifier),
         FFRoute(
@@ -723,6 +734,16 @@ extension GoRouterLocationExtension on GoRouter {
         : routerDelegate.currentConfiguration;
     return matchList.uri.toString();
   }
+}
+
+/// HARDENING MANUAL — não regerar.
+/// Mesma fonte da verdade usada pelo `redirect:` global. Sem isso, o
+/// builder do _initialize escolheria o alvo baseado só no
+/// `appStateNotifier`, que pode estar desatualizado no cold-start.
+String _resolveTarget(AppStateNotifier appStateNotifier) {
+  final loggedIn = appStateNotifier.loggedIn ||
+      SupaFlow.client.auth.currentUser != null;
+  return loggedIn ? HomePageWidget.routePath : LoginWidget.routePath;
 }
 
 /// HARDENING MANUAL — não regerar.

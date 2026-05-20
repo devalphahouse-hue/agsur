@@ -34,12 +34,34 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
+          # --no-tree-shake-icons: o tree-shake do MaterialIcons gera um
+          # MaterialIcons-Regular.otf cujo conteúdo MUDA entre builds (só
+          # entram os ícones referenciados pelo Dart). Com asset cache,
+          # browsers que pegaram o font de um build velho ficam com ícones
+          # quebrados (caixinhas □) nos ícones novos. Build mais pesado
+          # (~600KB gzip a mais), mas font estável entre deploys.
           flutter build web --release \
+            --no-tree-shake-icons \
             --dart-define=APP_ENV=production \
             --dart-define=APP_RELEASE=agsur-painel@${GITHUB_SHA::7} \
             --dart-define=SENTRY_DSN="$SENTRY_DSN" \
             --dart-define=SUPABASE_URL="$SUPABASE_URL" \
             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+
+      - name: Inject build id (cache-bust do main.dart.js)
+        run: |
+          # Substitui o placeholder __AGSUR_BUILD_ID__ pelo short-sha no
+          # build/web/index.html (onde o flutter_bootstrap.js está inlined)
+          # e em build/web/flutter_bootstrap.js. Sem essa substituição,
+          # o bootstrap cai num fallback de Date.now() — funciona mas não
+          # aproveita cache entre visitas do mesmo deploy.
+          SHA="${GITHUB_SHA::7}"
+          sed -i "s/__AGSUR_BUILD_ID__/${SHA}/g" build/web/index.html build/web/flutter_bootstrap.js
+          # Sanity: confirma que substituiu pelo menos uma ocorrência.
+          if grep -q "__AGSUR_BUILD_ID__" build/web/index.html; then
+            echo "::error::Falha ao injetar AGSUR_BUILD_ID em build/web/index.html"
+            exit 1
+          fi
 
       - name: Install Vercel CLI
         run: npm install -g vercel@latest

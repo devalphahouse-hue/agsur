@@ -209,7 +209,12 @@ class _RateRow extends StatelessWidget {
           ),
           const SizedBox(width: 16),
           Text(
-            '${item.value.toStringAsFixed(2)}%',
+            // Convenção do sistema: financing_rates guarda o valor já
+            // dividido por 100 (ex.: 4.20% salvo como 0.042). Quem usa o
+            // valor em cálculo multiplica por nada (juros = principal *
+            // sofrRate * dias); quem exibe multiplica por 100. Ver
+            // generate_proposal_pdf.dart:706.
+            '${(item.value * 100).toStringAsFixed(2)}%',
             style: GoogleFonts.inter(
               fontSize: 22,
               fontWeight: FontWeight.w700,

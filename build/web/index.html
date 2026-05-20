@@ -99,11 +99,11 @@ _flutter.buildConfig = {"engineRevision":"42d3d75a56efe1a2e9902f52dc8006099c45d9
 // estava no vercel.json até 2026-05-20) nunca mais refetcha. Mudar o
 // caminho com ?v=<commitSha> dá uma URL diferente entre deploys, o browser
 // não acha no cache, e baixa a versão fresca. O placeholder
-// 6e85618 é substituído pelo git short-sha no post-build
+// c35bb23 é substituído pelo git short-sha no post-build
 // (workflow `deploy-vercel.yml`); se a substituição não rodar, cai num
 // fallback baseado em Date.now() — pior pra cache, mas nunca quebrado.
 (function () {
-  var BUILD_ID = "6e85618";
+  var BUILD_ID = "c35bb23";
   if (BUILD_ID === ("__" + "AGSUR_BUILD_ID__")) {
     // Build local sem substituição — usa timestamp para garantir freshness.
     BUILD_ID = "dev-" + Date.now();

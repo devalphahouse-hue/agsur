@@ -324,7 +324,6 @@ class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
       title: 'Cadastrar aeronave (catálogo)',
       subtitle:
           'Defina o modelo, mídia e documentação. Unidades físicas são cadastradas em Estoque.',
-      maxBodyWidth: 880,
       body: Form(
         key: _model.formKey,
         autovalidateMode: AutovalidateMode.disabled,

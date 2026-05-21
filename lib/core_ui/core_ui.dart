@@ -11,6 +11,7 @@
 library core_ui;
 
 export 'app_animations.dart';
+export 'app_asset_image.dart';
 export 'app_buttons.dart';
 export 'app_card.dart';
 export 'app_detail_hero.dart';

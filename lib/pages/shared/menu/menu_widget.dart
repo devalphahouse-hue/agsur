@@ -315,7 +315,7 @@ class _MenuHeader extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image.asset(
+            child: const AppAssetImage(
               'assets/images/Logo_AEROTG_NEGATIVO_V.png',
               width: 56,
               height: 56,

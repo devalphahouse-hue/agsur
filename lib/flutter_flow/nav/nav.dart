@@ -13,6 +13,7 @@ import '/backend/supabase/supabase.dart';
 import '/auth/base_auth_user_provider.dart';
 
 import '/main.dart';
+import '/core_ui/app_asset_image.dart';
 import '/core_ui/app_shell.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/lat_lng.dart';
@@ -651,7 +652,7 @@ class FFRoute {
                   : Container(
                       color: FlutterFlowTheme.of(context).primaryText,
                       child: Center(
-                        child: Image.asset(
+                        child: const AppAssetImage(
                           'assets/images/Logo_AEROTG_NEGATIVO_V.png',
                           width: 200.0,
                           height: 200.0,

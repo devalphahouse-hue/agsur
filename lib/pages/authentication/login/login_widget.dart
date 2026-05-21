@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/supabase/supabase.dart';
+import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
 import '/security/jwt_utils.dart';
@@ -286,7 +287,10 @@ class _BrandPanel extends StatelessWidget {
               ),
             ],
           ),
-          child: _DebugAssetLogo(),
+          child: const AppAssetImage(
+            'assets/images/Logo_AEROTG_NEGATIVO_V.png',
+            fit: BoxFit.contain,
+          ),
         )
             .animate(onPlay: (c) => c.repeat(reverse: true))
             .scaleXY(
@@ -766,57 +770,6 @@ class _ErrorBanner extends StatelessWidget {
           rotation: 0,
           offset: const Offset(2, 0),
         );
-  }
-}
-
-// DEBUG: tenta carregar o logo de 3 formas e exibe qual falha
-class _DebugAssetLogo extends StatefulWidget {
-  @override
-  State<_DebugAssetLogo> createState() => _DebugAssetLogoState();
-}
-
-class _DebugAssetLogoState extends State<_DebugAssetLogo> {
-  String? _bundleError;
-  Uint8List? _bytes;
-
-  @override
-  void initState() {
-    super.initState();
-    _tryRootBundle();
-  }
-
-  Future<void> _tryRootBundle() async {
-    try {
-      final data =
-          await DefaultAssetBundle.of(context).load('assets/images/Logo_AEROTG_NEGATIVO_V.png');
-      final bytes = data.buffer.asUint8List();
-      debugPrint('[logo-debug] rootBundle OK, ${bytes.length} bytes');
-      if (mounted) setState(() => _bytes = bytes);
-    } catch (e, st) {
-      debugPrint('[logo-debug] rootBundle ERR: $e\n$st');
-      if (mounted) setState(() => _bundleError = e.toString());
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_bundleError != null) {
-      return SelectableText(
-        'rootBundle err:\n$_bundleError',
-        style: const TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold),
-      );
-    }
-    if (_bytes != null) {
-      return Image.memory(
-        _bytes!,
-        fit: BoxFit.contain,
-        errorBuilder: (c, e, s) => SelectableText(
-          'Image.memory err:\n$e',
-          style: const TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold),
-        ),
-      );
-    }
-    return const Center(child: CircularProgressIndicator(color: Color(0xFFC2D51C), strokeWidth: 2));
   }
 }
 

@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show AuthChangeEvent, Au
 
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/supabase/supabase.dart';
+import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import 'reset_password_model.dart';
 
@@ -600,7 +601,7 @@ class _BrandPanel extends StatelessWidget {
             ],
           ),
           padding: const EdgeInsets.all(12),
-          child: Image.asset(
+          child: const AppAssetImage(
             'assets/images/Logo_AEROTG_NEGATIVO_V.png',
             fit: BoxFit.contain,
           ),

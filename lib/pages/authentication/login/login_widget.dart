@@ -289,6 +289,24 @@ class _BrandPanel extends StatelessWidget {
           child: Image.asset(
             'assets/images/Logo_AEROTG_NEGATIVO_V.png',
             fit: BoxFit.contain,
+            errorBuilder: (ctx, err, st) {
+              debugPrint('[logo-login] errorBuilder: $err');
+              return Center(
+                child: Text(
+                  'ERR\n${err.runtimeType}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFFC2D51C), fontSize: 8),
+                ),
+              );
+            },
+            frameBuilder: (ctx, child, frame, sync) {
+              if (frame == null && !sync) {
+                return const Center(
+                  child: Text('…', style: TextStyle(color: Color(0xFFC2D51C))),
+                );
+              }
+              return child;
+            },
           ),
         )
             .animate(onPlay: (c) => c.repeat(reverse: true))

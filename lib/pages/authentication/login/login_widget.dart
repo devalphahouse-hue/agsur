@@ -286,28 +286,7 @@ class _BrandPanel extends StatelessWidget {
               ),
             ],
           ),
-          child: Image.asset(
-            'assets/images/Logo_AEROTG_NEGATIVO_V.png',
-            fit: BoxFit.contain,
-            errorBuilder: (ctx, err, st) {
-              debugPrint('[logo-login] errorBuilder: $err');
-              return Center(
-                child: Text(
-                  'ERR\n${err.runtimeType}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Color(0xFFC2D51C), fontSize: 8),
-                ),
-              );
-            },
-            frameBuilder: (ctx, child, frame, sync) {
-              if (frame == null && !sync) {
-                return const Center(
-                  child: Text('…', style: TextStyle(color: Color(0xFFC2D51C))),
-                );
-              }
-              return child;
-            },
-          ),
+          child: _DebugAssetLogo(),
         )
             .animate(onPlay: (c) => c.repeat(reverse: true))
             .scaleXY(
@@ -787,6 +766,57 @@ class _ErrorBanner extends StatelessWidget {
           rotation: 0,
           offset: const Offset(2, 0),
         );
+  }
+}
+
+// DEBUG: tenta carregar o logo de 3 formas e exibe qual falha
+class _DebugAssetLogo extends StatefulWidget {
+  @override
+  State<_DebugAssetLogo> createState() => _DebugAssetLogoState();
+}
+
+class _DebugAssetLogoState extends State<_DebugAssetLogo> {
+  String? _bundleError;
+  Uint8List? _bytes;
+
+  @override
+  void initState() {
+    super.initState();
+    _tryRootBundle();
+  }
+
+  Future<void> _tryRootBundle() async {
+    try {
+      final data =
+          await DefaultAssetBundle.of(context).load('assets/images/Logo_AEROTG_NEGATIVO_V.png');
+      final bytes = data.buffer.asUint8List();
+      debugPrint('[logo-debug] rootBundle OK, ${bytes.length} bytes');
+      if (mounted) setState(() => _bytes = bytes);
+    } catch (e, st) {
+      debugPrint('[logo-debug] rootBundle ERR: $e\n$st');
+      if (mounted) setState(() => _bundleError = e.toString());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_bundleError != null) {
+      return SelectableText(
+        'rootBundle err:\n$_bundleError',
+        style: const TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold),
+      );
+    }
+    if (_bytes != null) {
+      return Image.memory(
+        _bytes!,
+        fit: BoxFit.contain,
+        errorBuilder: (c, e, s) => SelectableText(
+          'Image.memory err:\n$e',
+          style: const TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold),
+        ),
+      );
+    }
+    return const Center(child: CircularProgressIndicator(color: Color(0xFFC2D51C), strokeWidth: 2));
   }
 }
 

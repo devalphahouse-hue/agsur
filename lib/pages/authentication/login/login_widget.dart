@@ -289,8 +289,6 @@ class _BrandPanel extends StatelessWidget {
           child: Image.asset(
             'assets/images/Logo_AEROTG_NEGATIVO_V.png',
             fit: BoxFit.contain,
-            cacheWidth: 256,
-            cacheHeight: 256,
           ),
         )
             .animate(onPlay: (c) => c.repeat(reverse: true))

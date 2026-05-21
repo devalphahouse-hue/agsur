@@ -89,12 +89,16 @@ class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
         bucketName: 'AGSur',
         selectedFiles: selected,
       );
-      if (files.length == selected.length && urls.length == selected.length) {
-        safeSetState(() {
-          _model.uploadedLocalFile_uploadAircraft = files.first;
-          _model.uploadedFileUrl_uploadAircraft = urls.first;
-        });
+      if (files.length != selected.length || urls.length != selected.length) {
+        _snack('Falha no upload da foto.', error: true);
+        return;
       }
+      safeSetState(() {
+        _model.uploadedLocalFile_uploadAircraft = files.first;
+        _model.uploadedFileUrl_uploadAircraft = urls.first;
+      });
+    } catch (e) {
+      _snack('Erro ao enviar foto: $e', error: true);
     } finally {
       safeSetState(() => _model.isDataUploading_uploadAircraft = false);
     }
@@ -129,9 +133,13 @@ class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
         bucketName: 'AGSur',
         selectedFiles: selected,
       );
-      if (files.length == selected.length && urls.length == selected.length) {
-        safeSetState(() => _setSlotUploaded(slot, files.first, urls.first));
+      if (files.length != selected.length || urls.length != selected.length) {
+        _snack('Falha no upload do PDF.', error: true);
+        return;
       }
+      safeSetState(() => _setSlotUploaded(slot, files.first, urls.first));
+    } catch (e) {
+      _snack('Erro ao enviar PDF: $e', error: true);
     } finally {
       safeSetState(() => _setSlotUploading(slot, false));
     }

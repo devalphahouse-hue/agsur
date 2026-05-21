@@ -10,8 +10,10 @@ import '/pages/shared/warming_m_proprietario/warming_m_proprietario_widget.dart'
 import '/pages/shared/warming_m_voo/warming_m_voo_widget.dart';
 import '/index.dart';
 import 'package:easy_debounce/easy_debounce.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:mime_type/mime_type.dart' show mime;
 import 'package:google_fonts/google_fonts.dart';
 import '/core_ui/core_ui.dart';
 import 'create_aircraft_model.dart';
@@ -64,17 +66,22 @@ class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
   // ───────────────────────── uploads ─────────────────────────
 
   Future<void> _pickPhoto() async {
-    final selected = await selectMedia(
-      storageFolderPath: '',
-      mediaSource: MediaSource.photoGallery,
-      multiImage: false,
-    );
-    if (selected == null) return;
-    if (!selected.every((m) => validateFileFormat(m.storagePath, context))) {
-      return;
-    }
-    safeSetState(() => _model.isDataUploading_uploadAircraft = true);
     try {
+      debugPrint('[pickPhoto] selectMedia start');
+      final selected = await selectMedia(
+        storageFolderPath: '',
+        mediaSource: MediaSource.photoGallery,
+        multiImage: false,
+      );
+      debugPrint('[pickPhoto] selectMedia returned ${selected?.length ?? 0}');
+      if (selected == null || selected.isEmpty) return;
+      final mimes = selected.map((m) => mime(m.storagePath)).toList();
+      debugPrint('[pickPhoto] mimes=$mimes (allowed=$allowedFormats)');
+      if (!mimes.every((m) => allowedFormats.contains(m))) {
+        _snack('Formato não suportado: ${mimes.join(", ")} — use PNG, JPG ou GIF.', error: true);
+        return;
+      }
+      safeSetState(() => _model.isDataUploading_uploadAircraft = true);
       final files = selected
           .map((m) => FFUploadedFile(
                 name: m.storagePath.split('/').last,
@@ -85,10 +92,12 @@ class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
                 originalFilename: m.originalFilename,
               ))
           .toList();
+      debugPrint('[pickPhoto] upload start, bytes=${selected.first.bytes.length}');
       final urls = await uploadSupabaseStorageFiles(
         bucketName: 'AGSur',
         selectedFiles: selected,
       );
+      debugPrint('[pickPhoto] upload ok, url=${urls.firstOrNull}');
       if (files.length != selected.length || urls.length != selected.length) {
         _snack('Falha no upload da foto.', error: true);
         return;
@@ -97,10 +106,13 @@ class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
         _model.uploadedLocalFile_uploadAircraft = files.first;
         _model.uploadedFileUrl_uploadAircraft = urls.first;
       });
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[pickPhoto] ERROR: $e\n$st');
       _snack('Erro ao enviar foto: $e', error: true);
     } finally {
-      safeSetState(() => _model.isDataUploading_uploadAircraft = false);
+      if (mounted) {
+        safeSetState(() => _model.isDataUploading_uploadAircraft = false);
+      }
     }
   }
 

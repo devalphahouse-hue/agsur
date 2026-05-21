@@ -603,6 +603,8 @@ class _BrandPanel extends StatelessWidget {
           child: Image.asset(
             'assets/images/Logo_AEROTG_NEGATIVO_V.png',
             fit: BoxFit.contain,
+            cacheWidth: 256,
+            cacheHeight: 256,
           ),
         ),
         const SizedBox(height: 22),

@@ -656,6 +656,8 @@ class FFRoute {
                           width: 200.0,
                           height: 200.0,
                           fit: BoxFit.contain,
+                          cacheWidth: 400,
+                          cacheHeight: 400,
                         ),
                       ),
                     )

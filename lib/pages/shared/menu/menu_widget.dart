@@ -320,6 +320,8 @@ class _MenuHeader extends StatelessWidget {
               width: 56,
               height: 56,
               fit: BoxFit.contain,
+              cacheWidth: 128,
+              cacheHeight: 128,
             ),
           ),
           const SizedBox(width: 12),

@@ -99,19 +99,46 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
       // preenchido logo depois de `SupaFlow.initialize()` em `main()`.
       // Usar os dois como fonte da verdade evita o usuário logado cair em
       // /login (ou ver a Home sem shell, dependendo da versão cacheada).
+      // HARDENING MANUAL — gate de autenticação GLOBAL (não regerar).
+      // Todo o painel exige sessão Supabase válida. Só /login e
+      // /resetPassword são públicas. Qualquer rota protegida acessada sem
+      // sessão (deslogado, token expirado/inválido ou sessão revogada)
+      // cai para /login. Quando a sessão Supabase é perdida, o userStream
+      // emite usuário deslogado, o AppStateNotifier notifica e o router
+      // re-avalia este redirect — derrubando o usuário aqui.
       redirect: (context, state) {
         final loc = state.matchedLocation;
         final loggedIn = appStateNotifier.loggedIn ||
             SupaFlow.client.auth.currentUser != null;
+
+        // Rotas acessíveis sem autenticação.
+        final publicPaths = <String>{
+          LoginWidget.routePath,
+          ResetPasswordWidget.routePath,
+        };
+        final isPublic = publicPaths.contains(loc);
+
+        // Não autenticado tentando rota protegida → login.
+        // Guarda o destino para retornar após o login bem-sucedido.
+        if (!loggedIn && !isPublic && loc != '/' && loc.isNotEmpty) {
+          appStateNotifier.setRedirectLocationIfUnset(state.uri.toString());
+          return LoginWidget.routePath;
+        }
 
         if (loc == '/' || loc.isEmpty) {
           return loggedIn
               ? HomePageWidget.routePath
               : LoginWidget.routePath;
         }
-        // Sessão restaurada com URL ainda em /login (reabertura do
-        // navegador na rota antiga ou race): manda para /homePage.
+
+        // Já autenticado e em /login (sessão restaurada, race de cold-start
+        // ou recém-logado): vai ao destino pretendido salvo, senão à Home.
         if (loc == LoginWidget.routePath && loggedIn) {
+          if (appStateNotifier.hasRedirect()) {
+            final dest = appStateNotifier.getRedirectLocation();
+            appStateNotifier.clearRedirectLocation();
+            return dest;
+          }
           return HomePageWidget.routePath;
         }
         return null;
@@ -237,7 +264,12 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
         FFRoute(
           name: CreateAircraftWidget.routeName,
           path: CreateAircraftWidget.routePath,
-          builder: (context, params) => CreateAircraftWidget(),
+          builder: (context, params) => CreateAircraftWidget(
+            aircraftId: params.getParam(
+              'aircraftId',
+              ParamType.String,
+            ),
+          ),
         ),
         FFRoute(
           name: CreateItemsStandardWidget.routeName,

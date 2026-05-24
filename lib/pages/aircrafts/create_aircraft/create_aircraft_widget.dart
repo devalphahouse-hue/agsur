@@ -20,7 +20,11 @@ import 'create_aircraft_model.dart';
 export 'create_aircraft_model.dart';
 
 class CreateAircraftWidget extends StatefulWidget {
-  const CreateAircraftWidget({super.key});
+  const CreateAircraftWidget({super.key, this.aircraftId});
+
+  /// Quando informado, a tela abre em modo edição: carrega o modelo,
+  /// pré-preenche os campos e o salvar passa a ATUALIZAR (em vez de inserir).
+  final String? aircraftId;
 
   static String routeName = 'CreateAircraft';
   static String routePath = '/createAircraft';
@@ -33,6 +37,14 @@ class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
   late CreateAircraftModel _model;
   final scaffoldKey = GlobalKey<ScaffoldState>();
   bool _submitting = false;
+
+  // ── Modo edição ──────────────────────────────────────────────────
+  bool get _isEdit => widget.aircraftId != null;
+  bool _loadingForEdit = false;
+  // Ids dos manuais existentes (para UPDATE em vez de INSERT na edição).
+  String? _oemManualId;
+  String? _vooManualId;
+  String? _pecasManualId;
 
   @override
   void initState() {
@@ -54,7 +66,65 @@ class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
     _model.tFDescriptionTextController ??= TextEditingController();
     _model.tFDescriptionFocusNode ??= FocusNode();
 
+    if (widget.aircraftId != null) {
+      _loadForEdit(widget.aircraftId!);
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {}));
+  }
+
+  /// Carrega o modelo e seus manuais e pré-preenche o formulário (edição).
+  Future<void> _loadForEdit(String id) async {
+    safeSetState(() => _loadingForEdit = true);
+    try {
+      final rows = await AircraftsTable().queryRows(
+        queryFn: (q) => q.eqOrNull('id', id),
+      );
+      final row = rows.firstOrNull;
+      if (row == null) {
+        _snack('Aeronave não encontrada.', error: true);
+        if (mounted) safeSetState(() => _loadingForEdit = false);
+        return;
+      }
+
+      _model.tFAircraftNameTextController?.text = row.aircraftModel.trim();
+      _model.tFAircraftYearTextController?.text = row.aircraftYear;
+      _model.tFAircraftHopperTextController?.text =
+          row.hopper == row.hopper.roundToDouble()
+              ? row.hopper.round().toString()
+              : row.hopper.toString();
+      _model.tFDescriptionTextController?.text = row.aircraftDescription;
+      // O campo de preço trabalha em "centavos"; reaproveita o mesmo
+      // formatador usado no onChanged para exibir igual ao cadastro.
+      _model.tFPriceTextController?.text = functions.formatarMoedaEmDolar(
+        (row.price * 100).round().toString(),
+      );
+      _model.uploadedFileUrl_uploadAircraft = row.aircraftPhotoUrl;
+
+      final manuals = await AircraftManualsTable().queryRows(
+        queryFn: (q) => q.eqOrNull('aircraft_id', id).eqOrNull('deleted', false),
+      );
+      for (final m in manuals) {
+        switch (m.type) {
+          case 'Manual do proprietário':
+            _oemManualId = m.id;
+            _model.uploadedFileUrl_uploadOEM = m.documentionUrl;
+            break;
+          case 'Manual de voo':
+            _vooManualId = m.id;
+            _model.uploadedFileUrl_uploadManualVoo = m.documentionUrl;
+            break;
+          case 'Manual de peças':
+            _pecasManualId = m.id;
+            _model.uploadedFileUrl_uploadManualPeca = m.documentionUrl;
+            break;
+        }
+      }
+    } catch (e) {
+      _snack('Erro ao carregar a aeronave: $e', error: true);
+    } finally {
+      if (mounted) safeSetState(() => _loadingForEdit = false);
+    }
   }
 
   @override
@@ -271,7 +341,7 @@ class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
 
     setState(() => _submitting = true);
     try {
-      _model.createAircraft = await AircraftsTable().insert({
+      final data = <String, dynamic>{
         'aircraft_model': _model.tFAircraftNameTextController.text,
         'aircraft_year': _model.tFAircraftYearTextController.text,
         'aircraft_description': _model.tFDescriptionTextController.text,
@@ -284,55 +354,100 @@ class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
           functions.parsePriceToDouble(_model.tFPriceTextController.text),
           0.0,
         ),
-        'created_by': currentUserUid,
-      });
-      final aircraftId = _model.createAircraft?.id;
+      };
 
-      _model.createManualProprietario = await AircraftManualsTable().insert({
-        'aircraft_id': aircraftId,
-        'documention_name': valueOrDefault<String>(
-          functions.fileNamePath(_model.uploadedFileUrl_uploadOEM),
-          'arquivo.pdf',
-        ),
-        'documention_url': _model.uploadedFileUrl_uploadOEM,
-        'type': 'Manual do proprietário',
-      });
-      _model.createManualVoo = await AircraftManualsTable().insert({
-        'aircraft_id': aircraftId,
-        'documention_name': valueOrDefault<String>(
-          functions.fileNamePath(_model.uploadedFileUrl_uploadManualVoo),
-          'arquivo.pdf',
-        ),
-        'documention_url': _model.uploadedFileUrl_uploadManualVoo,
-        'type': 'Manual de voo',
-      });
-      _model.createManualPecas = await AircraftManualsTable().insert({
-        'aircraft_id': aircraftId,
-        'documention_name': valueOrDefault<String>(
-          functions.fileNamePath(_model.uploadedFileUrl_uploadManualPeca),
-          'arquivo.pdf',
-        ),
-        'documention_url': _model.uploadedFileUrl_uploadManualPeca,
-        'type': 'Manual de peças',
-      });
+      if (_isEdit) {
+        await _saveEdit(widget.aircraftId!, data);
+      } else {
+        await _saveCreate(data);
+      }
 
-      _snack('Aeronave cadastrada com sucesso!');
+      _snack(_isEdit
+          ? 'Aeronave atualizada com sucesso!'
+          : 'Aeronave cadastrada com sucesso!');
 
-      safeSetState(() {
-        _model.tFPriceTextController?.clear();
-        _model.tFAircraftNameTextController?.clear();
-        _model.tFAircraftYearTextController?.clear();
-        _model.tFDescriptionTextController?.clear();
-        _model.tFAircraftHopperTextController?.clear();
-      });
+      if (!_isEdit) {
+        safeSetState(() {
+          _model.tFPriceTextController?.clear();
+          _model.tFAircraftNameTextController?.clear();
+          _model.tFAircraftYearTextController?.clear();
+          _model.tFDescriptionTextController?.clear();
+          _model.tFAircraftHopperTextController?.clear();
+        });
+      }
 
       if (mounted) {
         context.pushNamed(RegistedAircraftWidget.routeName);
       }
     } catch (e) {
-      _snack('Erro ao cadastrar: $e', error: true);
+      _snack('Erro ao ${_isEdit ? 'atualizar' : 'cadastrar'}: $e', error: true);
     } finally {
       if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _saveCreate(Map<String, dynamic> data) async {
+    _model.createAircraft = await AircraftsTable().insert({
+      ...data,
+      'created_by': currentUserUid,
+    });
+    final aircraftId = _model.createAircraft?.id;
+
+    _model.createManualProprietario = await AircraftManualsTable().insert(
+        _manualData(aircraftId, _model.uploadedFileUrl_uploadOEM,
+            'Manual do proprietário'));
+    _model.createManualVoo = await AircraftManualsTable().insert(_manualData(
+        aircraftId, _model.uploadedFileUrl_uploadManualVoo, 'Manual de voo'));
+    _model.createManualPecas = await AircraftManualsTable().insert(_manualData(
+        aircraftId, _model.uploadedFileUrl_uploadManualPeca, 'Manual de peças'));
+  }
+
+  Future<void> _saveEdit(String id, Map<String, dynamic> data) async {
+    // created_by permanece inalterado na edição.
+    await AircraftsTable().update(
+      data: data,
+      matchingRows: (rows) => rows.eqOrNull('id', id),
+    );
+
+    await _upsertManual(
+        id, _oemManualId, _model.uploadedFileUrl_uploadOEM,
+        'Manual do proprietário');
+    await _upsertManual(
+        id, _vooManualId, _model.uploadedFileUrl_uploadManualVoo,
+        'Manual de voo');
+    await _upsertManual(
+        id, _pecasManualId, _model.uploadedFileUrl_uploadManualPeca,
+        'Manual de peças');
+  }
+
+  Map<String, dynamic> _manualData(String? aircraftId, String url, String type) {
+    return {
+      'aircraft_id': aircraftId,
+      'documention_name': valueOrDefault<String>(
+        functions.fileNamePath(url),
+        'arquivo.pdf',
+      ),
+      'documention_url': url,
+      'type': type,
+    };
+  }
+
+  /// Atualiza o manual existente (se houver id) ou insere um novo.
+  Future<void> _upsertManual(
+      String aircraftId, String? manualId, String url, String type) async {
+    if (manualId != null) {
+      await AircraftManualsTable().update(
+        data: {
+          'documention_name': valueOrDefault<String>(
+            functions.fileNamePath(url),
+            'arquivo.pdf',
+          ),
+          'documention_url': url,
+        },
+        matchingRows: (rows) => rows.eqOrNull('id', manualId),
+      );
+    } else {
+      await AircraftManualsTable().insert(_manualData(aircraftId, url, type));
     }
   }
 
@@ -341,9 +456,12 @@ class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
   @override
   Widget build(BuildContext context) {
     return AppDetailsScaffold(
-      title: 'Cadastrar aeronave (catálogo)',
-      subtitle:
-          'Defina o modelo, mídia e documentação. Unidades físicas são cadastradas em Estoque.',
+      title: _isEdit
+          ? 'Editar aeronave (catálogo)'
+          : 'Cadastrar aeronave (catálogo)',
+      subtitle: _isEdit
+          ? 'Atualize o modelo, mídia e documentação. Unidades físicas ficam em Estoque.'
+          : 'Defina o modelo, mídia e documentação. Unidades físicas são cadastradas em Estoque.',
       body: Form(
         key: _model.formKey,
         autovalidateMode: AutovalidateMode.disabled,
@@ -517,10 +635,12 @@ class _CreateAircraftWidgetState extends State<CreateAircraftWidget> {
                 ),
                 const SizedBox(width: 12),
                 AppPrimaryButton(
-                  label: _submitting ? 'Cadastrando…' : 'Cadastrar modelo',
+                  label: _isEdit
+                      ? (_submitting ? 'Salvando…' : 'Salvar alterações')
+                      : (_submitting ? 'Cadastrando…' : 'Cadastrar modelo'),
                   icon: Icons.check_circle_outline_rounded,
                   busy: _submitting,
-                  onPressed: _submit,
+                  onPressed: _loadingForEdit ? null : _submit,
                 ),
               ],
             ).appStagger(4),

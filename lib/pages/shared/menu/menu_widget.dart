@@ -98,6 +98,7 @@ class _MenuWidgetState extends State<MenuWidget> {
   bool _isAvioesRoute(String path) =>
       path == AvailableAircraftsWidget.routePath ||
       path == CreateCategoryWidget.routePath ||
+      path == RegistedAircraftWidget.routePath ||
       path == CreateAircraftWidget.routePath;
 
   @override
@@ -213,11 +214,12 @@ class _MenuWidgetState extends State<MenuWidget> {
                     safeSetState(() => _model.avioes = !_model.avioes),
                 children: [
                   _MenuSubItem(
-                    icon: Icons.add_circle_outline,
-                    label: 'Cadastrar Aeronave',
-                    active: _isActive(CreateAircraftWidget.routePath),
+                    icon: Icons.menu_book_outlined,
+                    label: 'Catálogo',
+                    active: _isActive(RegistedAircraftWidget.routePath) ||
+                        _isActive(CreateAircraftWidget.routePath),
                     onTap: () =>
-                        context.pushNamed(CreateAircraftWidget.routeName),
+                        context.pushNamed(RegistedAircraftWidget.routeName),
                   ),
                   _MenuSubItem(
                     icon: Icons.warehouse_outlined,

@@ -46,7 +46,16 @@
   <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#c2d51c">
 
   <link rel="manifest" href="manifest.json">
-  
+
+  <!-- Preload das fontes de ícones: evita que o CanvasKit pinte antes da
+       fonte carregar (ícones MaterialIcons/FontAwesome somem de forma
+       intermitente no Flutter web). Deixa o glifo em cache antes de a
+       engine requisitar via FontManifest. -->
+  <link rel="preload" href="assets/fonts/MaterialIcons-Regular.otf" as="font" type="font/otf" crossorigin="anonymous" />
+  <link rel="preload" href="assets/packages/font_awesome_flutter/lib/fonts/fa-solid-900.ttf" as="font" type="font/ttf" crossorigin="anonymous" />
+  <link rel="preload" href="assets/packages/font_awesome_flutter/lib/fonts/fa-regular-400.ttf" as="font" type="font/ttf" crossorigin="anonymous" />
+  <link rel="preload" href="assets/packages/font_awesome_flutter/lib/fonts/fa-brands-400.ttf" as="font" type="font/ttf" crossorigin="anonymous" />
+
 </head>
 <body>
   

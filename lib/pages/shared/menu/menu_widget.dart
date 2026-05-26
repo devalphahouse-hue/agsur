@@ -250,6 +250,12 @@ class _MenuWidgetState extends State<MenuWidget> {
                 onTap: () => context.pushNamed(PartQuoteWidget.routeName),
               ),
               _MenuItem(
+                icon: Icons.verified_user_outlined,
+                label: 'Garantias',
+                active: _isActive(GuaranteesWidget.routePath),
+                onTap: () => context.pushNamed(GuaranteesWidget.routeName),
+              ),
+              _MenuItem(
                 icon: Icons.workspace_premium_outlined,
                 label: 'Certificados',
                 active: _isActive(CertificatesWidget.routePath),

@@ -35,6 +35,16 @@ class _ModalServicesOfferingWidgetState
   String? _fileError;
   bool _editPrefilled = false;
 
+  // Modelos de aeronave: multi-seleção a partir do catálogo de aeronaves.
+  // Guardados como texto separado por vírgula em `models` (o app casa por
+  // "contém", então o formato é compatível).
+  List<String> _allModels = const [];
+  bool _modelsLoaded = false;
+  final Set<String> _selModels = {};
+  final Set<String> _selModelsEdit = {};
+  String? _modelsError;
+  String? _modelsEditError;
+
   bool get _isRegister => widget.type == 'Register';
 
   static const _typeOptions = [
@@ -55,12 +65,44 @@ class _ModalServicesOfferingWidgetState
     _model.tFTitleEditFocusNode ??= FocusNode();
     _model.tFModelsEditTextController ??= TextEditingController();
     _model.tFModelsEditFocusNode ??= FocusNode();
+    _loadModels();
   }
 
   @override
   void dispose() {
     _model.maybeDispose();
     super.dispose();
+  }
+
+  /// Carrega os modelos distintos do catálogo de aeronaves para o seletor.
+  Future<void> _loadModels() async {
+    final rows = await AircraftsTable().queryRows(
+      queryFn: (q) => q.eqOrNull('deleted', false),
+    );
+    final models = <String>{};
+    for (final r in rows) {
+      final m = r.aircraftModel.trim();
+      if (m.isNotEmpty) models.add(m);
+    }
+    if (!mounted) return;
+    setState(() {
+      _allModels = models.toList()..sort();
+      _modelsLoaded = true;
+    });
+  }
+
+  void _toggleModel(Set<String> target, TextEditingController controller,
+      String model) {
+    setState(() {
+      if (target.contains(model)) {
+        target.remove(model);
+      } else {
+        target.add(model);
+      }
+      controller.text = target.join(', ');
+      _modelsError = null;
+      _modelsEditError = null;
+    });
   }
 
   Future<void> _pickFile({required bool edit}) async {
@@ -130,10 +172,14 @@ class _ModalServicesOfferingWidgetState
       _fileError = _model.uploadedFileUrl_uploadPDF.isEmpty
           ? 'Anexe o PDF da carta'
           : null;
+      _modelsError =
+          _selModels.isEmpty ? 'Selecione ao menos um modelo' : null;
     });
     if (_model.formKey1.currentState == null ||
         !_model.formKey1.currentState!.validate()) return;
-    if (_typeError != null || _fileError != null) return;
+    if (_typeError != null || _fileError != null || _modelsError != null) {
+      return;
+    }
     setState(() => _busy = true);
     try {
       await ServicesOfferingTable().insert({
@@ -163,10 +209,12 @@ class _ModalServicesOfferingWidgetState
       _fileError = _model.uploadedFileUrl_uploadPDFEdit.isEmpty
           ? 'Anexe o PDF da carta'
           : null;
+      _modelsEditError =
+          _selModelsEdit.isEmpty ? 'Selecione ao menos um modelo' : null;
     });
     if (_model.formKey2.currentState == null ||
         !_model.formKey2.currentState!.validate()) return;
-    if (_fileError != null) return;
+    if (_fileError != null || _modelsEditError != null) return;
     setState(() => _busy = true);
     try {
       await ServicesOfferingTable().update(
@@ -248,15 +296,13 @@ class _ModalServicesOfferingWidgetState
                 _model.tFTitleTextControllerValidator?.call(context, v),
           ),
           const SizedBox(height: 14),
-          AppFormField(
-            controller: _model.tFModelsTextController,
-            focusNode: _model.tFModelsFocusNode,
-            label: 'Modelos de aeronave',
-            placeholder: 'Ex.: King Air B200, C90',
-            icon: Icons.flight_outlined,
-            required: true,
-            validator: (v) =>
-                _model.tFModelsTextControllerValidator?.call(context, v),
+          _ModelMultiSelect(
+            all: _allModels,
+            loaded: _modelsLoaded,
+            selected: _selModels,
+            error: _modelsError,
+            onToggle: (m) =>
+                _toggleModel(_selModels, _model.tFModelsTextController!, m),
           ),
           const SizedBox(height: 14),
           _PdfUpload(
@@ -293,6 +339,10 @@ class _ModalServicesOfferingWidgetState
           _editPrefilled = true;
           _model.tFTitleEditTextController!.text = row.serviceTitle;
           _model.tFModelsEditTextController!.text = row.models ?? '';
+          for (final m in (row.models ?? '').split(',')) {
+            final t = m.trim();
+            if (t.isNotEmpty) _selModelsEdit.add(t);
+          }
           _model.dpdTypeEditValue = row.type;
           if (row.docUrl != null && row.docUrl!.isNotEmpty) {
             _model.uploadedFileUrl_uploadPDFEdit = row.docUrl!;
@@ -321,15 +371,13 @@ class _ModalServicesOfferingWidgetState
                     ?.call(context, v),
               ),
               const SizedBox(height: 14),
-              AppFormField(
-                controller: _model.tFModelsEditTextController,
-                focusNode: _model.tFModelsEditFocusNode,
-                label: 'Modelos de aeronave',
-                placeholder: 'Ex.: King Air B200, C90',
-                icon: Icons.flight_outlined,
-                required: true,
-                validator: (v) => _model.tFModelsEditTextControllerValidator
-                    ?.call(context, v),
+              _ModelMultiSelect(
+                all: _allModels,
+                loaded: _modelsLoaded,
+                selected: _selModelsEdit,
+                error: _modelsEditError,
+                onToggle: (m) => _toggleModel(
+                    _selModelsEdit, _model.tFModelsEditTextController!, m),
               ),
               const SizedBox(height: 14),
               _PdfUpload(
@@ -505,6 +553,143 @@ class _PdfUploadState extends State<_PdfUpload> {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Multi-seleção de modelos de aeronave (chips), a partir do catálogo.
+class _ModelMultiSelect extends StatelessWidget {
+  const _ModelMultiSelect({
+    required this.all,
+    required this.loaded,
+    required this.selected,
+    required this.onToggle,
+    this.error,
+  });
+
+  final List<String> all;
+  final bool loaded;
+  final Set<String> selected;
+  final void Function(String) onToggle;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RichText(
+          text: TextSpan(
+            text: 'Modelos de aeronave',
+            style: GoogleFonts.inter(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xCCFFFFFF),
+              letterSpacing: 0.3,
+            ),
+            children: const [
+              TextSpan(
+                text: ' *',
+                style: TextStyle(color: Color(0xFFFF7B82)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (!loaded)
+          Row(
+            children: const [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Color(0xFFC2D51C)),
+              ),
+              SizedBox(width: 10),
+              Text('Carregando modelos...',
+                  style: TextStyle(color: Color(0x99FFFFFF), fontSize: 12.5)),
+            ],
+          )
+        else if (all.isEmpty)
+          Text(
+            'Nenhum modelo cadastrado. Cadastre aeronaves primeiro.',
+            style: GoogleFonts.roboto(
+                fontSize: 12.5, color: const Color(0x99FFFFFF)),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final m in all)
+                _ModelChip(
+                  label: m,
+                  selected: selected.contains(m),
+                  onTap: () => onToggle(m),
+                ),
+            ],
+          ),
+        if (error != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            error!,
+            style: GoogleFonts.roboto(
+                fontSize: 12, color: const Color(0xFFFF7B82)),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ModelChip extends StatelessWidget {
+  const _ModelChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(99),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0x33C2D51C) : const Color(0x14FFFFFF),
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(
+            color: selected ? const Color(0xFFC2D51C) : const Color(0x22FFFFFF),
+            width: 1.4,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              selected ? Icons.check_rounded : Icons.flight_outlined,
+              size: 14,
+              color: selected ? const Color(0xFFC2D51C) : const Color(0x99FFFFFF),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color:
+                    selected ? const Color(0xFFC2D51C) : const Color(0xCCFFFFFF),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

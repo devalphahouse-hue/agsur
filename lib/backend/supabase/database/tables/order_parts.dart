@@ -28,4 +28,7 @@ class OrderPartsRow extends SupabaseDataRow {
 
   String? get aircraftId => getField<String>('aircraft_id');
   set aircraftId(String? value) => setField<String>('aircraft_id', value);
+
+  String? get reason => getField<String>('reason');
+  set reason(String? value) => setField<String>('reason', value);
 }

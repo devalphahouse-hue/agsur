@@ -5442,8 +5442,9 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                             ?.fullname,
                                                       });
                                                     }
-                                                    await ContractTable()
-                                                        .insert({
+                                                    final createdContract =
+                                                        await ContractTable()
+                                                            .insert({
                                                       'user_Id': _model
                                                               .createUserPublic
                                                               ?.id ??
@@ -5471,6 +5472,11 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                           .asGetProposalDetails
                                                           .proposal
                                                           .id,
+                                                      // liga o avião ao contrato
+                                                      // (a view vw_my_aircrafts_home
+                                                      // junta por contract_id)
+                                                      'contract_id':
+                                                          createdContract.id,
                                                     });
                                                     _model.createSales =
                                                         await SalesTable()

@@ -91,14 +91,12 @@ class _ModalServicesOfferingWidgetState
     });
   }
 
-  void _toggleModel(Set<String> target, TextEditingController controller,
-      String model) {
+  void _setModels(Set<String> target, TextEditingController controller,
+      Set<String> selection) {
     setState(() {
-      if (target.contains(model)) {
-        target.remove(model);
-      } else {
-        target.add(model);
-      }
+      target
+        ..clear()
+        ..addAll(selection);
       controller.text = target.join(', ');
       _modelsError = null;
       _modelsEditError = null;
@@ -301,8 +299,8 @@ class _ModalServicesOfferingWidgetState
             loaded: _modelsLoaded,
             selected: _selModels,
             error: _modelsError,
-            onToggle: (m) =>
-                _toggleModel(_selModels, _model.tFModelsTextController!, m),
+            onChanged: (sel) =>
+                _setModels(_selModels, _model.tFModelsTextController!, sel),
           ),
           const SizedBox(height: 14),
           _PdfUpload(
@@ -376,8 +374,8 @@ class _ModalServicesOfferingWidgetState
                 loaded: _modelsLoaded,
                 selected: _selModelsEdit,
                 error: _modelsEditError,
-                onToggle: (m) => _toggleModel(
-                    _selModelsEdit, _model.tFModelsEditTextController!, m),
+                onChanged: (sel) => _setModels(
+                    _selModelsEdit, _model.tFModelsEditTextController!, sel),
               ),
               const SizedBox(height: 14),
               _PdfUpload(
@@ -557,24 +555,38 @@ class _PdfUploadState extends State<_PdfUpload> {
   }
 }
 
-/// Multi-seleção de modelos de aeronave (chips), a partir do catálogo.
+/// Campo dropdown de modelos de aeronave: abre um diálogo com busca e
+/// checkboxes (multi-seleção). Escala bem mesmo com muitos modelos.
 class _ModelMultiSelect extends StatelessWidget {
   const _ModelMultiSelect({
     required this.all,
     required this.loaded,
     required this.selected,
-    required this.onToggle,
+    required this.onChanged,
     this.error,
   });
 
   final List<String> all;
   final bool loaded;
   final Set<String> selected;
-  final void Function(String) onToggle;
+  final void Function(Set<String>) onChanged;
   final String? error;
+
+  Future<void> _open(BuildContext context) async {
+    final result = await showDialog<Set<String>>(
+      context: context,
+      builder: (_) => _ModelPickerDialog(all: all, initial: selected),
+    );
+    if (result != null) onChanged(result);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final hasError = error != null;
+    final enabled = loaded && all.isNotEmpty;
+    final placeholder = !loaded
+        ? 'Carregando modelos...'
+        : (all.isEmpty ? 'Nenhum modelo cadastrado' : 'Selecione os modelos');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -588,47 +600,51 @@ class _ModelMultiSelect extends StatelessWidget {
               letterSpacing: 0.3,
             ),
             children: const [
-              TextSpan(
-                text: ' *',
-                style: TextStyle(color: Color(0xFFFF7B82)),
-              ),
+              TextSpan(text: ' *', style: TextStyle(color: Color(0xFFFF7B82))),
             ],
           ),
         ),
-        const SizedBox(height: 8),
-        if (!loaded)
-          Row(
-            children: const [
-              SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Color(0xFFC2D51C)),
+        const SizedBox(height: 6),
+        InkWell(
+          onTap: enabled ? () => _open(context) : null,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0x14FFFFFF),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color:
+                    hasError ? const Color(0xCCFF7B82) : const Color(0x22FFFFFF),
+                width: 1.4,
               ),
-              SizedBox(width: 10),
-              Text('Carregando modelos...',
-                  style: TextStyle(color: Color(0x99FFFFFF), fontSize: 12.5)),
-            ],
-          )
-        else if (all.isEmpty)
-          Text(
-            'Nenhum modelo cadastrado. Cadastre aeronaves primeiro.',
-            style: GoogleFonts.roboto(
-                fontSize: 12.5, color: const Color(0x99FFFFFF)),
-          )
-        else
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final m in all)
-                _ModelChip(
-                  label: m,
-                  selected: selected.contains(m),
-                  onTap: () => onToggle(m),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.flight_outlined,
+                    size: 16, color: Color(0x99FFFFFF)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    selected.isEmpty
+                        ? placeholder
+                        : '${selected.length} selecionado(s): ${selected.join(', ')}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.roboto(
+                      fontSize: 13.5,
+                      color: selected.isEmpty
+                          ? const Color(0x66FFFFFF)
+                          : Colors.white,
+                    ),
+                  ),
                 ),
-            ],
+                const Icon(Icons.expand_more_rounded,
+                    color: Color(0xFFC2D51C), size: 20),
+              ],
+            ),
           ),
+        ),
         if (error != null) ...[
           const SizedBox(height: 8),
           Text(
@@ -642,52 +658,142 @@ class _ModelMultiSelect extends StatelessWidget {
   }
 }
 
-class _ModelChip extends StatelessWidget {
-  const _ModelChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+/// Diálogo de seleção de modelos: busca + lista com checkboxes.
+class _ModelPickerDialog extends StatefulWidget {
+  const _ModelPickerDialog({required this.all, required this.initial});
+  final List<String> all;
+  final Set<String> initial;
 
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
+  @override
+  State<_ModelPickerDialog> createState() => _ModelPickerDialogState();
+}
+
+class _ModelPickerDialogState extends State<_ModelPickerDialog> {
+  late final Set<String> _sel = {...widget.initial};
+  String _q = '';
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(99),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0x33C2D51C) : const Color(0x14FFFFFF),
-          borderRadius: BorderRadius.circular(99),
-          border: Border.all(
-            color: selected ? const Color(0xFFC2D51C) : const Color(0x22FFFFFF),
-            width: 1.4,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              selected ? Icons.check_rounded : Icons.flight_outlined,
-              size: 14,
-              color: selected ? const Color(0xFFC2D51C) : const Color(0x99FFFFFF),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: GoogleFonts.inter(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color:
-                    selected ? const Color(0xFFC2D51C) : const Color(0xCCFFFFFF),
+    final filtered = widget.all
+        .where((m) => m.toLowerCase().contains(_q.toLowerCase()))
+        .toList();
+    return Dialog(
+      backgroundColor: const Color(0xFF2A2A2A),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460, maxHeight: 560),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Modelos de aeronave',
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded,
+                        color: Color(0x99FFFFFF)),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              TextField(
+                autofocus: true,
+                onChanged: (v) => setState(() => _q = v),
+                style: GoogleFonts.roboto(color: Colors.white, fontSize: 13.5),
+                decoration: InputDecoration(
+                  hintText: 'Buscar modelo...',
+                  hintStyle: GoogleFonts.roboto(
+                      color: const Color(0x66FFFFFF), fontSize: 13.5),
+                  prefixIcon: const Icon(Icons.search_rounded,
+                      color: Color(0x99FFFFFF), size: 20),
+                  filled: true,
+                  fillColor: const Color(0x14FFFFFF),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: filtered.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        child: Text(
+                          'Nenhum modelo encontrado.',
+                          style: GoogleFonts.roboto(
+                              fontSize: 13, color: const Color(0x99FFFFFF)),
+                        ),
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: filtered.length,
+                        itemBuilder: (_, i) {
+                          final m = filtered[i];
+                          final on = _sel.contains(m);
+                          return InkWell(
+                            onTap: () => setState(
+                                () => on ? _sel.remove(m) : _sel.add(m)),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 12),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    on
+                                        ? Icons.check_box_rounded
+                                        : Icons.check_box_outline_blank_rounded,
+                                    color: on
+                                        ? const Color(0xFFC2D51C)
+                                        : const Color(0x66FFFFFF),
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      m,
+                                      style: GoogleFonts.roboto(
+                                          fontSize: 14, color: Colors.white),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  AppSecondaryButton(
+                    label: 'Cancelar',
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const SizedBox(width: 10),
+                  AppPrimaryButton(
+                    label: 'Concluir (${_sel.length})',
+                    icon: Icons.check_rounded,
+                    onPressed: () => Navigator.pop(context, _sel),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

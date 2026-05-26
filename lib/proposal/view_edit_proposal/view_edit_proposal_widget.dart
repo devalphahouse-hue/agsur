@@ -9,18 +9,15 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/pages/modal_edit_company/modal_edit_company_widget.dart';
 import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
-import '/pages/shared/custom_snac_bar/custom_snac_bar_widget.dart';
 import '/pages/shared/empty_all_lists/empty_all_lists_widget.dart';
 import '/pages/shared/empty_list/empty_list_widget.dart';
 import '/pages/shared/modal_edit_address/modal_edit_address_widget.dart';
 import '/pages/shared/modal_register_address/modal_register_address_widget.dart';
 import '/proposal/components/c_t_csrd_aircraft/c_t_csrd_aircraft_widget.dart';
-import 'dart:ui';
 import '/custom_code/actions/index.dart' as actions;
 import '/index.dart';
 import 'dart:async';
 import 'dart:math' as math;
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -1262,7 +1259,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                           );
                                                         }
 
-                                                        Navigator.pop(context);
+                                                        Navigator.of(dialogContext).pop();
                                                       },
                                                     ),
                                                   ),
@@ -2208,8 +2205,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                                 );
                                                               }
 
-                                                              Navigator.pop(
-                                                                  context);
+                                                              Navigator.of(context, rootNavigator: true).pop();
                                                             },
                                                           ),
                                                         ),
@@ -2372,8 +2368,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                                 );
                                                               }
 
-                                                              Navigator.pop(
-                                                                  context);
+                                                              Navigator.of(context, rootNavigator: true).pop();
                                                             },
                                                           ),
                                                         ),
@@ -5561,44 +5556,11 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                               1;
                                                     }
                                                     _model.countController = 0;
-                                                    await showDialog(
-                                                      barrierColor:
-                                                          Color(0x97000000),
-                                                      context: context,
-                                                      builder: (dialogContext) {
-                                                        return Dialog(
-                                                          elevation: 0,
-                                                          insetPadding:
-                                                              EdgeInsets.zero,
-                                                          backgroundColor:
-                                                              Colors
-                                                                  .transparent,
-                                                          alignment: AlignmentDirectional(
-                                                                  0.0, 1.0)
-                                                              .resolve(
-                                                                  Directionality.of(
-                                                                      context)),
-                                                          child:
-                                                              GestureDetector(
-                                                            onTap: () {
-                                                              FocusScope.of(
-                                                                      dialogContext)
-                                                                  .unfocus();
-                                                              FocusManager
-                                                                  .instance
-                                                                  .primaryFocus
-                                                                  ?.unfocus();
-                                                            },
-                                                            child:
-                                                                CustomSnacBarWidget(
-                                                              title:
-                                                                  'Processando dados do contrato...',
-                                                            ),
-                                                          ),
-                                                        );
-                                                      },
-                                                    );
-
+                                                    // Contrato/dados já gravados
+                                                    // acima; navega direto para
+                                                    // a lista de contratos (sem
+                                                    // spinner travado nem pop
+                                                    // extra na rota errada).
                                                     context.goNamed(
                                                       ContractsWidget.routeName,
                                                       extra: <String, dynamic>{
@@ -5614,8 +5576,6 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                         ),
                                                       },
                                                     );
-
-                                                    Navigator.pop(context);
                                                   },
                                                 ),
                                               ),

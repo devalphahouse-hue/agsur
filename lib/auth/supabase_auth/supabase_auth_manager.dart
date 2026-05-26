@@ -27,7 +27,7 @@ class SupabaseAuthManager extends AuthManager with EmailSignInManager {
         return;
       }
       await currentUser?.delete();
-    } on AuthException catch (e) {
+    } on AuthException {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Ocorreu um erro, tente novamente')),
@@ -46,7 +46,7 @@ class SupabaseAuthManager extends AuthManager with EmailSignInManager {
         return;
       }
       await currentUser?.updateEmail(email);
-    } on AuthException catch (e) {
+    } on AuthException {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Ocorreu um erro, tente novamente')),
@@ -69,7 +69,7 @@ class SupabaseAuthManager extends AuthManager with EmailSignInManager {
         return;
       }
       await currentUser?.updatePassword(newPassword);
-    } on AuthException catch (e) {
+    } on AuthException {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Ocorreu um erro, tente novamente')),
@@ -90,7 +90,7 @@ class SupabaseAuthManager extends AuthManager with EmailSignInManager {
     try {
       await SupaFlow.client.auth
           .resetPasswordForEmail(email, redirectTo: redirectTo);
-    } on AuthException catch (e) {
+    } on AuthException {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Ocorreu um erro, tente novamente')),

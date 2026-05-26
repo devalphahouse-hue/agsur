@@ -1,20 +1,14 @@
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
-import '/flutter_flow/flutter_flow_drop_down.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import '/flutter_flow/form_field_controller.dart';
 import '/flutter_flow/upload_data.dart';
-import 'dart:math';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'modal_tracking_model.dart';
 export 'modal_tracking_model.dart';
 
@@ -557,7 +551,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                           matchingRows: (rows) => rows.eqOrNull('id', widget.idTracking!),
                                         );
                                       }
-                                      Navigator.pop(context);
+                                      Navigator.of(context, rootNavigator: true).pop();
                                     }
                                   },
                                   text: 'Cadastrar',
@@ -1089,7 +1083,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                           matchingRows: (rows) => rows.eqOrNull('id', widget.userAircraftId!),
                                         );
                                       }
-                                      Navigator.pop(context);
+                                      Navigator.of(context, rootNavigator: true).pop();
                                     }
                                   },
                                   text: 'Cadastrar',
@@ -1274,7 +1268,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                     });
                                     await widget.onConfirmStep
                                         ?.call(widget.idTracking!);
-                                    Navigator.pop(context);
+                                    Navigator.of(context, rootNavigator: true).pop();
                                   },
                                   text: 'Cadastrar',
                                   options: FFButtonOptions(
@@ -1458,7 +1452,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                     });
                                     await widget.onConfirmStep
                                         ?.call(widget.idTracking!);
-                                    Navigator.pop(context);
+                                    Navigator.of(context, rootNavigator: true).pop();
                                   },
                                   text: 'Cadastrar',
                                   options: FFButtonOptions(
@@ -1848,7 +1842,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                 });
                                 await widget.onConfirmStep
                                     ?.call(widget.idTracking!);
-                                Navigator.pop(context);
+                                Navigator.of(context, rootNavigator: true).pop();
                               },
                               text: 'Cadastrar',
                               options: FFButtonOptions(
@@ -2026,7 +2020,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                     });
                                     await widget.onConfirmStep
                                         ?.call(widget.idTracking!);
-                                    Navigator.pop(context);
+                                    Navigator.of(context, rootNavigator: true).pop();
                                   },
                                   text: 'Cadastrar',
                                   options: FFButtonOptions(
@@ -2460,7 +2454,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                     });
                                     await widget.onConfirmStep
                                         ?.call(widget.idTracking!);
-                                    Navigator.pop(context);
+                                    Navigator.of(context, rootNavigator: true).pop();
                                   },
                                   text: 'Cadastrar',
                                   options: FFButtonOptions(
@@ -2630,7 +2624,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                   if (widget.idTracking != null) {
                                     await widget.onConfirmStep?.call(widget.idTracking!);
                                   }
-                                  Navigator.pop(context);
+                                  Navigator.of(context, rootNavigator: true).pop();
                                 },
                                 text: 'Confirmar',
                                 options: FFButtonOptions(
@@ -2796,7 +2790,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                     });
                                     await widget.onConfirmStep
                                         ?.call(widget.idTracking!);
-                                    Navigator.pop(context);
+                                    Navigator.of(context, rootNavigator: true).pop();
                                   },
                                   text: 'Cadastrar',
                                   options: FFButtonOptions(
@@ -2898,7 +2892,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                               onPressed: () async {
                                 await _saveTrackingDetails({'reservation_paid': _model.reservationPaid});
                                 if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
-                                Navigator.pop(context);
+                                Navigator.of(context, rootNavigator: true).pop();
                               },
                               text: 'Confirmar',
                               options: FFButtonOptions(height: 48.0, padding: EdgeInsetsDirectional.fromSTEB(48.0, 0.0, 48.0, 0.0), color: FlutterFlowTheme.of(context).primary, textStyle: FlutterFlowTheme.of(context).titleSmall.override(font: GoogleFonts.inter(), color: FlutterFlowTheme.of(context).primaryText, fontSize: 14.0, letterSpacing: 0.0), elevation: 0.0, borderRadius: BorderRadius.circular(8.0)),
@@ -2963,7 +2957,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                               onPressed: () async {
                                 await _saveTrackingDetails({'five_percent_paid': _model.fivePercentPaid});
                                 if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
-                                Navigator.pop(context);
+                                Navigator.of(context, rootNavigator: true).pop();
                               },
                               text: 'Confirmar',
                               options: FFButtonOptions(height: 48.0, padding: EdgeInsetsDirectional.fromSTEB(48.0, 0.0, 48.0, 0.0), color: FlutterFlowTheme.of(context).primary, textStyle: FlutterFlowTheme.of(context).titleSmall.override(font: GoogleFonts.inter(), color: FlutterFlowTheme.of(context).primaryText, fontSize: 14.0, letterSpacing: 0.0), elevation: 0.0, borderRadius: BorderRadius.circular(8.0)),
@@ -3028,7 +3022,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                               onPressed: () async {
                                 await _saveTrackingDetails({'financing_approved': _model.financingApproved});
                                 if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
-                                Navigator.pop(context);
+                                Navigator.of(context, rootNavigator: true).pop();
                               },
                               text: 'Confirmar',
                               options: FFButtonOptions(height: 48.0, padding: EdgeInsetsDirectional.fromSTEB(48.0, 0.0, 48.0, 0.0), color: FlutterFlowTheme.of(context).primary, textStyle: FlutterFlowTheme.of(context).titleSmall.override(font: GoogleFonts.inter(), color: FlutterFlowTheme.of(context).primaryText, fontSize: 14.0, letterSpacing: 0.0), elevation: 0.0, borderRadius: BorderRadius.circular(8.0)),
@@ -3093,7 +3087,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                               onPressed: () async {
                                 await _saveTrackingDetails({'pre_contract_signed': _model.preContractSigned});
                                 if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
-                                Navigator.pop(context);
+                                Navigator.of(context, rootNavigator: true).pop();
                               },
                               text: 'Confirmar',
                               options: FFButtonOptions(height: 48.0, padding: EdgeInsetsDirectional.fromSTEB(48.0, 0.0, 48.0, 0.0), color: FlutterFlowTheme.of(context).primary, textStyle: FlutterFlowTheme.of(context).titleSmall.override(font: GoogleFonts.inter(), color: FlutterFlowTheme.of(context).primaryText, fontSize: 14.0, letterSpacing: 0.0), elevation: 0.0, borderRadius: BorderRadius.circular(8.0)),
@@ -3158,7 +3152,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                               onPressed: () async {
                                 await _saveTrackingDetails({'insurance_policy_sent': _model.insurancePolicySent});
                                 if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
-                                Navigator.pop(context);
+                                Navigator.of(context, rootNavigator: true).pop();
                               },
                               text: 'Confirmar',
                               options: FFButtonOptions(height: 48.0, padding: EdgeInsetsDirectional.fromSTEB(48.0, 0.0, 48.0, 0.0), color: FlutterFlowTheme.of(context).primary, textStyle: FlutterFlowTheme.of(context).titleSmall.override(font: GoogleFonts.inter(), color: FlutterFlowTheme.of(context).primaryText, fontSize: 14.0, letterSpacing: 0.0), elevation: 0.0, borderRadius: BorderRadius.circular(8.0)),
@@ -3194,7 +3188,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                               onPressed: () async {
                                 await _saveTrackingDetails({'entry_payment_info': 'confirmed'});
                                 if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
-                                Navigator.pop(context);
+                                Navigator.of(context, rootNavigator: true).pop();
                               },
                               text: _model.entryPaymentInfo == 'confirmed' ? 'Confirmado' : 'Confirmar Pagamento',
                               options: FFButtonOptions(height: 48.0, padding: EdgeInsetsDirectional.fromSTEB(48.0, 0.0, 48.0, 0.0), color: FlutterFlowTheme.of(context).primary, textStyle: FlutterFlowTheme.of(context).titleSmall.override(font: GoogleFonts.inter(), color: FlutterFlowTheme.of(context).primaryText, fontSize: 14.0, letterSpacing: 0.0), elevation: 0.0, borderRadius: BorderRadius.circular(8.0)),
@@ -3254,7 +3248,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                   if (allOficChecked) {
                                     if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
                                   }
-                                  Navigator.pop(context);
+                                  Navigator.of(context, rootNavigator: true).pop();
                                 },
                                 text: 'Confirmar',
                                 options: FFButtonOptions(height: 48.0, padding: EdgeInsetsDirectional.fromSTEB(48.0, 0.0, 48.0, 0.0), color: FlutterFlowTheme.of(context).primary, textStyle: FlutterFlowTheme.of(context).titleSmall.override(font: GoogleFonts.inter(), color: FlutterFlowTheme.of(context).primaryText, fontSize: 14.0, letterSpacing: 0.0), elevation: 0.0, borderRadius: BorderRadius.circular(8.0)),
@@ -3320,7 +3314,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                               onPressed: () async {
                                 await _saveTrackingDetails({'final_contract_signed': _model.finalContractSigned});
                                 if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
-                                Navigator.pop(context);
+                                Navigator.of(context, rootNavigator: true).pop();
                               },
                               text: 'Confirmar',
                               options: FFButtonOptions(height: 48.0, padding: EdgeInsetsDirectional.fromSTEB(48.0, 0.0, 48.0, 0.0), color: FlutterFlowTheme.of(context).primary, textStyle: FlutterFlowTheme.of(context).titleSmall.override(font: GoogleFonts.inter(), color: FlutterFlowTheme.of(context).primaryText, fontSize: 14.0, letterSpacing: 0.0), elevation: 0.0, borderRadius: BorderRadius.circular(8.0)),
@@ -3370,7 +3364,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                   if (allDespChecked && widget.idTracking != null) {
                                     await widget.onConfirmStep?.call(widget.idTracking!);
                                   }
-                                  Navigator.pop(context);
+                                  Navigator.of(context, rootNavigator: true).pop();
                                 },
                                 text: 'Confirmar',
                                 options: FFButtonOptions(height: 48.0, padding: EdgeInsetsDirectional.fromSTEB(48.0, 0.0, 48.0, 0.0), color: FlutterFlowTheme.of(context).primary, textStyle: FlutterFlowTheme.of(context).titleSmall.override(font: GoogleFonts.inter(), color: FlutterFlowTheme.of(context).primaryText, fontSize: 14.0, letterSpacing: 0.0), elevation: 0.0, borderRadius: BorderRadius.circular(8.0)),
@@ -3436,7 +3430,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                               onPressed: () async {
                                 await _saveTrackingDetails({'customs_status': _model.customsStatus, 'customs_cnd': _model.customsCnd});
                                 if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
-                                Navigator.pop(context);
+                                Navigator.of(context, rootNavigator: true).pop();
                               },
                               text: 'Confirmar',
                               options: FFButtonOptions(height: 48.0, padding: EdgeInsetsDirectional.fromSTEB(48.0, 0.0, 48.0, 0.0), color: FlutterFlowTheme.of(context).primary, textStyle: FlutterFlowTheme.of(context).titleSmall.override(font: GoogleFonts.inter(), color: FlutterFlowTheme.of(context).primaryText, fontSize: 14.0, letterSpacing: 0.0), elevation: 0.0, borderRadius: BorderRadius.circular(8.0)),
@@ -3574,7 +3568,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                 };
                                 await _saveTrackingDetails(docData);
                                 if (widget.idTracking != null) await widget.onConfirmStep?.call(widget.idTracking!);
-                                Navigator.pop(context);
+                                Navigator.of(context, rootNavigator: true).pop();
                               },
                               text: 'Confirmar',
                               options: FFButtonOptions(height: 48.0, padding: EdgeInsetsDirectional.fromSTEB(48.0, 0.0, 48.0, 0.0), color: FlutterFlowTheme.of(context).primary, textStyle: FlutterFlowTheme.of(context).titleSmall.override(font: GoogleFonts.inter(), color: FlutterFlowTheme.of(context).primaryText, fontSize: 14.0, letterSpacing: 0.0), elevation: 0.0, borderRadius: BorderRadius.circular(8.0)),

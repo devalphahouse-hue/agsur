@@ -10,7 +10,6 @@ import '/pages/shared/warming_m_proprietario/warming_m_proprietario_widget.dart'
 import '/pages/shared/warming_m_voo/warming_m_voo_widget.dart';
 import '/index.dart';
 import 'package:easy_debounce/easy_debounce.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mime_type/mime_type.dart' show mime;

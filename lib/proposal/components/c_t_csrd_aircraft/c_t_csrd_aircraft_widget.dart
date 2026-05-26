@@ -5,16 +5,13 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/form_field_controller.dart';
-import 'dart:ui';
 import '/custom_code/actions/index.dart' as actions;
 import '/flutter_flow/custom_functions.dart' as functions;
 import 'package:easy_debounce/easy_debounce.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'c_t_csrd_aircraft_model.dart';
 export 'c_t_csrd_aircraft_model.dart';
 
@@ -136,7 +133,7 @@ class _CTCsrdAircraftWidgetState extends State<CTCsrdAircraftWidget> {
                           hoverColor: Colors.transparent,
                           highlightColor: Colors.transparent,
                           onTap: () async {
-                            Navigator.pop(context);
+                            Navigator.of(context, rootNavigator: true).pop();
                           },
                           child: Icon(
                             Icons.close_sharp,
@@ -825,7 +822,7 @@ class _CTCsrdAircraftWidgetState extends State<CTCsrdAircraftWidget> {
                             ),
                           );
                           await widget.refresh?.call();
-                          Navigator.pop(context);
+                          Navigator.of(context, rootNavigator: true).pop();
 
                           safeSetState(() {});
                         },

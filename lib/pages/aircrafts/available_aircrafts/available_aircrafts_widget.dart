@@ -101,7 +101,7 @@ class _AvailableAircraftsWidgetState extends State<AvailableAircraftsWidget> {
               });
               if (!mounted) return;
               _refresh();
-              Navigator.pop(context);
+              Navigator.of(dialogContext).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
@@ -153,7 +153,7 @@ class _AvailableAircraftsWidgetState extends State<AvailableAircraftsWidget> {
               );
               if (!mounted) return;
               _refresh();
-              Navigator.pop(context);
+              Navigator.of(dialogContext).pop();
             },
           ),
         ),

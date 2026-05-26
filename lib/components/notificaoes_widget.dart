@@ -3,16 +3,12 @@ import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
 import '/pages/tracking/view_tracking/view_tracking_widget.dart';
-import 'dart:math';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'notificaoes_model.dart';
 export 'notificaoes_model.dart';
 
@@ -121,7 +117,7 @@ class _NotificaoesWidgetState extends State<NotificaoesWidget>
                 hoverColor: Colors.transparent,
                 highlightColor: Colors.transparent,
                 onTap: () async {
-                  Navigator.pop(context);
+                  Navigator.of(context, rootNavigator: true).pop();
                 },
                 child: Icon(
                   Icons.close_sharp,
@@ -251,7 +247,7 @@ class _NotificaoesWidgetState extends State<NotificaoesWidget>
                                       size: 16.0,
                                     ),
                                     onPressed: () {
-                                      Navigator.pop(context);
+                                      Navigator.of(context, rootNavigator: true).pop();
                                       context.pushNamed(
                                         ViewTrackingWidget.routeName,
                                         queryParameters: {

@@ -1,21 +1,10 @@
 import '/backend/supabase/supabase.dart';
-import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
-import '/pages/shared/custom_snac_bar/custom_snac_bar_widget.dart';
-import '/pages/shared/empty_list/empty_list_widget.dart';
 import '/pages/shared/menu/menu_widget.dart';
-import '/pages/shared/modal_certificate/modal_certificate_widget.dart';
-import 'dart:ui';
 import '/index.dart';
 import 'certificates_widget.dart' show CertificatesWidget;
 import 'dart:async';
-import 'package:easy_debounce/easy_debounce.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 
 class CertificatesModel extends FlutterFlowModel<CertificatesWidget> {
   ///  State fields for stateful widgets in this page.

@@ -55,6 +55,12 @@ class _AppFormFieldState extends State<AppFormField> {
   late FocusNode _node;
   bool _focused = false;
 
+  // Mantém o estado do FormField sincronizado quando o controller é
+  // alterado por código (ex.: autofill do ViaCEP). Sem isso, setar
+  // controller.text não dispara o onChanged do TextField e o FormField
+  // continua "achando" que está vazio — mantendo o erro de validação preso.
+  FormFieldState<String>? _fieldState;
+
   @override
   void initState() {
     super.initState();
@@ -65,11 +71,20 @@ class _AppFormFieldState extends State<AppFormField> {
       _node = _ownedNode!;
     }
     _node.addListener(_onFocus);
+    widget.controller?.addListener(_onControllerChanged);
   }
 
   void _onFocus() {
     if (_focused != _node.hasFocus) {
       setState(() => _focused = _node.hasFocus);
+    }
+  }
+
+  void _onControllerChanged() {
+    final text = widget.controller?.text ?? '';
+    final state = _fieldState;
+    if (state != null && state.mounted && state.value != text) {
+      state.didChange(text);
     }
   }
 
@@ -88,11 +103,16 @@ class _AppFormFieldState extends State<AppFormField> {
       }
       _node.addListener(_onFocus);
     }
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller?.removeListener(_onControllerChanged);
+      widget.controller?.addListener(_onControllerChanged);
+    }
   }
 
   @override
   void dispose() {
     _node.removeListener(_onFocus);
+    widget.controller?.removeListener(_onControllerChanged);
     _ownedNode?.dispose();
     super.dispose();
   }
@@ -107,6 +127,7 @@ class _AppFormFieldState extends State<AppFormField> {
               ? AutovalidateMode.onUserInteraction
               : AutovalidateMode.disabled),
       builder: (state) {
+        _fieldState = state;
         final hasError = state.hasError;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,

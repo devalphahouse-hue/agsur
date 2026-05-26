@@ -9,7 +9,6 @@ import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
-import '/pages/shared/menu/menu_widget.dart';
 import 'proposals_model.dart';
 
 export 'proposals_model.dart';

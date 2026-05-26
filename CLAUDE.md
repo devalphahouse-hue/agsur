@@ -183,6 +183,27 @@ Fluxo de venda: `leads` → `proposal` (+ `proposal_item`, `proposal_financing`)
   próxima regeneração FlutterFlow. Só mexa com motivo claro e teste auth +
   queries depois.
 
+### Flutter web — armadilhas conhecidas
+
+Este build web (CanvasKit) acumulou bugs não-óbvios; cada item abaixo já
+quebrou produção:
+
+- **Versão do Flutter pinada em `3.41.9`** nos workflows (`flutter-analyze.yml`
+  e `deploy-vercel.yml`, `channel: stable`). O canal stable subiu pra 3.44.0 e
+  quebrou o build — não despinar sem rodar `flutter build web --release` inteiro.
+- **`Image.asset` não renderiza neste build.** Logos/imagens de asset carregam
+  via `rootBundle.load` + `Image.memory` (ver login). `Image.asset` direto sai
+  em branco; `cacheWidth`/`cacheHeight` também quebram o render.
+- **CSP em `vercel.json` precisa de `blob:`.** Upload de foto/PDF usa URLs
+  `blob:` — `connect-src`/`img-src`/`worker-src`/`child-src` já liberam. Remover
+  quebra uploads **silenciosamente**. Domínio externo novo (API, CDN) tem que
+  entrar no `connect-src`.
+- **Fontes de ícone precisam de `<link rel="preload">` em `web/index.html`.** Sem
+  isso o CanvasKit pinta antes da fonte carregar e ícones (MaterialIcons /
+  FontAwesome) somem de forma intermitente.
+- **Cache do `main.dart.js`:** ao testar mudança no web local, hard-refresh
+  (Cmd+Shift+R) — senão você vê o bundle antigo.
+
 ### Operação e produção
 
 - Antes de subir uma migration nova, sempre fazer `npx supabase db push --dry-run`.

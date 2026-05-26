@@ -6,15 +6,11 @@ import '/flutter_flow/flutter_flow_widgets.dart';
 import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
 import '/pages/shared/linked_clients_section/linked_clients_section_widget.dart';
 import '/pages/shared/custom_snac_bar/custom_snac_bar_widget.dart';
-import 'dart:ui';
-import '/index.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
-import 'package:provider/provider.dart';
 import '/core_ui/core_ui.dart';
 import 'oficina_details_model.dart';
 export 'oficina_details_model.dart';
@@ -1807,8 +1803,7 @@ class _OficinaDetailsWidgetState extends State<OficinaDetailsWidget> {
                                                                   false;
                                                               safeSetState(
                                                                   () {});
-                                                              Navigator.pop(
-                                                                  context);
+                                                              Navigator.of(context, rootNavigator: true).pop();
                                                             },
                                                           ),
                                                         ),

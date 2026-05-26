@@ -13,13 +13,10 @@ import '/pages/shared/empty_all_lists/empty_all_lists_widget.dart';
 import '/pages/shared/empty_list/empty_list_widget.dart';
 import '/pages/shared/modal_edit_address/modal_edit_address_widget.dart';
 import '/proposal/components/c_t_csrd_aircraft/c_t_csrd_aircraft_widget.dart';
-import 'dart:ui';
 import '/custom_code/actions/index.dart' as actions;
-import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
 import 'dart:async';
 import 'dart:math' as math;
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -1464,8 +1461,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                                             );
                                                           }
 
-                                                          Navigator.pop(
-                                                              context);
+                                                          Navigator.of(context, rootNavigator: true).pop();
                                                         },
                                                       ),
                                                     ),
@@ -2372,8 +2368,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                                             );
                                                           }
 
-                                                          Navigator.pop(
-                                                              context);
+                                                          Navigator.of(context, rootNavigator: true).pop();
                                                         },
                                                       ),
                                                     ),

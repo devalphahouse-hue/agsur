@@ -399,7 +399,7 @@ class _TrackingCard extends StatelessWidget {
             );
             _toast(context, 'Dados atualizados com sucesso!');
             await onChanged();
-            if (context.mounted) Navigator.pop(context);
+            if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
           },
         ),
       );
@@ -418,7 +418,7 @@ class _TrackingCard extends StatelessWidget {
             );
             _toast(context, 'Link adicionado com sucesso!');
             await onChanged();
-            if (context.mounted) Navigator.pop(context);
+            if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
           },
           onConfiguration: (_, __, ___, ____, _____, ______) async {},
         ),
@@ -454,7 +454,7 @@ class _TrackingCard extends StatelessWidget {
               data: {'isCheck': true},
               matchingRows: (rows) => rows.eqOrNull('id', item.id),
             );
-            if (context.mounted) Navigator.pop(context);
+            if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
           },
         ),
       );

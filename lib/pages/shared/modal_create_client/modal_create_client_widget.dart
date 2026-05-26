@@ -120,8 +120,10 @@ class _ModalCreateClientWidgetState extends State<ModalCreateClientWidget> {
   Widget build(BuildContext context) {
     return FutureBuilder<List<LeadsRow>>(
       future: LeadsTable().queryRows(
-        queryFn: (q) =>
-            q.eqOrNull('active', true).order('fullname', ascending: true),
+        queryFn: (q) => q
+            .eqOrNull('active', true)
+            .eqOrNull('is_deleted', false)
+            .order('fullname', ascending: true),
       ),
       builder: (context, snap) {
         return AppModal(

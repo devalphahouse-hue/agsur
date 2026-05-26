@@ -7,14 +7,10 @@ import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
 import '/pages/shared/custom_snac_bar/custom_snac_bar_widget.dart';
 import '/pages/shared/empty_list/empty_list_widget.dart';
 import '/pages/shared/modal_certificate_pilot/modal_certificate_pilot_widget.dart';
-import 'dart:ui';
-import '/index.dart';
 import 'dart:async';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import '/core_ui/core_ui.dart';
 import 'view_edit_pilots_model.dart';
 export 'view_edit_pilots_model.dart';
@@ -2005,8 +2001,7 @@ class _ViewEditPilotsWidgetState extends State<ViewEditPilotsWidget> {
                                                                             .primary,
                                                                   ),
                                                                 );
-                                                                Navigator.pop(
-                                                                    context);
+                                                                Navigator.of(context, rootNavigator: true).pop();
                                                               },
                                                             ),
                                                           ),
@@ -2428,7 +2423,7 @@ class _ViewEditPilotsWidgetState extends State<ViewEditPilotsWidget> {
 
                                                                               safeSetState(() => _model.requestCompleter = null);
                                                                               await _model.waitForRequestCompleted();
-                                                                              Navigator.pop(context);
+                                                                              Navigator.of(context, rootNavigator: true).pop();
                                                                             },
                                                                           ),
                                                                         ),

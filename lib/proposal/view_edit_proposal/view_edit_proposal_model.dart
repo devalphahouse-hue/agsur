@@ -1,32 +1,12 @@
-import '/auth/supabase_auth/auth_util.dart';
 import '/backend/api_requests/api_calls.dart';
-import '/backend/schema/enums/enums.dart';
-import '/backend/schema/structs/index.dart';
 import '/backend/supabase/supabase.dart';
-import '/flutter_flow/flutter_flow_icon_button.dart';
-import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import '/pages/modal_edit_company/modal_edit_company_widget.dart';
-import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
-import '/pages/shared/custom_snac_bar/custom_snac_bar_widget.dart';
-import '/pages/shared/empty_list/empty_list_widget.dart';
-import '/pages/shared/modal_edit_address/modal_edit_address_widget.dart';
-import '/pages/shared/modal_register_address/modal_register_address_widget.dart';
-import '/proposal/components/c_t_csrd_aircraft/c_t_csrd_aircraft_widget.dart';
-import 'dart:ui';
-import '/custom_code/actions/index.dart' as actions;
 import '/flutter_flow/request_manager.dart';
 
 import '/index.dart';
 import 'dart:async';
 import 'view_edit_proposal_widget.dart' show ViewEditProposalWidget;
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 
 class ViewEditProposalModel extends FlutterFlowModel<ViewEditProposalWidget> {
   ///  Local state fields for this page.

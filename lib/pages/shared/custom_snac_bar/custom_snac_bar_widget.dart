@@ -1,13 +1,9 @@
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/instant_timer.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'custom_snac_bar_model.dart';
 export 'custom_snac_bar_model.dart';
 
@@ -46,7 +42,7 @@ class _CustomSnacBarWidgetState extends State<CustomSnacBarWidget> {
           duration: Duration(milliseconds: 700),
           callback: (timer) async {
             if (_model.containerWidght! >= 1200.0) {
-              Navigator.pop(context);
+              Navigator.of(context, rootNavigator: true).pop();
             } else {
               _model.containerWidght = _model.containerWidght! +
                   valueOrDefault<double>(

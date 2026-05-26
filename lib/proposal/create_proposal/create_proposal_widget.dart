@@ -3,6 +3,7 @@ import '/backend/api_requests/api_calls.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/schema/structs/index.dart';
 import '/backend/supabase/supabase.dart';
+import '/core_ui/percent_input_formatter.dart';
 import '/flutter_flow/flutter_flow_drop_down.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -12,17 +13,13 @@ import '/flutter_flow/form_field_controller.dart';
 import '/pages/modal_edit_company/modal_edit_company_widget.dart';
 import '/pages/modal_register_company/modal_register_company_widget.dart';
 import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
-import '/pages/shared/custom_snac_bar/custom_snac_bar_widget.dart';
 import '/pages/shared/empty_all_lists/empty_all_lists_widget.dart';
 import '/pages/shared/empty_list/empty_list_widget.dart';
 import '/pages/shared/modal_edit_address/modal_edit_address_widget.dart';
 import '/pages/shared/modal_register_address/modal_register_address_widget.dart';
-import 'dart:ui';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
 import 'package:easy_debounce/easy_debounce.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -122,10 +119,15 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                           16.0, 12.0, 16.0, 16.0),
                       child: FutureBuilder<List<LeadsRow>>(
                         future: LeadsTable().queryRows(
-                          queryFn: (q) => q.eqOrNull(
-                            'active',
-                            true,
-                          ),
+                          queryFn: (q) => q
+                              .eqOrNull(
+                                'active',
+                                true,
+                              )
+                              .eqOrNull(
+                                'is_deleted',
+                                false,
+                              ),
                         ),
                         builder: (context, snapshot) {
                           // Customize what your widget looks like when it's loading.
@@ -647,8 +649,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                                   );
                                                                 }
 
-                                                                Navigator.pop(
-                                                                    context);
+                                                                Navigator.of(context, rootNavigator: true).pop();
                                                               },
                                                             ),
                                                           ),
@@ -812,8 +813,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                                   );
                                                                 }
 
-                                                                Navigator.pop(
-                                                                    context);
+                                                                Navigator.of(context, rootNavigator: true).pop();
                                                               },
                                                             ),
                                                           ),
@@ -1744,8 +1744,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                                   );
                                                                 }
 
-                                                                Navigator.pop(
-                                                                    context);
+                                                                Navigator.of(context, rootNavigator: true).pop();
                                                               },
                                                             ),
                                                           ),
@@ -1905,8 +1904,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                                   );
                                                                 }
 
-                                                                Navigator.pop(
-                                                                    context);
+                                                                Navigator.of(context, rootNavigator: true).pop();
                                                               },
                                                             ),
                                                           ),
@@ -5629,75 +5627,32 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                           onChanged: (_) =>
                                               EasyDebounce.debounce(
                                             '_model.tFInitialDepositTextController',
-                                            Duration(milliseconds: 800),
+                                            Duration(milliseconds: 300),
                                             () async {
                                               safeSetState(() {
-                                                _model.tFInitialDepositTextController
-                                                        ?.text =
-                                                    valueOrDefault<String>(
-                                                  functions.formatPercent(_model
-                                                      .tFInitialDepositTextController
-                                                      .text),
-                                                  '0',
-                                                );
-                                                _model.tFInitialDepositFocusNode
-                                                    ?.requestFocus();
-                                                WidgetsBinding.instance
-                                                    .addPostFrameCallback((_) {
-                                                  _model.tFInitialDepositTextController
-                                                          ?.selection =
-                                                      TextSelection.collapsed(
-                                                    offset: _model
-                                                        .tFInitialDepositTextController!
+                                                // Soma o sinal (5%) com o depósito
+                                                // inicial digitado e mostra o total.
+                                                final dep = double.tryParse(_model
+                                                        .tFInitialDepositTextController
                                                         .text
-                                                        .length,
-                                                  );
-                                                });
-                                              });
-                                              safeSetState(() {
+                                                        .replaceAll('%', '')
+                                                        .replaceAll(',', '.')) ??
+                                                    0;
+                                                final total = 5 + dep;
+                                                final formatted = total
+                                                    .toStringAsFixed(1)
+                                                    .replaceFirst(
+                                                        RegExp(r'\.0$'), '');
                                                 _model.tFTotalDepositTextController
-                                                        ?.text =
-                                                    valueOrDefault<String>(
-                                                  (int sinal,
-                                                          String depositoInicial) {
-                                                    return (() {
-                                                      // Remove % e converte para double
-                                                      double numero =
-                                                          double.parse(
-                                                              depositoInicial
-                                                                  .replaceAll(
-                                                                      '%', ''));
-
-                                                      // soma com o sinal
-                                                      double resultado =
-                                                          sinal + numero;
-
-                                                      // formata com 3 casas, remove zeros extras mas garante 1 casa decimal
-                                                      String formatted =
-                                                          resultado
-                                                              .toStringAsFixed(
-                                                                  3)
-                                                              .replaceFirst(
-                                                                  RegExp(
-                                                                      r'0+$'),
-                                                                  '')
-                                                              .replaceFirst(
-                                                                  RegExp(
-                                                                      r'\.$'),
-                                                                  '.0');
-
-                                                      return formatted + '%';
-                                                    })();
-                                                  }(
-                                                      5,
-                                                      _model
-                                                          .tFInitialDepositTextController
-                                                          .text),
-                                                  '0',
-                                                );
+                                                    ?.text = '$formatted%';
                                               });
                                             },
                                           ),
+                                          inputFormatters: [
+                                            PercentInputFormatter()
+                                          ],
+                                          keyboardType: const TextInputType
+                                              .numberWithOptions(decimal: true),
                                           autofocus: false,
                                           obscureText: false,
                                           decoration: InputDecoration(
@@ -6303,48 +6258,10 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                       }
                                                       _model.countController =
                                                           0;
-                                                      await showDialog(
-                                                        barrierColor:
-                                                            Color(0x97000000),
-                                                        context: context,
-                                                        builder:
-                                                            (dialogContext) {
-                                                          return Dialog(
-                                                            elevation: 0,
-                                                            insetPadding:
-                                                                EdgeInsets.zero,
-                                                            backgroundColor:
-                                                                Colors
-                                                                    .transparent,
-                                                            alignment: AlignmentDirectional(
-                                                                    0.0, 1.0)
-                                                                .resolve(
-                                                                    Directionality.of(
-                                                                        context)),
-                                                            child:
-                                                                GestureDetector(
-                                                              onTap: () {
-                                                                FocusScope.of(
-                                                                        dialogContext)
-                                                                    .unfocus();
-                                                                FocusManager
-                                                                    .instance
-                                                                    .primaryFocus
-                                                                    ?.unfocus();
-                                                              },
-                                                              child:
-                                                                  CustomSnacBarWidget(
-                                                                title:
-                                                                    'Inserindo proposta',
-                                                                isLoad: true,
-                                                              ),
-                                                            ),
-                                                          );
-                                                        },
-                                                      );
-
-                                                      Navigator.pop(context);
-
+                                                      // Proposta e itens já
+                                                      // foram inseridos acima;
+                                                      // vai direto para a lista
+                                                      // (sem spinner travado).
                                                       context.pushNamed(
                                                           ProposalsWidget
                                                               .routeName);

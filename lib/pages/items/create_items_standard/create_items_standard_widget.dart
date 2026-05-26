@@ -6,13 +6,9 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/form_field_controller.dart';
-import 'dart:ui';
-import '/index.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import '/core_ui/core_ui.dart';
 import 'create_items_standard_model.dart';
 export 'create_items_standard_model.dart';
@@ -677,6 +673,8 @@ class _CreateItemsStandardWidgetState extends State<CreateItemsStandardWidget> {
                                           'item_type',
                                           ItemType.series.name,
                                         )
+                                        .eqOrNull('deleted', false)
+                                        .eqOrNull('active', true)
                                         .order('item_name', ascending: true),
                                   ),
                                   builder: (context, snapshot) {

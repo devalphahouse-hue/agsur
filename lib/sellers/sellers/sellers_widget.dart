@@ -9,7 +9,6 @@ import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
 import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
-import '/pages/shared/menu/menu_widget.dart';
 import '/pages/shared/modal_register_seller/modal_register_seller_widget.dart';
 import '/pages/shared/switch_component/switch_component_widget.dart';
 import 'sellers_model.dart';

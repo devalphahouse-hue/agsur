@@ -7,7 +7,6 @@ import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
-import '/pages/shared/menu/menu_widget.dart';
 import 'contracts_model.dart';
 
 export 'contracts_model.dart';

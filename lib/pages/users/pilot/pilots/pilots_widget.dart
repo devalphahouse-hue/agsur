@@ -10,7 +10,6 @@ import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
 import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
-import '/pages/shared/menu/menu_widget.dart';
 import '/pages/shared/modal_register_pilot/modal_register_pilot_widget.dart';
 import '/pages/shared/switch_component/switch_component_widget.dart';
 import 'pilots_model.dart';
@@ -101,7 +100,7 @@ class _PilotsWidgetState extends State<PilotsWidget> {
                 }
                 if (!mounted) return;
                 _refresh();
-                Navigator.pop(context);
+                Navigator.of(dialogContext).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
@@ -119,7 +118,7 @@ class _PilotsWidgetState extends State<PilotsWidget> {
                     errBody.contains('user_already_exists') ||
                         errBody.contains('already registered');
                 if (!mounted) return;
-                Navigator.pop(context);
+                Navigator.of(dialogContext).pop();
                 await showDialog(
                   context: context,
                   builder: (alertCtx) => AlertDialog(

@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import '../schema/structs/index.dart';
 
 import 'package:flutter/foundation.dart';
 
+import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import 'api_manager.dart';
 
@@ -70,7 +70,7 @@ class GetLeadDetailsForProposalCall {
         'apikey':
             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk',
         'Authorization':
-            'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk',
+            'Bearer ${SupaFlow.client.auth.currentSession?.accessToken ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk'}',
       },
       params: {},
       body: ffApiRequestBody,
@@ -120,7 +120,7 @@ class GetAircraftDetailsForProposalCall {
         'apikey':
             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk',
         'Authorization':
-            'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk',
+            'Bearer ${SupaFlow.client.auth.currentSession?.accessToken ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk'}',
       },
       params: {},
       body: ffApiRequestBody,
@@ -203,7 +203,7 @@ class GetProposalDetailsCall {
         'apikey':
             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk',
         'Authorization':
-            'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk',
+            'Bearer ${SupaFlow.client.auth.currentSession?.accessToken ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk'}',
       },
       params: {},
       body: ffApiRequestBody,
@@ -367,7 +367,7 @@ class GetAircraftDetailsByProposalIdCall {
         'apikey':
             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk',
         'Authorization':
-            'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk',
+            'Bearer ${SupaFlow.client.auth.currentSession?.accessToken ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk'}',
       },
       params: {},
       body: ffApiRequestBody,
@@ -425,7 +425,7 @@ class GetLeadDetailsCall {
         'apikey':
             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk',
         'Authorization':
-            'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk',
+            'Bearer ${SupaFlow.client.auth.currentSession?.accessToken ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk'}',
       },
       params: {},
       body: ffApiRequestBody,
@@ -515,7 +515,7 @@ class GetTrackingCall {
         'apikey':
             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk',
         'Authorization':
-            'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk',
+            'Bearer ${SupaFlow.client.auth.currentSession?.accessToken ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk'}',
       },
       params: {},
       body: ffApiRequestBody,
@@ -590,7 +590,7 @@ class GetListAvailableAircraftsCall {
         'apikey':
             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk',
         'Authorization':
-            'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk',
+            'Bearer ${SupaFlow.client.auth.currentSession?.accessToken ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrenlidG14eHpweHR6dGVzZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcxMDg0NTUsImV4cCI6MjA1MjY4NDQ1NX0.e7SinKEtbHF7zWAQRpkiLMOS7IncJP6nzT-QpJcPXwk'}',
       },
       params: {},
       body: ffApiRequestBody,
@@ -766,7 +766,7 @@ class ViaCepCall {
   }) async {
     return ApiManager.instance.makeApiCall(
       callName: 'via cep',
-      apiUrl: 'viacep.com.br/ws/${cep}/json/',
+      apiUrl: 'https://viacep.com.br/ws/${cep}/json/',
       callType: ApiCallType.GET,
       headers: {},
       params: {},

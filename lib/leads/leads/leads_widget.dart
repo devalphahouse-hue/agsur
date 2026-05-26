@@ -8,7 +8,6 @@ import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
 import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
-import '/pages/shared/menu/menu_widget.dart';
 import '/pages/shared/modal_register_lead/modal_register_lead_widget.dart';
 import 'leads_model.dart';
 
@@ -75,7 +74,7 @@ class _LeadsWidgetState extends State<LeadsWidget> {
               });
               if (!mounted) return;
               _refresh();
-              Navigator.pop(context);
+              Navigator.of(dialogContext).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(

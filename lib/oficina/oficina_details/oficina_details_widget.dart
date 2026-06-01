@@ -191,10 +191,12 @@ class _OficinaDetailsWidgetState extends State<OficinaDetailsWidget> {
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Row(
-                                          mainAxisSize: MainAxisSize.max,
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
+                                        Wrap(
+                                          spacing: 8.0,
+                                          runSpacing: 8.0,
+                                          alignment: WrapAlignment.spaceBetween,
+                                          crossAxisAlignment:
+                                              WrapCrossAlignment.center,
                                           children: [
                                             Align(
                                               alignment: AlignmentDirectional(
@@ -256,7 +258,7 @@ class _OficinaDetailsWidgetState extends State<OficinaDetailsWidget> {
                                         Align(
                                           alignment:
                                               AlignmentDirectional(-1.0, 0.0),
-                                          child: Row(
+                                          child: ResponsiveRow(
                                             mainAxisSize: MainAxisSize.max,
                                             mainAxisAlignment:
                                                 MainAxisAlignment.spaceBetween,
@@ -582,7 +584,7 @@ class _OficinaDetailsWidgetState extends State<OficinaDetailsWidget> {
                                         Align(
                                           alignment:
                                               AlignmentDirectional(-1.0, 0.0),
-                                          child: Row(
+                                          child: ResponsiveRow(
                                             mainAxisSize: MainAxisSize.max,
                                             mainAxisAlignment:
                                                 MainAxisAlignment.spaceBetween,
@@ -762,7 +764,7 @@ class _OficinaDetailsWidgetState extends State<OficinaDetailsWidget> {
                                         Align(
                                           alignment:
                                               AlignmentDirectional(-1.0, 0.0),
-                                          child: Row(
+                                          child: ResponsiveRow(
                                             mainAxisSize: MainAxisSize.max,
                                             mainAxisAlignment:
                                                 MainAxisAlignment.spaceBetween,
@@ -1446,7 +1448,7 @@ class _OficinaDetailsWidgetState extends State<OficinaDetailsWidget> {
                                         Align(
                                           alignment:
                                               AlignmentDirectional(-1.0, 0.0),
-                                          child: Row(
+                                          child: ResponsiveRow(
                                             mainAxisSize: MainAxisSize.max,
                                             mainAxisAlignment:
                                                 MainAxisAlignment.spaceBetween,

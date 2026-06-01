@@ -252,25 +252,27 @@ class _ProgressHeader extends StatelessWidget {
                 const SizedBox(height: 10),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(99),
-                  child: Stack(
-                    children: [
-                      Container(
-                        height: 6,
-                        color: Colors.white.withValues(alpha: 0.06),
-                      ),
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 600),
-                        curve: Curves.easeOutCubic,
-                        height: 6,
-                        width: progress.clamp(0, 1) *
-                            (MediaQuery.sizeOf(context).width - 220),
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Color(0xFFC2D51C), Color(0xFFAEC117)],
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => Stack(
+                      children: [
+                        Container(
+                          height: 6,
+                          color: Colors.white.withValues(alpha: 0.06),
+                        ),
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 600),
+                          curve: Curves.easeOutCubic,
+                          height: 6,
+                          width: (progress.clamp(0, 1) * constraints.maxWidth)
+                              .toDouble(),
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Color(0xFFC2D51C), Color(0xFFAEC117)],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ],

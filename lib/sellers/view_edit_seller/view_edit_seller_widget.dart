@@ -241,7 +241,7 @@ class _ViewEditSellerWidgetState extends State<ViewEditSellerWidget> {
                                         Align(
                                           alignment:
                                               AlignmentDirectional(-1.0, 0.0),
-                                          child: Row(
+                                          child: ResponsiveRow(
                                             mainAxisSize: MainAxisSize.max,
                                             mainAxisAlignment:
                                                 MainAxisAlignment.spaceBetween,
@@ -740,7 +740,7 @@ class _ViewEditSellerWidgetState extends State<ViewEditSellerWidget> {
                                         Align(
                                           alignment:
                                               AlignmentDirectional(-1.0, 0.0),
-                                          child: Row(
+                                          child: ResponsiveRow(
                                             mainAxisSize: MainAxisSize.max,
                                             mainAxisAlignment:
                                                 MainAxisAlignment.spaceBetween,
@@ -1426,7 +1426,7 @@ class _ViewEditSellerWidgetState extends State<ViewEditSellerWidget> {
                                         Align(
                                           alignment:
                                               AlignmentDirectional(-1.0, 0.0),
-                                          child: Row(
+                                          child: ResponsiveRow(
                                             mainAxisSize: MainAxisSize.max,
                                             mainAxisAlignment:
                                                 MainAxisAlignment.spaceBetween,

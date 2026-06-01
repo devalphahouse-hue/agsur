@@ -369,7 +369,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                   ),
                                   Align(
                                     alignment: AlignmentDirectional(-1.0, 0.0),
-                                    child: Row(
+                                    child: ResponsiveRow(
                                       mainAxisSize: MainAxisSize.max,
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
@@ -713,7 +713,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                   ),
                                   Align(
                                     alignment: AlignmentDirectional(-1.0, 0.0),
-                                    child: Row(
+                                    child: ResponsiveRow(
                                       mainAxisSize: MainAxisSize.max,
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
@@ -1279,7 +1279,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                   ),
                                   Align(
                                     alignment: AlignmentDirectional(-1.0, 0.0),
-                                    child: Row(
+                                    child: ResponsiveRow(
                                       mainAxisSize: MainAxisSize.max,
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
@@ -1649,7 +1649,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                   ),
                                   Align(
                                     alignment: AlignmentDirectional(-1.0, 0.0),
-                                    child: Row(
+                                    child: ResponsiveRow(
                                       mainAxisSize: MainAxisSize.max,
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
@@ -2391,7 +2391,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                   ),
                                   Align(
                                     alignment: AlignmentDirectional(-1.0, 0.0),
-                                    child: Row(
+                                    child: ResponsiveRow(
                                       mainAxisSize: MainAxisSize.max,
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
@@ -2734,7 +2734,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                   ),
                                   Align(
                                     alignment: AlignmentDirectional(-1.0, 0.0),
-                                    child: Row(
+                                    child: ResponsiveRow(
                                       mainAxisSize: MainAxisSize.max,
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
@@ -3275,41 +3275,39 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                       ClipRRect(
                                         borderRadius:
                                             BorderRadius.circular(16.0),
-                                        child: Image.network(
-                                          valueOrDefault<String>(
-                                            FFAppState()
-                                                .asGetProposalDetails
-                                                .proposalAircraft
-                                                .aircraftPhotoUrl,
-                                            'https://bkzybtmxxzpxtztesdye.supabase.co/storage/v1/object/public/AGSur//Design%20sem%20nome%20(13).png',
+                                        child: ConstrainedBox(
+                                          constraints: const BoxConstraints(
+                                              maxWidth: 800.0),
+                                          child: Image.network(
+                                            valueOrDefault<String>(
+                                              FFAppState()
+                                                  .asGetProposalDetails
+                                                  .proposalAircraft
+                                                  .aircraftPhotoUrl,
+                                              'https://bkzybtmxxzpxtztesdye.supabase.co/storage/v1/object/public/AGSur//Design%20sem%20nome%20(13).png',
+                                            ),
+                                            width: double.infinity,
+                                            height: MediaQuery.sizeOf(context)
+                                                        .width >
+                                                    kBreakpointSmall
+                                                ? 430.0
+                                                : 186.0,
+                                            fit: BoxFit.contain,
                                           ),
-                                          width:
-                                              MediaQuery.sizeOf(context).width >
-                                                      kBreakpointSmall
-                                                  ? 800.0
-                                                  : 330.0,
-                                          height:
-                                              MediaQuery.sizeOf(context).width >
-                                                      kBreakpointSmall
-                                                  ? 430.0
-                                                  : 186.0,
-                                          fit: BoxFit.contain,
                                         ),
                                       ),
                                       Align(
                                         alignment:
                                             AlignmentDirectional(-1.0, 0.0),
                                         child: Container(
-                                          width:
-                                              MediaQuery.sizeOf(context).width >
-                                                      kBreakpointSmall
-                                                  ? 800.0
-                                                  : 330.0,
+                                          constraints: const BoxConstraints(
+                                              maxWidth: 800.0),
+                                          width: double.infinity,
                                           decoration: BoxDecoration(),
                                           child: Column(
                                             mainAxisSize: MainAxisSize.max,
                                             children: [
-                                              Row(
+                                              ResponsiveRow(
                                                 mainAxisSize: MainAxisSize.max,
                                                 mainAxisAlignment:
                                                     MainAxisAlignment
@@ -3948,7 +3946,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                 itemsSeries[itemsSeriesIndex];
                                             return Container(
                                               decoration: BoxDecoration(),
-                                              child: Row(
+                                              child: ResponsiveRow(
                                                 mainAxisSize: MainAxisSize.min,
                                                 mainAxisAlignment:
                                                     MainAxisAlignment

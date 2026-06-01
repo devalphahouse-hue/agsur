@@ -64,6 +64,7 @@ class _WarmingMVooWidgetState extends State<WarmingMVooWidget>
       child: Padding(
         padding: EdgeInsets.all(16.0),
         child: Container(
+          constraints: const BoxConstraints(maxWidth: 420.0),
           decoration: BoxDecoration(
             color: Color(0xFF313131),
             borderRadius: BorderRadius.circular(12.0),
@@ -71,10 +72,11 @@ class _WarmingMVooWidgetState extends State<WarmingMVooWidget>
           child: Padding(
             padding: EdgeInsetsDirectional.fromSTEB(24.0, 16.0, 24.0, 16.0),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize: MainAxisSize.max,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
+                Expanded(
+                  child: Text(
                   'Adicione o manual de voo',
                   style: FlutterFlowTheme.of(context).bodyMedium.override(
                         font: GoogleFonts.roboto(
@@ -89,6 +91,7 @@ class _WarmingMVooWidgetState extends State<WarmingMVooWidget>
                         fontStyle:
                             FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                       ),
+                ),
                 ),
                 FFButtonWidget(
                   onPressed: () async {

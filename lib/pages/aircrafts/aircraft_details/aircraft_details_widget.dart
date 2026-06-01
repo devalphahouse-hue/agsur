@@ -324,7 +324,11 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                                                         }
                                                       },
                                                       child: Container(
-                                                        width: 300.0,
+                                                        width: (MediaQuery.sizeOf(
+                                                                        context)
+                                                                    .width -
+                                                                48)
+                                                            .clamp(0.0, 300.0),
                                                         height: 50.0,
                                                         decoration:
                                                             BoxDecoration(
@@ -2243,23 +2247,23 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                                         child: ClipRRect(
                                           borderRadius:
                                               BorderRadius.circular(16.0),
-                                          child: Image.network(
+                                          child: ConstrainedBox(
+                                            constraints: const BoxConstraints(
+                                                maxWidth: 800.0),
+                                            child: Image.network(
                                             valueOrDefault<String>(
                                               cTMainVwMyAircraftDetailsRow
                                                   ?.aircraftPhotoUrl,
                                               'https://bkzybtmxxzpxtztesdye.supabase.co/storage/v1/object/public/AGSur//Design%20sem%20nome%20(13).png',
                                             ),
-                                            width: MediaQuery.sizeOf(context)
-                                                        .width >
-                                                    kBreakpointSmall
-                                                ? 800.0
-                                                : 330.0,
+                                            width: double.infinity,
                                             height: MediaQuery.sizeOf(context)
                                                         .width >
                                                     kBreakpointSmall
                                                 ? 450.0
                                                 : 186.0,
                                             fit: BoxFit.contain,
+                                          ),
                                           ),
                                         ),
                                       ),

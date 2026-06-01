@@ -420,7 +420,10 @@ class _MenuItemState extends State<_MenuItem> {
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
-        onTap: widget.onTap,
+        onTap: () {
+          widget.onTap();
+          closeAppShellDrawer();
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
@@ -672,7 +675,10 @@ class _MenuSubItemState extends State<_MenuSubItem> {
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
-        onTap: widget.onTap,
+        onTap: () {
+          widget.onTap();
+          closeAppShellDrawer();
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           margin: const EdgeInsets.symmetric(vertical: 1),

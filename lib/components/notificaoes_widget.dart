@@ -85,7 +85,9 @@ class _NotificaoesWidgetState extends State<NotificaoesWidget>
 
     return Container(
       constraints: BoxConstraints(
-        maxWidth: 400.0,
+        maxWidth: MediaQuery.sizeOf(context).width < 432.0
+            ? MediaQuery.sizeOf(context).width - 32.0
+            : 400.0,
         maxHeight: MediaQuery.sizeOf(context).height * 0.6,
       ),
       decoration: BoxDecoration(

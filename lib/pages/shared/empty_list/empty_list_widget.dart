@@ -40,7 +40,7 @@ class _EmptyListWidgetState extends State<EmptyListWidget> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 450.0,
+      constraints: const BoxConstraints(maxWidth: 450.0),
       height: 300.0,
       decoration: BoxDecoration(),
       child: Column(

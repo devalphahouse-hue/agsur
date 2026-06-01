@@ -1822,10 +1822,12 @@ class _ViewEditPilotsWidgetState extends State<ViewEditPilotsWidget> {
                                       Padding(
                                         padding: EdgeInsetsDirectional.fromSTEB(
                                             0.0, 0.0, 0.0, 16.0),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.max,
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
+                                        child: Wrap(
+                                          spacing: 8.0,
+                                          runSpacing: 8.0,
+                                          alignment: WrapAlignment.spaceBetween,
+                                          crossAxisAlignment:
+                                              WrapCrossAlignment.center,
                                           children: [
                                             Align(
                                               alignment: AlignmentDirectional(

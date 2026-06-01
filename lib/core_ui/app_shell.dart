@@ -116,3 +116,13 @@ class _AppShellState extends State<AppShell> {
 void openAppShellDrawer() {
   appShellScaffoldKey.currentState?.openDrawer();
 }
+
+/// Fecha o Drawer global se estiver aberto (no-op no desktop, onde o menu
+/// é coluna fixa). Usado pelos itens do menu para sumir o Drawer ao navegar
+/// em mobile.
+void closeAppShellDrawer() {
+  final state = appShellScaffoldKey.currentState;
+  if (state?.isDrawerOpen ?? false) {
+    state!.closeDrawer();
+  }
+}

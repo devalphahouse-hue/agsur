@@ -224,7 +224,7 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                         Align(
                                           alignment:
                                               AlignmentDirectional(-1.0, 0.0),
-                                          child: Row(
+                                          child: ResponsiveRow(
                                             mainAxisSize: MainAxisSize.max,
                                             mainAxisAlignment:
                                                 MainAxisAlignment.spaceBetween,
@@ -562,7 +562,7 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                         Align(
                                           alignment:
                                               AlignmentDirectional(-1.0, 0.0),
-                                          child: Row(
+                                          child: ResponsiveRow(
                                             mainAxisSize: MainAxisSize.max,
                                             mainAxisAlignment:
                                                 MainAxisAlignment.spaceBetween,
@@ -898,7 +898,7 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                         Align(
                                           alignment:
                                               AlignmentDirectional(-1.0, 0.0),
-                                          child: Row(
+                                          child: ResponsiveRow(
                                             mainAxisSize: MainAxisSize.max,
                                             mainAxisAlignment:
                                                 MainAxisAlignment.spaceBetween,
@@ -1185,7 +1185,7 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                         Align(
                                           alignment:
                                               AlignmentDirectional(-1.0, 0.0),
-                                          child: Row(
+                                          child: ResponsiveRow(
                                             mainAxisSize: MainAxisSize.max,
                                             mainAxisAlignment:
                                                 MainAxisAlignment.spaceBetween,
@@ -1892,7 +1892,7 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                         Align(
                                           alignment:
                                               AlignmentDirectional(-1.0, 0.0),
-                                          child: Row(
+                                          child: ResponsiveRow(
                                             mainAxisSize: MainAxisSize.max,
                                             mainAxisAlignment:
                                                 MainAxisAlignment.spaceBetween,
@@ -2589,7 +2589,7 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                         Align(
                                           alignment:
                                               AlignmentDirectional(-1.0, 0.0),
-                                          child: Row(
+                                          child: ResponsiveRow(
                                             mainAxisSize: MainAxisSize.max,
                                             mainAxisAlignment:
                                                 MainAxisAlignment.spaceBetween,

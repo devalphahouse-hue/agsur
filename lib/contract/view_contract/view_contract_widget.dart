@@ -274,10 +274,12 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Row(
-                                    mainAxisSize: MainAxisSize.max,
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
+                                  Wrap(
+                                    spacing: 12.0,
+                                    runSpacing: 4.0,
+                                    alignment: WrapAlignment.spaceBetween,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
                                     children: [
                                       Align(
                                         alignment:
@@ -580,7 +582,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                   ),
                                   Align(
                                     alignment: AlignmentDirectional(-1.0, 0.0),
-                                    child: Row(
+                                    child: ResponsiveRow(
                                       mainAxisSize: MainAxisSize.max,
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
@@ -921,7 +923,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                   ),
                                   Align(
                                     alignment: AlignmentDirectional(-1.0, 0.0),
-                                    child: Row(
+                                    child: ResponsiveRow(
                                       mainAxisSize: MainAxisSize.max,
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
@@ -1481,7 +1483,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                   ),
                                   Align(
                                     alignment: AlignmentDirectional(-1.0, 0.0),
-                                    child: Row(
+                                    child: ResponsiveRow(
                                       mainAxisSize: MainAxisSize.max,
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
@@ -1824,7 +1826,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                   ),
                                   Align(
                                     alignment: AlignmentDirectional(-1.0, 0.0),
-                                    child: Row(
+                                    child: ResponsiveRow(
                                       mainAxisSize: MainAxisSize.max,
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
@@ -2388,7 +2390,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                   ),
                                   Align(
                                     alignment: AlignmentDirectional(-1.0, 0.0),
-                                    child: Row(
+                                    child: ResponsiveRow(
                                       mainAxisSize: MainAxisSize.max,
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
@@ -2731,7 +2733,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                   ),
                                   Align(
                                     alignment: AlignmentDirectional(-1.0, 0.0),
-                                    child: Row(
+                                    child: ResponsiveRow(
                                       mainAxisSize: MainAxisSize.max,
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
@@ -3275,16 +3277,14 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                         alignment:
                                             AlignmentDirectional(-1.0, 0.0),
                                         child: Container(
-                                          width:
-                                              MediaQuery.sizeOf(context).width >
-                                                      kBreakpointSmall
-                                                  ? 800.0
-                                                  : 330.0,
+                                          constraints: const BoxConstraints(
+                                              maxWidth: 800.0),
+                                          width: double.infinity,
                                           decoration: BoxDecoration(),
                                           child: Column(
                                             mainAxisSize: MainAxisSize.max,
                                             children: [
-                                              Row(
+                                              ResponsiveRow(
                                                 mainAxisSize: MainAxisSize.max,
                                                 mainAxisAlignment:
                                                     MainAxisAlignment
@@ -4143,6 +4143,10 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                                                               0.0),
                                                                           child:
                                                                               RichText(
+                                                                            maxLines:
+                                                                                1,
+                                                                            overflow:
+                                                                                TextOverflow.ellipsis,
                                                                             textScaler:
                                                                                 MediaQuery.of(context).textScaler,
                                                                             text:
@@ -4292,7 +4296,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                                                       ),
                                                                     ].divide(SizedBox(
                                                                         width:
-                                                                            36.0)),
+                                                                            10.0)),
                                                                   ),
                                                                 ),
                                                                 Builder(

@@ -100,8 +100,9 @@ para criar usuários sem deslogar o admin).
 
 ### Schema versionado em `supabase/migrations/`
 
-DDL agora vive **versionado no git** em `supabase/migrations/`. 16+ migrations
-aplicadas em 2026-05-08 cobrem:
+DDL agora vive **versionado no git** em `supabase/migrations/`. 23 migrations
+aplicadas (batch de endurecimento iniciado em 2026-05-08, continuando até
+2026-05-26) cobrem:
 
 - **Defesa em camadas (triggers BEFORE):** 32 tabelas com triggers que
   rejeitam writes não autorizados independente de RLS.
@@ -203,6 +204,30 @@ quebrou produção:
   FontAwesome) somem de forma intermitente.
 - **Cache do `main.dart.js`:** ao testar mudança no web local, hard-refresh
   (Cmd+Shift+R) — senão você vê o bundle antigo.
+
+### Responsividade (mobile / tablet)
+
+O painel é usado em desktop, tablet e celular. O design system em `lib/core_ui/`
+já trata a casca; ao mexer em telas/conteúdo, mantenha o padrão:
+
+- **Dois breakpoints.** Sidebar fixa → Drawer em **1024px** (`kSidebarBreakpoint`
+  em `app_shell.dart`). Conteúdo lado a lado → empilhado em **768px**
+  (`kStackBreakpoint` em `app_responsive.dart`; helpers `isStacked` /
+  `context.isStacked`). Use esses, não números mágicos novos.
+- **Linhas de campos lado a lado:** use `ResponsiveRow` (de `core_ui`) no lugar
+  de `Row`. É drop-in — idêntico a `Row` em tela larga; abaixo de 768px
+  desempacota `Expanded`/`Flexible` e empilha em coluna. Telas de cadastro
+  (`view_edit_*`, `oficina_details`) e de proposta/contrato já usam.
+- **Nunca largura fixa maior que ~300px** num filho não-flexível. Imagem/box que
+  precisa de teto: `ConstrainedBox(maxWidth: N)` + `width: double.infinity`
+  (preenche o disponível, limitado pela tela). Largura fixa **só** quando há um
+  `Expanded` irmão absorvendo o resto (ex.: campo "Número"/"UF" ao lado de
+  `Expanded`) — aí não estoura.
+- **Barra/elemento proporcional à largura:** derive de `LayoutBuilder`
+  (`constraints.maxWidth`), nunca de `MediaQuery.sizeOf(context).width` (ignora
+  sidebar + padding e estoura/erra a proporção).
+- Listagens, modais (`AppModal`), `AppListScaffold`/`AppDetailsScaffold` e o
+  dashboard já são responsivos — reaproveite em vez de recriar layout.
 
 ### Operação e produção
 

@@ -238,7 +238,7 @@ class _ViewEditEmployeesWidgetState extends State<ViewEditEmployeesWidget> {
                                         Align(
                                           alignment:
                                               AlignmentDirectional(-1.0, 0.0),
-                                          child: Row(
+                                          child: ResponsiveRow(
                                             mainAxisSize: MainAxisSize.max,
                                             mainAxisAlignment:
                                                 MainAxisAlignment.spaceBetween,
@@ -737,7 +737,7 @@ class _ViewEditEmployeesWidgetState extends State<ViewEditEmployeesWidget> {
                                         Align(
                                           alignment:
                                               AlignmentDirectional(-1.0, 0.0),
-                                          child: Row(
+                                          child: ResponsiveRow(
                                             mainAxisSize: MainAxisSize.max,
                                             mainAxisAlignment:
                                                 MainAxisAlignment.spaceBetween,
@@ -1423,7 +1423,7 @@ class _ViewEditEmployeesWidgetState extends State<ViewEditEmployeesWidget> {
                                         Align(
                                           alignment:
                                               AlignmentDirectional(-1.0, 0.0),
-                                          child: Row(
+                                          child: ResponsiveRow(
                                             mainAxisSize: MainAxisSize.max,
                                             mainAxisAlignment:
                                                 MainAxisAlignment.spaceBetween,

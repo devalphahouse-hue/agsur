@@ -209,18 +209,23 @@ class _ContractRow extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 6),
-                Wrap(
-                  spacing: 14,
-                  runSpacing: 4,
-                  children: [
-                    if ((item.companyName ?? '').isNotEmpty)
-                      _Meta(Icons.business_outlined, item.companyName!),
-                    if ((item.createdByName ?? '').isNotEmpty)
-                      _Meta(Icons.person_outline_rounded, item.createdByName!),
-                    if (item.createdAt != null)
-                      _Meta(Icons.calendar_today_outlined,
-                          dateTimeFormat('d/M/y', item.createdAt)),
-                  ],
+                LayoutBuilder(
+                  builder: (context, c) => Wrap(
+                    spacing: 14,
+                    runSpacing: 4,
+                    children: [
+                      if ((item.companyName ?? '').isNotEmpty)
+                        _Meta(Icons.business_outlined, item.companyName!,
+                            maxWidth: c.maxWidth),
+                      if ((item.createdByName ?? '').isNotEmpty)
+                        _Meta(Icons.person_outline_rounded, item.createdByName!,
+                            maxWidth: c.maxWidth),
+                      if (item.createdAt != null)
+                        _Meta(Icons.calendar_today_outlined,
+                            dateTimeFormat('d/M/y', item.createdAt),
+                            maxWidth: c.maxWidth),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -262,25 +267,33 @@ class _ContractRow extends StatelessWidget {
 }
 
 class _Meta extends StatelessWidget {
-  const _Meta(this.icon, this.text);
+  const _Meta(this.icon, this.text, {this.maxWidth = double.infinity});
   final IconData icon;
   final String text;
+  final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 12, color: const Color(0x99FFFFFF)),
-        const SizedBox(width: 4),
-        Text(
-          text,
-          style: GoogleFonts.roboto(
-            fontSize: 11.5,
-            color: const Color(0x99FFFFFF),
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: const Color(0x99FFFFFF)),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.roboto(
+                fontSize: 11.5,
+                color: const Color(0x99FFFFFF),
+              ),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -108,6 +108,44 @@ Após FASE 3, anon GETs em `users`, `proposal`, `financial`, `tracking`, `aircra
   view, a policy atual está correta; se há SELECT direto, a EXISTS-via-tracking pode
   custar caro com volume.
 
+## Histórico (10/06/2026 — RLS de leitura faltando no app cliente)
+
+Bug reportado: certificado de piloto cadastrado no painel não aparecia em "Meus
+certificados" no `agsur-app`. Causa: a view `pilot_certificates_view` é
+`security_invoker=on` e o piloto não tinha policy de SELECT. Auditoria do mesmo
+padrão (RLS ligado, só `adm_*`/admin, sem caminho pro dono/vínculo) encontrou
+mais um caso (garantia de cliente vinculado ao **Piloto**).
+
+| Versão | Migration | O que faz |
+|---|---|---|
+| 20260610120000 | `pilot_certificates_owner_select` | SELECT do dono em `pilot_certificates` (`user_id = auth.uid() AND NOT is_deleted`, ou admin) **+** SELECT do catálogo `certificates` para qualquer autenticado (a view faz JOIN em `certificates`; sem isso o JOIN zerava o resultado mesmo com a 1ª policy). Provado: leitura via view no contexto do piloto agora retorna o certificado |
+| 20260610120100 | `guarantee_pilot_linked_select` | SELECT em `guarantee` via `auth_is_linked_to_client(user_id)` (cobre Oficina **e** Piloto). Antes só existia o caminho de Oficina (`oficina_clients`); Piloto vinculado via `pilot_clients` recebia 0 linhas das garantias dos clientes, igual ao `service_letter` já fazia |
+| 20260610120200 | `tracking_linked_client_select` | Helper SECURITY DEFINER `auth_is_linked_to_user_aircraft(uuid)` (resolve `user_aircraft → contract."user_Id"` + `auth_is_linked_to_client`, cobre Oficina e Piloto) + SELECT em `tracking` por vínculo. Antes `tracking_select` usava só `auth_owns_user_aircraft()` (email do dono), então Oficina/Piloto abria o "Acompanhar" de cliente vinculado e via a timeline **vazia**. Provado: piloto 82332883 (vinculado ao cliente 24564eae, aeronave 2c4bec1e) ia de 0 → 21 trackings; aeronave de cliente não vinculado continua 0 |
+
+> Aplicadas direto via Management API (token CLI) e registradas em
+> `supabase_migrations.schema_migrations`. Os arquivos `.sql` estão versionados;
+> commitar + abrir PR para manter o git como fonte da verdade e o
+> `supabase-db-check` consistente.
+
+### Candidatos NÃO alterados (confirmar intenção de produto antes)
+
+- **`tracking_details` / `user_aircraft` para Oficina/Piloto vinculado.** O
+  SELECT depende de `auth_owns_user_aircraft()` (email do dono), que não cobre
+  cliente vinculado. **Não há bug ativo:** hoje o agsur-app lê `user_aircraft` e
+  os detalhes só via views SECURITY DEFINER (`vw_my_aircraft*`, que ignoram RLS)
+  e `tracking_details` não é lido direto. Se algum fluxo passar a ler essas
+  tabelas direto sob RLS, aplicar o mesmo padrão de `tracking` (o helper
+  `auth_is_linked_to_user_aircraft(uuid)` já existe — basta uma policy
+  permissiva). A timeline em si (`tracking`) já foi corrigida em
+  `20260610120200`.
+- **`vw_my_aircrafts_home` e `vw_my_aircraft_details` são SECURITY DEFINER**
+  (`security_invoker` desligado) → **ignoram RLS** das tabelas-base. Hoje
+  funcionam só porque o app filtra `user_id` na query, mas via PostgREST qualquer
+  autenticado pode consultar com `user_id` de terceiros (risco de IDOR). Mexer
+  é sensível: ligar `security_invoker` quebraria a leitura de aeronaves de
+  clientes vinculados (a RLS de `user_aircraft` é email-do-dono). Decisão de
+  design pendente.
+
 ## Notas de segurança
 
 - `triggers` BEFORE rodam **independente de RLS**. Mesmo que uma policy

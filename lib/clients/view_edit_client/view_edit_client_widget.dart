@@ -3610,7 +3610,6 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                                           .primary,
                                                                 ),
                                                               );
-                                                              Navigator.of(context, rootNavigator: true).pop();
                                                             },
                                                           ),
                                                         ),

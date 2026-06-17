@@ -3703,7 +3703,6 @@ class _ViewEditLeadWidgetState extends State<ViewEditLeadWidget> {
                                                                           .primary,
                                                                 ),
                                                               );
-                                                              Navigator.of(context, rootNavigator: true).pop();
                                                             },
                                                           ),
                                                         ),

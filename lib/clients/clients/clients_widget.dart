@@ -88,9 +88,9 @@ class _ClientsWidgetState extends State<ClientsWidget> {
             iconColor: const Color(0xFFFF5963),
             btnColor: const Color(0xFFFF5963),
             confirmBtnAction: () async {
-              await UsersTable().update(
-                data: {'is_deleted': true, 'is_active': false},
-                matchingRows: (rows) => rows.eqOrNull('id', item.userId),
+              await SupaFlow.client.rpc(
+                'admin_delete_app_user',
+                params: {'p_user_id': item.userId},
               );
               if (!mounted) return;
               Navigator.of(dialogContext).pop();

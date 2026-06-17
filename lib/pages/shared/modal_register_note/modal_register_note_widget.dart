@@ -46,6 +46,9 @@ class _ModalRegisterNoteWidgetState extends State<ModalRegisterNoteWidget> {
     setState(() => _busy = true);
     try {
       await widget.btnAction?.call(_model.tFNotesTextController!.text);
+      // Fecha a modal após salvar com sucesso. Usa o context da própria modal
+      // para popar o navigator correto (o mesmo em que o showDialog empilhou).
+      if (mounted) Navigator.of(context).pop();
     } finally {
       if (mounted) setState(() => _busy = false);
     }

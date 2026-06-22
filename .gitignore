@@ -2,8 +2,10 @@
 # CRÍTICO — segredos e tokens
 # =============================================================================
 
-# Memória/settings locais do Claude (settings.local.json contém SUPABASE_ACCESS_TOKEN)
-.claude/
+# Memória/settings locais do Claude (settings.local.json contém SUPABASE_ACCESS_TOKEN).
+# Agentes e skills (.claude/agents, .claude/skills) SÃO versionados — só o
+# settings local fica fora.
+.claude/settings.local.json
 
 # Variáveis de ambiente (anon key fica hardcoded como fallback no código,
 # mas .env.local pode conter staging keys ou DSN do Sentry).

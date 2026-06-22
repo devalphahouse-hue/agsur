@@ -164,7 +164,8 @@ mergeado e o CI rodar `db push`.
 
 | Versão | Migration | O que faz |
 |---|---|---|
-| 20260622130000 | `revoke_anon_views_and_fix_is_adm` | Revoga **todo** privilégio de `anon` em todas as views de `public` (elas são SECURITY DEFINER e bypassavam RLS → PII/financeiro era legível **sem login** com a anon key). Fixa `is_adm(uuid)` com `set search_path = public`. Verificado: `anon` em views = 0. **Pendente:** IDOR para usuário autenticado (ligar `security_invoker` por view, testando por perfil — `vw_my_aircraft*` é lida pelo app cliente) e tornar buckets `AGSur`/`service-letters` privados + signed URLs. Detalhes em `SECURITY_AUDIT.md`. |
+| 20260622130000 | `revoke_anon_views_and_fix_is_adm` | Revoga **todo** privilégio de `anon` em todas as views de `public` (elas são SECURITY DEFINER e bypassavam RLS → PII/financeiro era legível **sem login** com a anon key). Fixa `is_adm(uuid)` com `set search_path = public`. Verificado: `anon` em views = 0. |
+| 20260622140000 | `views_security_invoker_panel` | Liga `security_invoker=on` em `vw_get_clients`, `vw_get_pilots`, `vw_contract_data`, `vw_notes_details`, `vw_all_tracking` → passam a respeitar a RLS das tabelas-base (fecha IDOR autenticado; Admin/Vendedor leem via `auth_is_seller_or_admin`, Cliente/Piloto só o próprio). **Excluídas:** `vw_homepage_dashboard` (agrega financial/sales admin-only — decisão de produto) e `vw_my_aircraft*` (app cliente, RLS por e-mail). **Validar painel (Admin+Vendedor)**; rollback `set (security_invoker=off)`. Pendente: buckets privados + signed URLs. Ver `SECURITY_AUDIT.md`. |
 
 ## Notas de segurança
 

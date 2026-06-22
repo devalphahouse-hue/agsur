@@ -25,10 +25,26 @@ Migration `20260622130000_revoke_anon_views_and_fix_is_adm` (aplicada e verifica
   policy se auto-bloqueia por `auth.uid()` (NULL p/ anon). Higiene: migrar essas
   policies para `TO authenticated`.
 
-Pendente (etapa validada, fora desta migration por risco de quebrar produção):
-**#2 IDOR autenticado** (`security_invoker` por view, testando por perfil — o app
-cliente lê `vw_my_aircraft*`) e **#3 buckets privados + signed URLs** (precisa de
-ajuste de leitura nos dois apps).
+Migration `20260622140000_views_security_invoker_panel` (aplicada e verificada):
+- ✅ **#2 (IDOR autenticado) FECHADO nas views do painel** — `security_invoker=on`
+  em `vw_get_clients`, `vw_get_pilots`, `vw_contract_data`, `vw_notes_details`,
+  `vw_all_tracking` (validado por RLS: Admin/Vendedor leem via
+  `auth_is_seller_or_admin()`; Cliente/Piloto só o próprio). `vw_proposal_data` já
+  estava com invoker.
+- ⚠️ **Validar no painel** (Admin **e** Vendedor): listas de clientes, pilotos,
+  contratos, tracking e notas devem carregar normalmente. Rollback imediato:
+  `alter view public.<v> set (security_invoker = off);`
+
+Pendente:
+- 🟠 **`vw_homepage_dashboard`** ainda definer (agrega `financial`/`sales`
+  admin-only) → expõe agregados financeiros a qualquer autenticado. Requer decisão
+  de produto (Vendedor deve ver financeiro?) antes de ligar invoker ou virar RPC.
+- 🟠 **`vw_my_aircrafts_home` / `vw_my_aircraft_details`** (app cliente) — IDOR
+  ainda aberto; precisa de rework de RLS em `user_aircraft` (cadeia por e-mail).
+- 🟠 **#3 buckets `AGSur`/`service-letters` públicos** → privado + signed URLs nos
+  dois apps.
+- Higiene: policy `company_read_authenticated = true` (qualquer autenticado lê
+  todas as empresas); policies `anon`/`public` deveriam ser `TO authenticated`.
 
 ## Achados
 

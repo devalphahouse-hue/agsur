@@ -14,6 +14,22 @@ client). **Porém** há **exposição crítica de dados** por defaults inseguros
 **views** e **Storage**: parte do PII/financeiro é legível **sem login** com a
 anon key pública. Prioridade máxima: fechar esses vetores.
 
+## Remediação aplicada (2026-06-22)
+
+Migration `20260622130000_revoke_anon_views_and_fix_is_adm` (aplicada e verificada):
+- ✅ **#1 (caminho não autenticado) FECHADO** — revogado todo privilégio de `anon`
+  em todas as views (`anon` em views: 0). PII/financeiro não é mais legível sem
+  login. *Pendente:* IDOR para usuário **autenticado** (views ainda definer).
+- ✅ **#4 RESOLVIDO** — `is_adm` agora com `search_path=public`.
+- Verificado: tabelas-base mantêm 231 grants a `anon`, porém **inertes** — toda
+  policy se auto-bloqueia por `auth.uid()` (NULL p/ anon). Higiene: migrar essas
+  policies para `TO authenticated`.
+
+Pendente (etapa validada, fora desta migration por risco de quebrar produção):
+**#2 IDOR autenticado** (`security_invoker` por view, testando por perfil — o app
+cliente lê `vw_my_aircraft*`) e **#3 buckets privados + signed URLs** (precisa de
+ajuste de leitura nos dois apps).
+
 ## Achados
 
 | # | Sev | Achado | Evidência | Correção |

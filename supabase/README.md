@@ -160,6 +160,12 @@ mergeado e o CI rodar `db push`.
 > (antes era UPDATE direto, sem ban e sem liberar e-mail). **Mudança de
 > comportamento:** excluir Vendedor/Colaborador agora exige Admin Master.
 
+## Histórico (22/06/2026 — segurança: fecha exposição sem login)
+
+| Versão | Migration | O que faz |
+|---|---|---|
+| 20260622130000 | `revoke_anon_views_and_fix_is_adm` | Revoga **todo** privilégio de `anon` em todas as views de `public` (elas são SECURITY DEFINER e bypassavam RLS → PII/financeiro era legível **sem login** com a anon key). Fixa `is_adm(uuid)` com `set search_path = public`. Verificado: `anon` em views = 0. **Pendente:** IDOR para usuário autenticado (ligar `security_invoker` por view, testando por perfil — `vw_my_aircraft*` é lida pelo app cliente) e tornar buckets `AGSur`/`service-letters` privados + signed URLs. Detalhes em `SECURITY_AUDIT.md`. |
+
 ## Notas de segurança
 
 - `triggers` BEFORE rodam **independente de RLS**. Mesmo que uma policy

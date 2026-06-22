@@ -122,7 +122,7 @@ class _ProfileEditWidgetState extends State<ProfileEditWidget> {
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                       ),
-                                      child: Image.network(
+                                      child: SignedNetworkImage(
                                         valueOrDefault<String>(
                                           profileEditUsersRow?.profilePhotoUrl,
                                           'https://bkzybtmxxzpxtztesdye.supabase.co/storage/v1/object/public/AGSur//transferir.png',

@@ -531,7 +531,7 @@ class _PdfUploadState extends State<_PdfUpload> {
                     MouseRegion(
                       cursor: SystemMouseCursors.click,
                       child: GestureDetector(
-                        onTap: () => launchURL(widget.url),
+                        onTap: () => openStorageDoc(widget.url),
                         child: Container(
                           width: 30,
                           height: 30,

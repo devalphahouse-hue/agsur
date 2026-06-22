@@ -116,7 +116,7 @@ class _ProfileWidgetState extends State<ProfileWidget> {
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                       ),
-                                      child: Image.network(
+                                      child: SignedNetworkImage(
                                         valueOrDefault<String>(
                                           profileUsersRow?.profilePhotoUrl,
                                           'https://bkzybtmxxzpxtztesdye.supabase.co/storage/v1/object/public/AGSur//transferir.png',

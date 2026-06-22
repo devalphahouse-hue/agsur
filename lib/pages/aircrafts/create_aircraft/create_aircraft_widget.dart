@@ -842,7 +842,7 @@ class _PhotoUploadCardState extends State<_PhotoUploadCard> {
               fit: StackFit.expand,
               children: [
                 if (hasPhoto)
-                  Image.network(
+                  SignedNetworkImage(
                     widget.photoUrl,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => _placeholderEmpty(),
@@ -873,7 +873,7 @@ class _PhotoUploadCardState extends State<_PhotoUploadCard> {
                         _floatingChip(
                           label: 'Visualizar',
                           icon: Icons.visibility_outlined,
-                          onTap: () => launchURL(widget.photoUrl),
+                          onTap: () => openStorageDoc(widget.photoUrl),
                         ),
                         const SizedBox(width: 8),
                         _floatingChip(
@@ -1133,7 +1133,7 @@ class _ManualUploadTileState extends State<_ManualUploadTile> {
                   child: GestureDetector(
                     // Visualizar o PDF anexado em nova aba antes de salvar,
                     // para conferir se o documento está correto.
-                    onTap: () => launchURL(widget.fileUrl),
+                    onTap: () => openStorageDoc(widget.fileUrl),
                     child: Container(
                       width: 32,
                       height: 32,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'app_card.dart';
+import 'app_storage.dart';
 
 /// Card de pessoa reutilizado nas listagens (Clientes, Pilotos, Oficinas,
 /// Vendedores, Colaboradores). Layout: avatar + identidade + metas + ações.
@@ -173,7 +174,7 @@ class _Avatar extends StatelessWidget {
           ),
           child: hasUrl
               ? ClipOval(
-                  child: Image.network(
+                  child: SignedNetworkImage(
                     url!,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) =>

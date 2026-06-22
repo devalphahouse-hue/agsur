@@ -181,7 +181,7 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                                               child: ClipRRect(
                                                 borderRadius:
                                                     BorderRadius.circular(12.0),
-                                                child: Image.network(
+                                                child: SignedNetworkImage(
                                                   containerVwMyAircraftDetailsRow
                                                                   ?.aircraftPhotoUrl !=
                                                               null &&
@@ -2250,7 +2250,7 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                                           child: ConstrainedBox(
                                             constraints: const BoxConstraints(
                                                 maxWidth: 800.0),
-                                            child: Image.network(
+                                            child: SignedNetworkImage(
                                             valueOrDefault<String>(
                                               cTMainVwMyAircraftDetailsRow
                                                   ?.aircraftPhotoUrl,
@@ -2782,7 +2782,7 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                                               r'''$[0].documention_url''',
                                             )?.toString() ?? '';
                                             if (manualUrl.isNotEmpty && manualUrl != 'null' && manualUrl.startsWith('http')) {
-                                              await launchURL(manualUrl);
+                                              await openStorageDoc(manualUrl);
                                             } else {
                                               ScaffoldMessenger.of(context).showSnackBar(
                                                 SnackBar(
@@ -2861,7 +2861,7 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                                             r'''$[0].documention_url''',
                                           )?.toString() ?? '';
                                           if (flightUrl.isNotEmpty && flightUrl != 'null' && flightUrl.startsWith('http')) {
-                                            await launchURL(flightUrl);
+                                            await openStorageDoc(flightUrl);
                                           } else {
                                             ScaffoldMessenger.of(context).showSnackBar(
                                               SnackBar(
@@ -2939,7 +2939,7 @@ class _AircraftDetailsWidgetState extends State<AircraftDetailsWidget> {
                                             r'''$[0].documention_url''',
                                           )?.toString() ?? '';
                                           if (partsUrl.isNotEmpty && partsUrl != 'null' && partsUrl.startsWith('http')) {
-                                            await launchURL(partsUrl);
+                                            await openStorageDoc(partsUrl);
                                           } else {
                                             ScaffoldMessenger.of(context).showSnackBar(
                                               SnackBar(

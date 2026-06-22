@@ -361,7 +361,7 @@ class _AircraftRow extends StatelessWidget {
             ),
             clipBehavior: Clip.antiAlias,
             child: hasPhoto
-                ? Image.network(
+                ? SignedNetworkImage(
                     item.aircraftPhotoUrl,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => const Icon(

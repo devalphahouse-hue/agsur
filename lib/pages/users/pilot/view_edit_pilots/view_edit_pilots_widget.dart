@@ -2323,7 +2323,7 @@ class _ViewEditPilotsWidgetState extends State<ViewEditPilotsWidget> {
                                                                   Colors
                                                                       .transparent,
                                                               onTap: () async {
-                                                                await launchURL(
+                                                                await openStorageDoc(
                                                                     listPilotCertificatesItem
                                                                         .docUrl!);
                                                               },

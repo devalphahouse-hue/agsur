@@ -3278,7 +3278,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                         child: ConstrainedBox(
                                           constraints: const BoxConstraints(
                                               maxWidth: 800.0),
-                                          child: Image.network(
+                                          child: SignedNetworkImage(
                                             valueOrDefault<String>(
                                               FFAppState()
                                                   .asGetProposalDetails

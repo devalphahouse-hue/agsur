@@ -171,7 +171,7 @@ class _ServicesOfferingWidgetState extends State<ServicesOfferingWidget> {
                   padding: const EdgeInsets.only(bottom: 10),
                   child: _ServiceRow(
                     item: list[i],
-                    onOpen: () => launchURL(list[i].docUrl),
+                    onOpen: () => openStorageDoc(list[i].docUrl),
                     onDelete: () => _confirmDelete(list[i]),
                   ).appStagger(i),
                 ),

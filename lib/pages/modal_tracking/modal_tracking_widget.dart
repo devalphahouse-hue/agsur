@@ -2508,7 +2508,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                       MouseRegion(
                                         cursor: SystemMouseCursors.click,
                                         child: GestureDetector(
-                                          onTap: () => launchURL(_model
+                                          onTap: () => openStorageDoc(_model
                                               .uploadedFileUrl_uploadDataPh0),
                                           child: Icon(
                                             Icons.visibility_outlined,
@@ -3672,7 +3672,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                   ),
                                   // Visualizar o documento anexado em nova aba antes de confirmar.
                                   InkWell(
-                                    onTap: () => launchURL(_model.uploadedFileUrl_caDoc),
+                                    onTap: () => openStorageDoc(_model.uploadedFileUrl_caDoc),
                                     child: Icon(Icons.visibility_outlined, color: Colors.white, size: 22.0),
                                   ),
                                   SizedBox(width: 12.0),
@@ -3733,7 +3733,7 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                   ),
                                   // Visualizar o documento anexado em nova aba antes de confirmar.
                                   InkWell(
-                                    onTap: () => launchURL(_model.uploadedFileUrl_cmDoc),
+                                    onTap: () => openStorageDoc(_model.uploadedFileUrl_cmDoc),
                                     child: Icon(Icons.visibility_outlined, color: Colors.white, size: 22.0),
                                   ),
                                   SizedBox(width: 12.0),

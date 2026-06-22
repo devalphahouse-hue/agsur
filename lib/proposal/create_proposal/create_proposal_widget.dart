@@ -3198,7 +3198,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                       child: ConstrainedBox(
                                         constraints: const BoxConstraints(
                                             maxWidth: 800.0),
-                                        child: Image.network(
+                                        child: SignedNetworkImage(
                                           valueOrDefault<String>(
                                             functions.convertToImagePath(
                                                 valueOrDefault<String>(

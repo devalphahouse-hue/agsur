@@ -340,13 +340,10 @@ class _RegistedAircraftWidgetState extends State<RegistedAircraftWidget> {
                   SizedBox(
                     height: 176,
                     width: double.infinity,
-                    child: Image.network(
+                    child: SignedNetworkImage(
                       item.aircraftPhotoUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => _imageFallback(),
-                      loadingBuilder: (c, child, progress) => progress == null
-                          ? child
-                          : AppSkeleton.box(height: 176, radius: 0),
                     ),
                   ),
                   const Positioned.fill(

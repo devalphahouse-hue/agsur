@@ -731,7 +731,7 @@ class _LinkRowState extends State<_LinkRow> {
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
-        onTap: () => launchURL(widget.url),
+        onTap: () => openStorageDoc(widget.url),
         child: Row(
           children: [
             Icon(

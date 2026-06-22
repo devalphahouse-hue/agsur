@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'app_animations.dart';
+import 'app_storage.dart';
 
 /// Hero header rico para telas de detalhe.
 /// Stack: gradiente sutil verde-limão + avatar/ícone grande + título +
@@ -299,7 +300,7 @@ class _Avatar extends StatelessWidget {
       child: hasImage
           ? ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: Image.network(
+              child: SignedNetworkImage(
                 imageUrl!,
                 width: 60,
                 height: 60,

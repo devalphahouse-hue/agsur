@@ -80,13 +80,13 @@ owner+vinculado, **depois** `set (security_invoker=on)` nas 2 views, e **testar 
 app mobile** (Cliente, Piloto, Oficina). Rollback: `set (security_invoker=off)`.
 
 ### C. Ações do dono (não automatizáveis com segurança)
-- 🟡 **MFA**: **fluxo de cadastro + step-up construídos** no painel
-  (`lib/pages/authentication/mfa/mfa_flow.dart`, entrada em Perfil → "Autenticação
-  em dois fatores"). Aditivo/lockout-safe (não força nada com a flag OFF).
-  Sequência p/ ativar: (1) deploy; (2) os 4 Admin Master cadastram TOTP pela tela;
-  (3) confirmar `verified` em `auth.mfa_factors`; (4) ativar
-  `custom_access_token_hook` em Auth→Hooks + build com
-  `ENFORCE_MFA_ADMIN_MASTER=true`. Hoje: 0/4 cadastrados.
+- ⚪ **MFA**: **despriorizado por decisão de produto (2026-06-22)** — o fluxo de
+  cadastro/step-up chegou a ser implementado e foi **revertido** (commit
+  `48e0b45`); continua no histórico do git se quiser retomar. A infra server-side
+  segue pronta (função `custom_access_token_hook` + flag `ENFORCE_MFA_ADMIN_MASTER`,
+  ambas OFF). **Risco residual aceito:** contas admin ficam protegidas só por
+  senha + gate de login (`check_app_access`, fail-closed). TOTP está habilitado no
+  projeto, então dá pra retomar a qualquer momento.
 - 🟡 **Rotacionar** o `SUPABASE_ACCESS_TOKEN` (exposto em chat).
 - 🟢 Higiene opcional: policies com `anon`/`public` → `TO authenticated` (hoje já
   inertes por se auto-bloquearem em `auth.uid()`).

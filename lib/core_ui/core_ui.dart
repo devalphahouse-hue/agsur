@@ -29,4 +29,5 @@ export 'app_search_input.dart';
 export 'app_shell.dart';
 export 'app_skeleton.dart';
 export 'app_status_badge.dart';
+export 'app_storage.dart';
 export 'query_cache.dart';

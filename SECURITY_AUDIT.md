@@ -52,6 +52,11 @@ Migration `20260622160000_company_select_restrict` (aplicada e verificada):
 Não aplicado headless de propósito (quebraria app/produção sem validação):
 
 ### A. Buckets privados + signed URLs (🟠 Alto)
+**Infra entregue** (`lib/core_ui/app_storage.dart`): `signedUrlFor()`,
+`SignedNetworkImage` e `openStorageDoc()` — fallback-safe (devolvem a URL original
+se não der pra assinar, então adotar é seguro com o bucket ainda público). Falta:
+converter os ~48 pontos de leitura (fotos via `SignedNetworkImage`, docs via
+`openStorageDoc`) nos **dois apps**, testar exibição, e só então privar o bucket.
 `AGSur` e `service-letters` são públicos → documentos legíveis por URL. Tornar
 privado **quebra a exibição de foto/documento** até trocar as leituras por
 `createSignedUrl`. **Plano sem downtime:**
@@ -75,9 +80,13 @@ owner+vinculado, **depois** `set (security_invoker=on)` nas 2 views, e **testar 
 app mobile** (Cliente, Piloto, Oficina). Rollback: `set (security_invoker=off)`.
 
 ### C. Ações do dono (não automatizáveis com segurança)
-- 🟡 **MFA**: ativar `custom_access_token_hook` em Auth→Hooks + build com
-  `ENFORCE_MFA_ADMIN_MASTER=true` — **só depois** de todos os Admin Master
-  cadastrarem TOTP (senão tranca o acesso). Ver `DASHBOARD_TIER2_TODO.md`.
+- 🟡 **MFA**: **fluxo de cadastro + step-up construídos** no painel
+  (`lib/pages/authentication/mfa/mfa_flow.dart`, entrada em Perfil → "Autenticação
+  em dois fatores"). Aditivo/lockout-safe (não força nada com a flag OFF).
+  Sequência p/ ativar: (1) deploy; (2) os 4 Admin Master cadastram TOTP pela tela;
+  (3) confirmar `verified` em `auth.mfa_factors`; (4) ativar
+  `custom_access_token_hook` em Auth→Hooks + build com
+  `ENFORCE_MFA_ADMIN_MASTER=true`. Hoje: 0/4 cadastrados.
 - 🟡 **Rotacionar** o `SUPABASE_ACCESS_TOKEN` (exposto em chat).
 - 🟢 Higiene opcional: policies com `anon`/`public` → `TO authenticated` (hoje já
   inertes por se auto-bloquearem em `auth.uid()`).

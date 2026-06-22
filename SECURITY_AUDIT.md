@@ -35,10 +35,13 @@ Migration `20260622140000_views_security_invoker_panel` (aplicada e verificada):
   contratos, tracking e notas devem carregar normalmente. Rollback imediato:
   `alter view public.<v> set (security_invoker = off);`
 
+Migration `20260622150000_dashboard_security_invoker` (aplicada e verificada):
+- ✅ **`vw_homepage_dashboard` FECHADA** — `security_invoker=on`. Seguro: getters
+  do Row são nullable e a UI gateia financeiro por `isAdminMaster`. Admin vê tudo;
+  Vendedor recebe null em financial/sales (UI esconde); Cliente/Piloto filtrados.
+  *Validar:* dashboard do Admin Master com números completos; Vendedor sem quebrar.
+
 Pendente:
-- 🟠 **`vw_homepage_dashboard`** ainda definer (agrega `financial`/`sales`
-  admin-only) → expõe agregados financeiros a qualquer autenticado. Requer decisão
-  de produto (Vendedor deve ver financeiro?) antes de ligar invoker ou virar RPC.
 - 🟠 **`vw_my_aircrafts_home` / `vw_my_aircraft_details`** (app cliente) — IDOR
   ainda aberto; precisa de rework de RLS em `user_aircraft` (cadeia por e-mail).
 - 🟠 **#3 buckets `AGSur`/`service-letters` públicos** → privado + signed URLs nos

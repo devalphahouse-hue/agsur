@@ -50,6 +50,9 @@ class _ModalRegisterSellerWidgetState
     _model.tFCityFocusNode ??= FocusNode();
     _model.tFZIpCodeTextController ??= TextEditingController();
     _model.tFZIpCodeFocusNode ??= FocusNode();
+    _model.tFCepTextController ??= TextEditingController();
+    _model.tFCepFocusNode ??= FocusNode();
+    _model.tFCepMask = MaskTextInputFormatter(mask: '#####-###');
     _model.tFPasswordUserTextController ??= TextEditingController();
     _model.tFPasswordUserFocusNode ??= FocusNode();
   }
@@ -58,6 +61,28 @@ class _ModalRegisterSellerWidgetState
   void dispose() {
     _model.maybeDispose();
     super.dispose();
+  }
+
+  Future<void> _onCepChanged(String val) async {
+    final digits = val.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length != 8 || _model.lastCepLookup == digits) return;
+    _model.lastCepLookup = digits;
+    try {
+      final response = await ViaCepCall.call(cep: digits);
+      if (!mounted) return;
+      _model.cep = response;
+      if (!response.succeeded) return;
+      final body = response.jsonBody;
+      final localidade = ViaCepCall.localidade(body);
+      final uf = ViaCepCall.uf(body);
+      if (localidade == null || localidade.isEmpty) return;
+      setState(() {
+        _model.tFCityTextController?.text = localidade;
+        if (uf != null && uf.isNotEmpty) {
+          _model.tFZIpCodeTextController?.text = uf;
+        }
+      });
+    } catch (_) {}
   }
 
   Future<void> _submit() async {
@@ -232,6 +257,21 @@ class _ModalRegisterSellerWidgetState
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 14),
+            AppFormField(
+              controller: _model.tFCepTextController,
+              focusNode: _model.tFCepFocusNode,
+              label: 'CEP',
+              placeholder: '00000-000',
+              icon: Icons.local_post_office_outlined,
+              required: true,
+              keyboardType: TextInputType.number,
+              inputFormatters: [_model.tFCepMask],
+              helper: 'Cidade e UF são preenchidos automaticamente.',
+              onChanged: _onCepChanged,
+              validator: (v) =>
+                  _model.tFCepTextControllerValidator?.call(context, v),
             ),
             const SizedBox(height: 14),
             Row(

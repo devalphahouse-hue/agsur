@@ -80,6 +80,28 @@ class ModalRegisterSellerModel
   FocusNode? tFZIpCodeFocusNode;
   TextEditingController? tFZIpCodeTextController;
   String? Function(BuildContext, String?)? tFZIpCodeTextControllerValidator;
+  // State field(s) for TFCep widget. (CEP real, integrado com ViaCEP.)
+  FocusNode? tFCepFocusNode;
+  TextEditingController? tFCepTextController;
+  late MaskTextInputFormatter tFCepMask;
+  String? Function(BuildContext, String?)? tFCepTextControllerValidator;
+  String? _tFCepTextControllerValidator(BuildContext context, String? val) {
+    if (val == null || val.isEmpty) {
+      return 'Campo obrigatório';
+    }
+    final digits = val.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length != 8) {
+      return 'CEP inválido';
+    }
+    return null;
+  }
+
+  /// Última resposta do ViaCEP — usada pelo widget para preencher cidade/UF.
+  ApiCallResponse? cep;
+
+  /// Para evitar disparar ViaCEP repetidamente para o mesmo CEP.
+  String? lastCepLookup;
+
   // State field(s) for TFPasswordUser widget.
   FocusNode? tFPasswordUserFocusNode;
   TextEditingController? tFPasswordUserTextController;
@@ -113,6 +135,7 @@ class ModalRegisterSellerModel
     tFEmailTextControllerValidator = _tFEmailTextControllerValidator;
     tFPhoneTextControllerValidator = _tFPhoneTextControllerValidator;
     tFCityTextControllerValidator = _tFCityTextControllerValidator;
+    tFCepTextControllerValidator = _tFCepTextControllerValidator;
     tFPasswordUserVisibility = false;
     tFPasswordUserTextControllerValidator =
         _tFPasswordUserTextControllerValidator;
@@ -140,6 +163,9 @@ class ModalRegisterSellerModel
 
     tFZIpCodeFocusNode?.dispose();
     tFZIpCodeTextController?.dispose();
+
+    tFCepFocusNode?.dispose();
+    tFCepTextController?.dispose();
 
     tFPasswordUserFocusNode?.dispose();
     tFPasswordUserTextController?.dispose();

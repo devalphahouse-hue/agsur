@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 
+import '/backend/api_requests/api_calls.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/pages/shared/client_multi_select/client_multi_select_widget.dart';
@@ -57,6 +58,9 @@ class _ModalRegisterPilotWidgetState extends State<ModalRegisterPilotWidget> {
     _model.tFCityFocusNode ??= FocusNode();
     _model.tFZIpCodeTextController ??= TextEditingController();
     _model.tFZIpCodeFocusNode ??= FocusNode();
+    _model.tFCepTextController ??= TextEditingController();
+    _model.tFCepFocusNode ??= FocusNode();
+    _model.tFCepMask = MaskTextInputFormatter(mask: '#####-###');
     _model.tFPasswordUserTextController ??= TextEditingController();
     _model.tFPasswordUserFocusNode ??= FocusNode();
   }
@@ -67,10 +71,42 @@ class _ModalRegisterPilotWidgetState extends State<ModalRegisterPilotWidget> {
     super.dispose();
   }
 
+  Future<void> _onCepChanged(String val) async {
+    final digits = val.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length != 8 || _model.lastCepLookup == digits) return;
+    _model.lastCepLookup = digits;
+    try {
+      final response = await ViaCepCall.call(cep: digits);
+      if (!mounted) return;
+      _model.cep = response;
+      if (!response.succeeded) return;
+      final body = response.jsonBody;
+      final localidade = ViaCepCall.localidade(body);
+      final uf = ViaCepCall.uf(body);
+      if (localidade == null || localidade.isEmpty) return;
+      setState(() {
+        _model.tFCityTextController?.text = localidade;
+        if (uf != null && uf.isNotEmpty) {
+          _model.tFZIpCodeTextController?.text = uf;
+        }
+      });
+    } catch (_) {}
+  }
+
   Future<void> _submit() async {
     if (_busy) return;
     if (_model.formKey.currentState == null ||
         !_model.formKey.currentState!.validate()) return;
+    // Empresa/cliente vinculado é obrigatório para piloto (BUG-007).
+    if (_model.selectedClientIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vincule ao menos um cliente/empresa ao piloto.'),
+          backgroundColor: Color(0xFFFF5963),
+        ),
+      );
+      return;
+    }
     setState(() => _busy = true);
     try {
       final name = _model.tFNameTextController!.text;
@@ -200,6 +236,21 @@ class _ModalRegisterPilotWidgetState extends State<ModalRegisterPilotWidget> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 14),
+            AppFormField(
+              controller: _model.tFCepTextController,
+              focusNode: _model.tFCepFocusNode,
+              label: 'CEP',
+              placeholder: '00000-000',
+              icon: Icons.local_post_office_outlined,
+              required: true,
+              keyboardType: TextInputType.number,
+              inputFormatters: [_model.tFCepMask],
+              helper: 'Cidade e UF são preenchidos automaticamente.',
+              onChanged: _onCepChanged,
+              validator: (v) =>
+                  _model.tFCepTextControllerValidator?.call(context, v),
             ),
             const SizedBox(height: 14),
             Row(

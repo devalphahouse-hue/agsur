@@ -1,3 +1,4 @@
+import '/backend/api_requests/api_calls.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
 import 'oficina_details_widget.dart' show OficinaDetailsWidget;
@@ -32,8 +33,58 @@ class OficinaDetailsModel extends FlutterFlowModel<OficinaDetailsWidget> {
   String? Function(BuildContext, String?)?
       tFEmailOficinaTextControllerValidator;
 
+  // State field(s) for TFCity widget.
+  FocusNode? tFCityFocusNode;
+  TextEditingController? tFCityTextController;
+  String? Function(BuildContext, String?)? tFCityTextControllerValidator;
+  String? _tFCityTextControllerValidator(BuildContext context, String? val) {
+    if (val == null || val.trim().isEmpty) {
+      return 'Campo obrigatório';
+    }
+    return null;
+  }
+
+  // State field(s) for TFUf widget.
+  FocusNode? tFUfFocusNode;
+  TextEditingController? tFUfTextController;
+  late MaskTextInputFormatter tFUfMask;
+  String? Function(BuildContext, String?)? tFUfTextControllerValidator;
+  String? _tFUfTextControllerValidator(BuildContext context, String? val) {
+    if (val == null || val.trim().isEmpty) {
+      return 'Obrigatório';
+    }
+    if (val.trim().length != 2) return 'UF';
+    return null;
+  }
+
+  // State field(s) for TFCep widget. (CEP real, integrado com ViaCEP.)
+  FocusNode? tFCepFocusNode;
+  TextEditingController? tFCepTextController;
+  late MaskTextInputFormatter tFCepMask;
+  String? Function(BuildContext, String?)? tFCepTextControllerValidator;
+  String? _tFCepTextControllerValidator(BuildContext context, String? val) {
+    if (val == null || val.isEmpty) {
+      return 'Campo obrigatório';
+    }
+    final digits = val.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length != 8) {
+      return 'CEP inválido';
+    }
+    return null;
+  }
+
+  /// Última resposta do ViaCEP — usada pelo widget para preencher cidade/UF.
+  ApiCallResponse? cep;
+
+  /// Para evitar disparar ViaCEP repetidamente para o mesmo CEP.
+  String? lastCepLookup;
+
   @override
-  void initState(BuildContext context) {}
+  void initState(BuildContext context) {
+    tFCityTextControllerValidator = _tFCityTextControllerValidator;
+    tFUfTextControllerValidator = _tFUfTextControllerValidator;
+    tFCepTextControllerValidator = _tFCepTextControllerValidator;
+  }
 
   @override
   void dispose() {
@@ -48,5 +99,14 @@ class OficinaDetailsModel extends FlutterFlowModel<OficinaDetailsWidget> {
 
     tFEmailOficinaFocusNode?.dispose();
     tFEmailOficinaTextController?.dispose();
+
+    tFCityFocusNode?.dispose();
+    tFCityTextController?.dispose();
+
+    tFUfFocusNode?.dispose();
+    tFUfTextController?.dispose();
+
+    tFCepFocusNode?.dispose();
+    tFCepTextController?.dispose();
   }
 }

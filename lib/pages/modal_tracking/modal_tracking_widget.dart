@@ -158,9 +158,14 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
             if (row.invoiceNumber != null && row.invoiceNumber!.isNotEmpty) {
               _model.tXTinvoiceTextController?.text = row.invoiceNumber!;
             }
-            // Order 3 - Tipo de Equipamento
+            // Order 3 - Reserva de Equipamento Agrícola.
+            // Estado Sim/Não derivado: equipment_type preenchido => "Sim"
+            // (e o campo Modelo recebe esse valor); vazio/null => "Não".
             if (row.equipmentType != null && row.equipmentType!.isNotEmpty) {
+              _model.reserveAgriculturalEquipment = true;
               _model.tXTipoEquipamentoTextController?.text = row.equipmentType!;
+            } else {
+              _model.reserveAgriculturalEquipment = false;
             }
             // Order 7 - Nome do Despachante
             if (row.brokerName != null && row.brokerName!.isNotEmpty) {
@@ -1322,39 +1327,166 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                         padding: EdgeInsets.all(24.0),
                         child: Column(
                           mainAxisSize: MainAxisSize.max,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            TextFormField(
-                              controller:
-                                  _model.tXTipoEquipamentoTextController,
-                              focusNode: _model.tXTipoEquipamentoFocusNode,
-                              autofocus: false,
-                              obscureText: false,
-                              decoration: InputDecoration(
-                                isDense: false,
-                                labelText: 'Tipo de equipamento',
-                                labelStyle: FlutterFlowTheme.of(context)
-                                    .labelMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontWeight,
+                            // BUG-011: Seletor Sim/Não "Reservar equipamento agrícola?"
+                            Column(
+                              mainAxisSize: MainAxisSize.max,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Reservar equipamento agrícola?',
+                                  style: FlutterFlowTheme.of(context)
+                                      .bodyMedium
+                                      .override(
+                                        font: GoogleFonts.inter(),
+                                        color:
+                                            FlutterFlowTheme.of(context).info,
+                                        letterSpacing: 0.0,
+                                      ),
+                                ),
+                                Container(
+                                  width: 150.0,
+                                  height: 30.0,
+                                  decoration: BoxDecoration(
+                                    color: FlutterFlowTheme.of(context)
+                                        .secondaryBackground,
+                                    borderRadius: BorderRadius.circular(8.0),
+                                  ),
+                                  child: Padding(
+                                    padding: EdgeInsets.all(2.0),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.max,
+                                      children: [
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: () => safeSetState(() =>
+                                                _model.reserveAgriculturalEquipment =
+                                                    true),
+                                            child: Container(
+                                              height: 100.0,
+                                              decoration: BoxDecoration(
+                                                color: _model
+                                                        .reserveAgriculturalEquipment
+                                                    ? FlutterFlowTheme.of(
+                                                            context)
+                                                        .primary
+                                                    : FlutterFlowTheme.of(
+                                                            context)
+                                                        .secondaryBackground,
+                                                borderRadius:
+                                                    BorderRadius.only(
+                                                  bottomLeft:
+                                                      Radius.circular(8.0),
+                                                  topLeft: Radius.circular(8.0),
+                                                ),
+                                              ),
+                                              alignment: AlignmentDirectional(
+                                                  0.0, 0.0),
+                                              child: Text(
+                                                'Sim',
+                                                style:
+                                                    FlutterFlowTheme.of(context)
+                                                        .bodyMedium
+                                                        .override(
+                                                          font:
+                                                              GoogleFonts.inter(),
+                                                          color: FlutterFlowTheme
+                                                                  .of(context)
+                                                              .primaryText,
+                                                          letterSpacing: 0.0,
+                                                        ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: () => safeSetState(() {
+                                              _model.reserveAgriculturalEquipment =
+                                                  false;
+                                              // "Não" limpa o valor do Modelo.
+                                              _model.tXTipoEquipamentoTextController
+                                                  ?.clear();
+                                            }),
+                                            child: Container(
+                                              height: 100.0,
+                                              decoration: BoxDecoration(
+                                                color: !_model
+                                                        .reserveAgriculturalEquipment
+                                                    ? FlutterFlowTheme.of(
+                                                            context)
+                                                        .primary
+                                                    : FlutterFlowTheme.of(
+                                                            context)
+                                                        .secondaryBackground,
+                                                borderRadius:
+                                                    BorderRadius.only(
+                                                  bottomRight:
+                                                      Radius.circular(8.0),
+                                                  topRight:
+                                                      Radius.circular(8.0),
+                                                ),
+                                              ),
+                                              alignment: AlignmentDirectional(
+                                                  0.0, 0.0),
+                                              child: Text(
+                                                'Não',
+                                                style:
+                                                    FlutterFlowTheme.of(context)
+                                                        .bodyMedium
+                                                        .override(
+                                                          font:
+                                                              GoogleFonts.inter(),
+                                                          letterSpacing: 0.0,
+                                                        ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ].divide(SizedBox(height: 4.0)),
+                            ),
+                            // Campo "Modelo do equipamento" só quando "Sim".
+                            if (_model.reserveAgriculturalEquipment)
+                              TextFormField(
+                                controller:
+                                    _model.tXTipoEquipamentoTextController,
+                                focusNode: _model.tXTipoEquipamentoFocusNode,
+                                autofocus: false,
+                                obscureText: false,
+                                decoration: InputDecoration(
+                                  isDense: false,
+                                  labelText: 'Modelo do equipamento',
+                                  labelStyle: FlutterFlowTheme.of(context)
+                                      .labelMedium
+                                      .override(
+                                        font: GoogleFonts.inter(
+                                          fontWeight:
+                                              FlutterFlowTheme.of(context)
+                                                  .labelMedium
+                                                  .fontWeight,
+                                          fontStyle:
+                                              FlutterFlowTheme.of(context)
+                                                  .labelMedium
+                                                  .fontStyle,
+                                        ),
+                                        color: FlutterFlowTheme.of(context)
+                                            .secondaryBackground,
+                                        letterSpacing: 0.0,
+                                        fontWeight:
+                                            FlutterFlowTheme.of(context)
+                                                .labelMedium
+                                                .fontWeight,
                                         fontStyle: FlutterFlowTheme.of(context)
                                             .labelMedium
                                             .fontStyle,
                                       ),
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryBackground,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .labelMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .labelMedium
-                                          .fontStyle,
-                                    ),
-                                hintText: 'Tipo de equipamento',
-                                hintStyle: FlutterFlowTheme.of(context)
+                                  hintText: 'Modelo do equipamento',
+                                  hintStyle: FlutterFlowTheme.of(context)
                                     .labelMedium
                                     .override(
                                       font: GoogleFonts.inter(
@@ -1446,9 +1578,36 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                             .validate()) {
                                       return;
                                     }
+                                    final modelo = _model
+                                            .tXTipoEquipamentoTextController
+                                            ?.text
+                                            .trim() ??
+                                        '';
+                                    // "Sim" exige o Modelo do equipamento.
+                                    if (_model.reserveAgriculturalEquipment &&
+                                        modelo.isEmpty) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Informe o modelo do equipamento.',
+                                            style: TextStyle(
+                                                color: Colors.white),
+                                          ),
+                                          backgroundColor:
+                                              FlutterFlowTheme.of(context)
+                                                  .error,
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    // Persistência sem coluna nova:
+                                    // Sim => equipment_type = modelo; Não => null.
                                     await _saveTrackingDetails({
-                                      'equipment_type': _model
-                                          .tXTipoEquipamentoTextController.text,
+                                      'equipment_type':
+                                          _model.reserveAgriculturalEquipment
+                                              ? modelo
+                                              : null,
                                     });
                                     await widget.onConfirmStep
                                         ?.call(widget.idTracking!);

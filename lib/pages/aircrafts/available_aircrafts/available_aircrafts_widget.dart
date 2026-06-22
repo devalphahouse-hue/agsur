@@ -100,8 +100,12 @@ class _AvailableAircraftsWidgetState extends State<AvailableAircraftsWidget> {
                 'entry_year': anoBase,
               });
               if (!mounted) return;
-              _refresh();
+              // Fecha o modal primeiro e invalida o cache da listagem em
+              // seguida: o rebuild/refetch acontece com a lista já como rota
+              // ativa, garantindo que a unidade recém-cadastrada apareça sem
+              // refresh manual (BUG-012).
               Navigator.of(dialogContext).pop();
+              _refresh();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
@@ -152,8 +156,9 @@ class _AvailableAircraftsWidgetState extends State<AvailableAircraftsWidget> {
                 matchingRows: (rows) => rows.eqOrNull('id', item.id),
               );
               if (!mounted) return;
-              _refresh();
+              // Fecha o modal antes de invalidar o cache da listagem (BUG-012).
               Navigator.of(dialogContext).pop();
+              _refresh();
             },
           ),
         ),

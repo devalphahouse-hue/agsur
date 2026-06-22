@@ -55,53 +55,95 @@ class _ModalCreateClientWidgetState extends State<ModalCreateClientWidget> {
         !_model.formKey.currentState!.validate()) {
       return;
     }
+    final email = _model.tFEmailUserTextController!.text.trim();
     setState(() => _busy = true);
     try {
       _model.authUserResponse = await CreateAccountAnotherUserCall.call(
-        email: _model.tFEmailUserTextController!.text,
+        email: email,
         password: _model.tFPasswordUserTextController!.text,
       );
-      if (!(_model.authUserResponse?.succeeded ?? false)) {
+
+      final body = _model.authUserResponse?.jsonBody ?? '';
+      final succeeded = _model.authUserResponse?.succeeded ?? false;
+
+      // E-mail já cadastrado pode chegar de duas formas no GoTrue:
+      //  (a) erro 422 user_already_exists (confirmação de e-mail desligada);
+      //  (b) resposta 200 "ofuscada" com identities vazio (anti-enumeração,
+      //      quando a confirmação está ligada). Nos dois casos NÃO criamos
+      //      registro local — senão sobra uma conta órfã / fake access
+      //      (BUG-005 / BUG-006).
+      final errText =
+          (_model.authUserResponse?.bodyText ?? '').toLowerCase();
+      final dupByError = errText.contains('user_already_exists') ||
+          errText.contains('already registered');
+
+      final newUserId = (CreateAccountAnotherUserCall.userID(body) ??
+              getJsonField(body, r'$.id')?.toString() ??
+              '')
+          .trim();
+      dynamic identities = getJsonField(body, r'$.user.identities', true);
+      identities ??= getJsonField(body, r'$.identities', true);
+      final dupByIdentities = succeeded &&
+          (identities == null ||
+              (identities is List && identities.isEmpty));
+      final invalidId = newUserId.isEmpty || newUserId == 'null';
+
+      if (!succeeded || dupByError || dupByIdentities || invalidId) {
         if (!mounted) return;
         Navigator.of(context).pop();
-        await showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Erro'),
-            content: const Text(
-                'Algo deu errado! Não foi possível cadastrar a conta do usuário. Por favor, tente novamente!'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Ok'),
-              ),
-            ],
-          ),
+        final duplicate = dupByError || dupByIdentities;
+        await _showInfoDialog(
+          title: duplicate ? 'E-mail já cadastrado' : 'Erro',
+          message: duplicate
+              ? 'Este e-mail já possui uma conta na plataforma.'
+              : 'Não foi possível cadastrar a conta do usuário. Por favor, tente novamente!',
         );
         return;
       }
-      final newUser = await UsersTable().insert({
-        'id': getJsonField(
-          _model.authUserResponse?.jsonBody ?? '',
-          r'$.user.id',
-        ).toString(),
-        'name': _selectedLead?.name ?? 'vazio',
-        'email': getJsonField(
-          _model.authUserResponse?.jsonBody ?? '',
-          r'$.user.email',
-        ).toString(),
-        'phone': _selectedLead?.phone ?? 'vazio',
-        'profile_type': ProfileType.Cliente.name,
-        'cpf': _selectedLead?.cpf ?? 'vazio',
-        'status': UserStatus.approved.name,
-        'lastname': _selectedLead?.lastName ?? 'vazio',
-        'fullname': _selectedLead?.fullname ?? 'vazio',
-      });
-      await TrackingTable().insert({
-        'user_aircraft': newUser.id,
-        'tracking_description': 'Cadastro Inicial',
-        'order': 0,
-      });
+
+      // Conta de auth criada de fato. A partir daqui, se o registro local
+      // falhar, revertemos a conta de auth para não deixar órfão (BUG-005).
+      final UsersRow newUser;
+      try {
+        newUser = await UsersTable().insert({
+          'id': newUserId,
+          'name': _selectedLead?.name ?? 'vazio',
+          'email': email,
+          'phone': _selectedLead?.phone ?? 'vazio',
+          'profile_type': ProfileType.Cliente.name,
+          'cpf': _selectedLead?.cpf ?? 'vazio',
+          'status': UserStatus.approved.name,
+          'lastname': _selectedLead?.lastName ?? 'vazio',
+          'fullname': _selectedLead?.fullname ?? 'vazio',
+        });
+      } catch (_) {
+        // Rollback: remove a conta de auth recém-criada (órfã, sem users).
+        try {
+          await SupaFlow.client.rpc(
+            'admin_purge_orphan_auth_user',
+            params: {'p_email': email},
+          );
+        } catch (_) {}
+        if (!mounted) return;
+        Navigator.of(context).pop();
+        await _showInfoDialog(
+          title: 'Erro',
+          message:
+              'Não foi possível concluir o cadastro. Nenhum registro parcial foi mantido. Tente novamente.',
+        );
+        return;
+      }
+
+      // users criado com sucesso (conta válida). O tracking inicial é
+      // secundário — uma falha aqui não invalida o cliente.
+      try {
+        await TrackingTable().insert({
+          'user_aircraft': newUser.id,
+          'tracking_description': 'Cadastro Inicial',
+          'order': 0,
+        });
+      } catch (_) {}
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -114,6 +156,23 @@ class _ModalCreateClientWidgetState extends State<ModalCreateClientWidget> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _showInfoDialog(
+      {required String title, required String message}) {
+    return showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Ok'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

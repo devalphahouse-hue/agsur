@@ -96,6 +96,53 @@ List<Map<String, dynamic>> calcularParcelas(
   return parcelas;
 }
 
+/// Normaliza texto livre antes de renderizar no PDF. A fonte padrão do
+/// pacote `pdf` (Helvetica/WinAnsi) não cobre aspas curvas, travessões,
+/// reticências, prime/double-prime (pés/polegadas), nbsp e símbolos afins —
+/// eles saíam como caracteres quebrados/inválidos (BUG-004). Aqui os mapeamos
+/// para equivalentes ASCII seguros. Acentos do português já são suportados.
+String _pdfSafe(String? input) {
+  if (input == null) return '';
+  var s = input;
+  const replacements = <String, String>{
+    '‘': "'", // U+2018
+    '’': "'", // U+2019
+    '‚': "'", // U+201A
+    '‛': "'", // U+201B
+    '“': '"', // U+201C
+    '”': '"', // U+201D
+    '„': '"', // U+201E
+    '‟': '"', // U+201F
+    '′': "'", // U+2032
+    '″': '"', // U+2033
+    '‵': "'", // U+2035
+    '‶': '"', // U+2036
+    '–': '-', // U+2013
+    '—': '-', // U+2014
+    '‒': '-', // U+2012
+    '―': '-', // U+2015
+    '…': '...', // U+2026
+    ' ': ' ', // U+00A0
+    ' ': ' ', // U+202F
+    ' ': ' ', // U+2007
+    ' ': ' ', // U+2009
+    '•': '-', // U+2022
+    '●': '-', // U+25CF
+    '·': '-', // U+00B7
+    '™': '(TM)', // U+2122
+    '®': '(R)', // U+00AE
+    '℠': '(SM)', // U+2120
+    '﻿': '', // U+FEFF
+    '​': '', // U+200B
+    '‌': '', // U+200C
+    '‍': '', // U+200D
+  };
+  replacements.forEach((k, v) => s = s.replaceAll(k, v));
+  // Remove caracteres de controle remanescentes (preserva \n e \t).
+  s = s.replaceAll(RegExp(r'[\u0000-\u0008\u000B\u000C\u000E-\u001F]'), '');
+  return s;
+}
+
 // ===================== COLORS =====================
 final _darkBg = PdfColor.fromHex('#333333');
 final _white = PdfColors.white;
@@ -297,7 +344,7 @@ Future<void> generateProposalPdf(
   }
   // Aircraft base price = fullPrice minus optionals (fullPrice already includes optionals)
   final aircraftOnlyPrice = fullPrice - optionalsTotal;
-  final aircraftDescription = aircraft.aircraftDescription;
+  final aircraftDescription = _pdfSafe(aircraft.aircraftDescription);
 
   // ==================== PAGE 1 - INVOICE / ITEMS ====================
   pdf.addPage(
@@ -501,7 +548,7 @@ Future<void> generateProposalPdf(
                 child: pw.Row(children: [
                   pw.Container(width: 30, child: pw.Text('${index + 2}', style: pw.TextStyle(fontSize: 7))),
                   pw.Container(width: 25, child: pw.Text('$itemQty', style: pw.TextStyle(fontSize: 7))),
-                  pw.Expanded(child: pw.Text(item.itemName, style: pw.TextStyle(fontSize: 7))),
+                  pw.Expanded(child: pw.Text(_pdfSafe(item.itemName), style: pw.TextStyle(fontSize: 7))),
                   pw.Container(width: 90, child: pw.Text(formatCurrencyU(itemPrice), style: pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.right)),
                   pw.Container(width: 80, child: pw.Text(formatCurrencyU(itemTotal), style: pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.right)),
                 ]),

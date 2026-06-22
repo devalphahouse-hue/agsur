@@ -69,6 +69,10 @@ class ModalTrackingModel extends FlutterFlowModel<ModalTrackingWidget> {
   bool fiscalBenefitActive = true;
   bool hasRadar = false;
 
+  // State field(s) for order 3 - Reserva de Equipamento Agrícola.
+  // Sim/Não derivado de equipment_type estar preenchido (sem coluna nova).
+  bool reserveAgriculturalEquipment = false;
+
   // State field(s) for boolean confirmation orders.
   bool reservationPaid = false;
   bool fivePercentPaid = false;

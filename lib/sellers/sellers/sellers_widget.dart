@@ -87,9 +87,12 @@ class _SellersWidgetState extends State<SellersWidget> {
             iconColor: const Color(0xFFFF5963),
             btnColor: const Color(0xFFFF5963),
             confirmBtnAction: () async {
-              await UsersTable().update(
-                data: {'is_deleted': true, 'is_active': false},
-                matchingRows: (rows) => rows.eqOrNull('id', item.id),
+              // Soft-delete + ban no auth + libera o e-mail para recadastro
+              // (BUG-008/009). Antes era UPDATE direto, que não banía a conta
+              // (vendedor excluído ainda logava) nem liberava o e-mail.
+              await SupaFlow.client.rpc(
+                'admin_delete_app_user',
+                params: {'p_user_id': item.id},
               );
               if (!mounted) return;
               Navigator.of(dialogContext).pop();

@@ -2922,6 +2922,11 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                             hintText: 'Selecione a Aeronave',
                                             searchHintText:
                                                 'Digite o modelo aqui...',
+                                            // Limita a altura do menu p/ ele
+                                            // rolar e abrir abaixo do campo, em
+                                            // vez de crescer e sobrepor a tela
+                                            // (BUG-001).
+                                            maxHeight: 300.0,
                                             icon: Icon(
                                               Icons.keyboard_arrow_down_rounded,
                                               color:
@@ -5028,7 +5033,8 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                         valueOrDefault<double>(
                                                           e.price,
                                                           0.0,
-                                                        ))
+                                                        ) *
+                                                        e.qty)
                                                     .toList()),
                                             formatType: FormatType.decimal,
                                             decimalType:
@@ -6102,10 +6108,11 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                                   .itemsOptional
                                                                   .map((e) =>
                                                                       valueOrDefault<
-                                                                          double>(
+                                                                              double>(
                                                                         e.price,
                                                                         0.0,
-                                                                      ))
+                                                                      ) *
+                                                                      e.qty)
                                                                   .toList()),
                                                           0.00,
                                                         ),
@@ -6258,10 +6265,15 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                       }
                                                       _model.countController =
                                                           0;
-                                                      // Proposta e itens já
-                                                      // foram inseridos acima;
-                                                      // vai direto para a lista
-                                                      // (sem spinner travado).
+                                                      // Fecha o modal de
+                                                      // confirmação antes de
+                                                      // navegar. Sem isso o modal
+                                                      // continuava aberto e cada
+                                                      // novo clique criava uma
+                                                      // proposta duplicada
+                                                      // (BUG-003).
+                                                      Navigator.of(dialogContext)
+                                                          .maybePop();
                                                       context.pushNamed(
                                                           ProposalsWidget
                                                               .routeName);

@@ -7,7 +7,6 @@ import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
-import '/pages/authentication/mfa/mfa_flow.dart';
 import '/security/jwt_utils.dart';
 import 'login_model.dart';
 
@@ -143,21 +142,6 @@ class _LoginWidgetState extends State<LoginWidget> {
         });
         return;
       }
-
-      // Step-up de MFA: se a conta tem um fator TOTP verificado, exige o código
-      // para subir a sessão a aal2. Lockout-safe: sem fator cadastrado, segue
-      // direto (não muda o login de quem não usa MFA).
-      if (!await stepUpMfaIfNeeded(context)) {
-        await authManager.signOut();
-        GoRouter.of(context).clearRedirectLocation();
-        if (!mounted) return;
-        setState(() {
-          _submitting = false;
-          _error = 'Verificação em dois fatores não concluída.';
-        });
-        return;
-      }
-      if (!mounted) return;
 
       // Defesa em camadas: Admin Master sem MFA é deslogado.
       // Gate desativado por padrão (lockout-safe). Ativar com

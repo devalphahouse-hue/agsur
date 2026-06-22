@@ -288,7 +288,7 @@ class _ModalRegisterPilotWidgetState extends State<ModalRegisterPilotWidget> {
               controller: _model.tFPasswordUserTextController,
               focusNode: _model.tFPasswordUserFocusNode,
               label: 'Senha',
-              placeholder: 'Mínimo 6 caracteres',
+              placeholder: 'Mínimo 8 caracteres',
               icon: Icons.lock_rounded,
               required: true,
               obscureText: !_showPwd,

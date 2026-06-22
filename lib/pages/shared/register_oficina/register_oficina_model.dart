@@ -126,7 +126,7 @@ class RegisterOficinaModel extends FlutterFlowModel<RegisterOficinaWidget> {
     if (val == null || val.isEmpty) {
       return 'Campo obrigatório';
     }
-    if (val.length < 6) return 'Mínimo 6 caracteres';
+    if (val.length < 8) return 'Mínimo 8 caracteres';
     return null;
   }
 

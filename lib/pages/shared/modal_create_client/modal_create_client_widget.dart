@@ -260,7 +260,7 @@ class _ModalCreateClientWidgetState extends State<ModalCreateClientWidget> {
                         controller: _model.tFPasswordUserTextController,
                         focusNode: _model.tFPasswordUserFocusNode,
                         label: 'Senha temporária',
-                        placeholder: 'Mínimo 6 caracteres',
+                        placeholder: 'Mínimo 8 caracteres',
                         icon: Icons.lock_outline_rounded,
                         required: true,
                         obscureText: !_showPwd,

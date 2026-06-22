@@ -114,8 +114,8 @@ class ModalRegisterCollabModel
       return 'Campo obrigatório';
     }
 
-    if (val.length < 6) {
-      return 'A senha deve conter o mínimo de 6 caracteres';
+    if (val.length < 8) {
+      return 'A senha deve conter o mínimo de 8 caracteres';
     }
 
     return null;

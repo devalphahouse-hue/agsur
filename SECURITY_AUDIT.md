@@ -51,15 +51,19 @@ Migration `20260622160000_company_select_restrict` (aplicada e verificada):
 
 Não aplicado headless de propósito (quebraria app/produção sem validação):
 
-### A. Buckets privados + signed URLs (🟠 Alto)
-**Infra entregue** (`lib/core_ui/app_storage.dart`): `signedUrlFor()`,
-`SignedNetworkImage` e `openStorageDoc()` — fallback-safe (devolvem a URL original
-se não der pra assinar, então adotar é seguro com o bucket ainda público). Falta:
-converter os ~48 pontos de leitura (fotos via `SignedNetworkImage`, docs via
-`openStorageDoc`) nos **dois apps**, testar exibição, e só então privar o bucket.
-`AGSur` e `service-letters` são públicos → documentos legíveis por URL. Tornar
-privado **quebra a exibição de foto/documento** até trocar as leituras por
-`createSignedUrl`. **Plano sem downtime:**
+### A. Buckets privados + signed URLs (🟠 Alto) — CONVERSÃO FEITA, FALTA O FLIP
+- ✅ **Helper** `app_storage.dart` nos dois apps (`agsur-main/lib/core_ui/`,
+  `agsur-app/lib/core/ui/`) — `signedUrlFor`/`SignedNetworkImage`/`openStorageDoc`,
+  fallback-safe.
+- ✅ **Leituras convertidas**: agsur-main (24 pontos) e agsur-app (10). Nada muda
+  hoje (URL assinada funciona com bucket público).
+- ⏳ **Flip pendente — bloqueado por adoção mobile.** O `agsur-app` é nativo: tornar
+  `AGSur`/`service-letters` privados **quebra clientes que ainda não atualizaram**
+  (leem por URL pública). Só flipar depois que a versão com signed URLs estiver
+  amplamente adotada (App Store/Play). Comando do flip (reversível na hora com
+  `public=true`):
+  `update storage.buckets set public=false where id in ('AGSur','service-letters');`
+  Antes do flip: validar exibição de foto/documento no painel e no app.
 1. Helper de signed URL no client + trocar os pontos de leitura/preview/download
    (catálogo, detalhes, "Visualizar", certificados) nos **dois apps** — funciona
    com o bucket ainda público.

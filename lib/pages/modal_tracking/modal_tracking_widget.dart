@@ -2499,6 +2499,25 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                                     .fontStyle,
                                           ),
                                     ),
+                                    // Visualizar o documento anexado em nova aba
+                                    // antes de salvar, para conferir o arquivo.
+                                    if (_model.uploadedFileUrl_uploadDataPh0 !=
+                                            null &&
+                                        _model.uploadedFileUrl_uploadDataPh0 !=
+                                            '')
+                                      MouseRegion(
+                                        cursor: SystemMouseCursors.click,
+                                        child: GestureDetector(
+                                          onTap: () => launchURL(_model
+                                              .uploadedFileUrl_uploadDataPh0),
+                                          child: Icon(
+                                            Icons.visibility_outlined,
+                                            color: FlutterFlowTheme.of(context)
+                                                .primary,
+                                            size: 22.0,
+                                          ),
+                                        ),
+                                      ),
                                   ].divide(SizedBox(width: 8.0)),
                                 ),
                                 FFButtonWidget(
@@ -3651,6 +3670,12 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                       Expanded(child: Text(_model.uploadedLocalFile_caDoc.originalFilename ?? 'Arquivo enviado', overflow: TextOverflow.ellipsis, style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: Colors.white, fontSize: 13.0, letterSpacing: 0.0))),
                                     ]),
                                   ),
+                                  // Visualizar o documento anexado em nova aba antes de confirmar.
+                                  InkWell(
+                                    onTap: () => launchURL(_model.uploadedFileUrl_caDoc),
+                                    child: Icon(Icons.visibility_outlined, color: Colors.white, size: 22.0),
+                                  ),
+                                  SizedBox(width: 12.0),
                                   InkWell(
                                     onTap: () => safeSetState(() {
                                       _model.uploadedFileUrl_caDoc = '';
@@ -3706,6 +3731,12 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
                                       Expanded(child: Text(_model.uploadedLocalFile_cmDoc.originalFilename ?? 'Arquivo enviado', overflow: TextOverflow.ellipsis, style: FlutterFlowTheme.of(context).bodyMedium.override(font: GoogleFonts.inter(), color: Colors.white, fontSize: 13.0, letterSpacing: 0.0))),
                                     ]),
                                   ),
+                                  // Visualizar o documento anexado em nova aba antes de confirmar.
+                                  InkWell(
+                                    onTap: () => launchURL(_model.uploadedFileUrl_cmDoc),
+                                    child: Icon(Icons.visibility_outlined, color: Colors.white, size: 22.0),
+                                  ),
+                                  SizedBox(width: 12.0),
                                   InkWell(
                                     onTap: () => safeSetState(() {
                                       _model.uploadedFileUrl_cmDoc = '';

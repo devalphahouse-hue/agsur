@@ -525,9 +525,32 @@ class _PdfUploadState extends State<_PdfUpload> {
                       ),
                     ),
                   ),
-                  if (hasFile)
+                  if (hasFile) ...[
+                    // Visualizar o PDF anexado em nova aba antes de salvar,
+                    // para conferir se o documento está correto.
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () => launchURL(widget.url),
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            color: const Color(0x22C2D51C),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.visibility_outlined,
+                            size: 16,
+                            color: Color(0xFFC2D51C),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     const Icon(Icons.swap_horiz_rounded,
                         size: 16, color: Color(0xCCFFFFFF)),
+                  ],
                 ],
               ),
             ),

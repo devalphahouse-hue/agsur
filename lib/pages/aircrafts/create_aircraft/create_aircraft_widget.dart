@@ -871,6 +871,12 @@ class _PhotoUploadCardState extends State<_PhotoUploadCard> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _floatingChip(
+                          label: 'Visualizar',
+                          icon: Icons.visibility_outlined,
+                          onTap: () => launchURL(widget.photoUrl),
+                        ),
+                        const SizedBox(width: 8),
+                        _floatingChip(
                           label: 'Trocar',
                           icon: Icons.swap_horiz_rounded,
                           onTap: widget.onPick,
@@ -1119,6 +1125,28 @@ class _ManualUploadTileState extends State<_ManualUploadTile> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    // Visualizar o PDF anexado em nova aba antes de salvar,
+                    // para conferir se o documento está correto.
+                    onTap: () => launchURL(widget.fileUrl),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: const Color(0x22C2D51C),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.visibility_outlined,
+                        size: 16,
+                        color: Color(0xFFC2D51C),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),

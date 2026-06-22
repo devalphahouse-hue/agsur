@@ -146,6 +146,20 @@ mais um caso (garantia de cliente vinculado ao **Piloto**).
   clientes vinculados (a RLS de `user_aircraft` é email-do-dono). Decisão de
   design pendente.
 
+## Histórico (22/06/2026 — QA: liberação de e-mail na exclusão + rollback)
+
+Aplicada via Management API (token do CLI) — **idempotente** (`create or replace`),
+só redefine funções, não altera dados. Reconcilia no histórico quando o PR for
+mergeado e o CI rodar `db push`.
+
+| Versão | Migration | O que faz |
+|---|---|---|
+| 20260622120000 | `release_email_on_delete_and_orphan_purge` | `admin_delete_app_user` passa a **liberar o e-mail** na exclusão (renomeia para tombstone `deleted+<id>@deleted.agsur.local` em `public.users`, `auth.users` e best-effort `auth.identities`), além do soft-delete+ban já existentes; aceita também `Vendedor`/`Colaborador`. Nova função `admin_purge_orphan_auth_user(email)`: remove conta de auth **órfã** (sem linha em `public.users`) — usada como rollback no cadastro de cliente quando o signup cria a conta mas o insert local falha. |
+
+> Front correspondente: deletes de Vendedor/Colaborador passaram a chamar a RPC
+> (antes era UPDATE direto, sem ban e sem liberar e-mail). **Mudança de
+> comportamento:** excluir Vendedor/Colaborador agora exige Admin Master.
+
 ## Notas de segurança
 
 - `triggers` BEFORE rodam **independente de RLS**. Mesmo que uma policy

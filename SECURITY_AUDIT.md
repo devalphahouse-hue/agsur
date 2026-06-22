@@ -41,13 +41,46 @@ Migration `20260622150000_dashboard_security_invoker` (aplicada e verificada):
   Vendedor recebe null em financial/sales (UI esconde); Cliente/Piloto filtrados.
   *Validar:* dashboard do Admin Master com números completos; Vendedor sem quebrar.
 
-Pendente:
-- 🟠 **`vw_my_aircrafts_home` / `vw_my_aircraft_details`** (app cliente) — IDOR
-  ainda aberto; precisa de rework de RLS em `user_aircraft` (cadeia por e-mail).
-- 🟠 **#3 buckets `AGSur`/`service-letters` públicos** → privado + signed URLs nos
-  dois apps.
-- Higiene: policy `company_read_authenticated = true` (qualquer autenticado lê
-  todas as empresas); policies `anon`/`public` deveriam ser `TO authenticated`.
+Migration `20260622160000_company_select_restrict` (aplicada e verificada):
+- ✅ **Leak de `company` FECHADO** — SELECT era `true` (qualquer autenticado lia
+  todas as empresas: nome, cnpj/cpf, telefone, e-mail). Restrito a
+  `auth_is_seller_or_admin()`. Seguro: app cliente não usa `CompanyTable`,
+  `vw_my_aircraft*` não junta company, e as views de painel são lidas por Admin/Vendedor.
+
+## Pendente — exige teste nos apps ou ação do dono
+
+Não aplicado headless de propósito (quebraria app/produção sem validação):
+
+### A. Buckets privados + signed URLs (🟠 Alto)
+`AGSur` e `service-letters` são públicos → documentos legíveis por URL. Tornar
+privado **quebra a exibição de foto/documento** até trocar as leituras por
+`createSignedUrl`. **Plano sem downtime:**
+1. Helper de signed URL no client + trocar os pontos de leitura/preview/download
+   (catálogo, detalhes, "Visualizar", certificados) nos **dois apps** — funciona
+   com o bucket ainda público.
+2. Testar exibição nos dois apps.
+3. Só então `update storage.buckets set public=false where id in ('AGSur','service-letters');`
+   (e migrar objetos sensíveis se preciso). Avaliar manter fotos de catálogo
+   públicas e privar só documentos (ex.: mover docs para o bucket `pdfs`, já privado).
+
+### B. IDOR autenticado em `vw_my_aircrafts_home` / `vw_my_aircraft_details` (🟠 Médio)
+São lidas pelo **app cliente** e juntam `user_aircraft → contract → proposal →
+aircrafts (+ aircraft_manuals/aircraft_items)`. Ligar `security_invoker` exige que
+**Cliente e Piloto/Oficina vinculados** passem na RLS de todas essas tabelas. Hoje
+faltam: caminho "vinculado" em `user_aircraft` (só owner/seller) e SELECT do
+dono/vinculado em `aircraft_manuals` (admin-only) → flipar quebraria piloto/oficina
+e sumiria os manuais. **Plano:** adicionar policies aditivas (linked) em
+`user_aircraft`, `contract`, `proposal`, `aircraft_manuals` cobrindo
+owner+vinculado, **depois** `set (security_invoker=on)` nas 2 views, e **testar no
+app mobile** (Cliente, Piloto, Oficina). Rollback: `set (security_invoker=off)`.
+
+### C. Ações do dono (não automatizáveis com segurança)
+- 🟡 **MFA**: ativar `custom_access_token_hook` em Auth→Hooks + build com
+  `ENFORCE_MFA_ADMIN_MASTER=true` — **só depois** de todos os Admin Master
+  cadastrarem TOTP (senão tranca o acesso). Ver `DASHBOARD_TIER2_TODO.md`.
+- 🟡 **Rotacionar** o `SUPABASE_ACCESS_TOKEN` (exposto em chat).
+- 🟢 Higiene opcional: policies com `anon`/`public` → `TO authenticated` (hoje já
+  inertes por se auto-bloquearem em `auth.uid()`).
 
 ## Achados
 

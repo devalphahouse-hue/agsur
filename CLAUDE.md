@@ -87,7 +87,19 @@ o smoke detecta.
 Toda persistência e auth vão direto ao Supabase via `supabase_flutter`. Não há
 camada de API própria além de algumas chamadas REST diretas em
 `lib/backend/api_requests/api_calls.dart` (ex.: `signup` chamando `/auth/v1/signup`
-para criar usuários sem deslogar o admin).
+para criar usuários sem deslogar o admin; `ViaCepCall` para autofill de CEP).
+
+**Criar/excluir usuário (armadilhas).** O signup (`/auth/v1/signup`, anon) cria a
+conta no auth e o painel insere a linha em `public.users` em seguida. Para
+**e-mail duplicado**, o GoTrue responde de duas formas — **422
+`user_already_exists`** OU um **200 "ofuscado" com `identities` vazio**
+(anti-enumeração quando a confirmação de e-mail está ligada); os dois significam
+"já existe" e inserir mesmo assim cria **conta órfã / fake access**. Trate ambos
+ANTES de inserir e só insira com `user.id` válido (ver `modal_create_client`). Se
+o insert local falhar após o auth criar, faça rollback via RPC
+`admin_purge_orphan_auth_user`. **Exclusão** de usuário do app deve ir SEMPRE pela
+RPC `admin_delete_app_user` (nunca UPDATE direto em `users`): ela faz soft-delete
++ ban + **libera o e-mail** para recadastro.
 
 - `lib/backend/supabase/supabase.dart` — `SupaFlow` com URL/anon key embarcadas
   como fallback. Em build de produção, valores são sobrescritos via
@@ -100,9 +112,8 @@ para criar usuários sem deslogar o admin).
 
 ### Schema versionado em `supabase/migrations/`
 
-DDL agora vive **versionado no git** em `supabase/migrations/`. 23 migrations
-aplicadas (batch de endurecimento iniciado em 2026-05-08, continuando até
-2026-05-26) cobrem:
+DDL agora vive **versionado no git** em `supabase/migrations/`. 30 migrations
+aplicadas. O batch de endurecimento (2026-05-08 a 2026-05-26) cobre:
 
 - **Defesa em camadas (triggers BEFORE):** 32 tabelas com triggers que
   rejeitam writes não autorizados independente de RLS.
@@ -120,6 +131,19 @@ aplicadas (batch de endurecimento iniciado em 2026-05-08, continuando até
   para Admin Master sem `aal=aal2`. **Pendente ativação no Studio**
   (Auth → Hooks). Defesa em camadas client-side já no painel.
 - **Storage hardening:** buckets com `file_size_limit` + `allowed_mime_types`.
+
+Lotes posteriores (fora do batch inicial):
+
+- **RLS de leitura no app cliente (2026-06-10):** SELECT por dono em
+  `pilot_certificates`/`certificates`, `guarantee` e `tracking` (o app cliente
+  não enxergava esses dados).
+- **Ciclo de vida de usuário (2026-06-17 e 06-22):** RPC
+  `admin_delete_app_user(uuid)` (Admin Master) — soft-delete + ban no auth +
+  **liberação do e-mail** (renomeia para tombstone
+  `deleted+<id>@deleted.agsur.local` em `users`/`auth.users`/`auth.identities`),
+  preservando contratos/propostas; cobre Cliente/Piloto/Oficina/Vendedor/Colaborador.
+  RPC `admin_purge_orphan_auth_user(text)` — rollback de conta de auth órfã (sem
+  linha em `public.users`). Também `app_login_precheck` e `users` em realtime.
 
 Status atual completo + smoke tests em `supabase/README.md`. Pendências
 manuais do dashboard em `supabase/DASHBOARD_TIER2_TODO.md`.

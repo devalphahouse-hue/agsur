@@ -33,6 +33,15 @@ class ViewContractModel extends FlutterFlowModel<ViewContractWidget> {
   Map<String, double> selectedItemPrices = {};
   Map<String, String> aircraftToProposalItemId = {};
 
+  // Cache de futures para os FutureBuilders da lista de opcionais. Sem isto,
+  // o `future:` é recriado a cada rebuild (qualquer setState) e refaz as
+  // queries — uma para categorias e uma por categoria — gerando dezenas de
+  // chamadas repetidas ao abrir/usar a página. Memoizamos: categorias uma vez,
+  // itens por id de categoria.
+  Future<List<CategoryRow>>? optionalCategoriesFuture;
+  final Map<String, Future<List<AircraftItemsRow>>> optionalItemsByCategory =
+      {};
+
   ///  State fields for stateful widgets in this page.
 
   // Stores action output result for [Backend Call - Query Rows] action in ViewContract widget.
@@ -112,6 +121,9 @@ class ViewContractModel extends FlutterFlowModel<ViewContractWidget> {
     clearPropostaFinanceiroCache();
 
     clearAircraftCache();
+
+    optionalCategoriesFuture = null;
+    optionalItemsByCategory.clear();
   }
 
   /// Additional helper methods.

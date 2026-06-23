@@ -102,13 +102,21 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
               optItem.item.price * optItem.item.qty;
           _model.aircraftToProposalItemId[optItem.item.id] = optItem.id;
         }
-        // Get aircraft base price directly from aircrafts table
-        final aircraftRows = await AircraftsTable().queryRows(
-          queryFn: (q) => q.eqOrNull(
-            'id',
-            FFAppState().asGetProposalDetails.proposal.aircraftId,
-          ),
-        );
+        // Get aircraft base price directly from aircrafts table.
+        // O RPC GetProposalDetails devolve "Não cadastrado" (ou vazio) quando a
+        // proposta não tem aeronave vinculada. Isso não é um UUID e quebra o
+        // filtro por id (Postgres 22P02), deixando a tela em branco — então só
+        // consultamos quando o id é um UUID válido; senão usamos o fallback.
+        final aircraftId =
+            FFAppState().asGetProposalDetails.proposal.aircraftId;
+        final isValidAircraftId = RegExp(
+          r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+        ).hasMatch(aircraftId);
+        final aircraftRows = isValidAircraftId
+            ? await AircraftsTable().queryRows(
+                queryFn: (q) => q.eqOrNull('id', aircraftId),
+              )
+            : <AircraftsRow>[];
         _model.baseAircraftPrice = aircraftRows.isNotEmpty
             ? aircraftRows.first.price
             : FFAppState().asGetProposalDetails.proposal.fullprice -
@@ -3877,7 +3885,8 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                               ),
                               decoration: BoxDecoration(),
                               child: FutureBuilder<List<CategoryRow>>(
-                                future: CategoryTable().queryRows(
+                                future: _model.optionalCategoriesFuture ??=
+                                    CategoryTable().queryRows(
                                   queryFn: (q) => q
                                       .eqOrNull(
                                         'item_type',
@@ -4041,7 +4050,10 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                                         0.0, 12.0, 0.0, 12.0),
                                                 child: FutureBuilder<
                                                     List<AircraftItemsRow>>(
-                                                  future: AircraftItemsTable()
+                                                  future: _model
+                                                          .optionalItemsByCategory[
+                                                      lVCategoriesCategoryRow
+                                                          .id] ??= AircraftItemsTable()
                                                       .queryRows(
                                                     queryFn: (q) => q
                                                         .eqOrNull(

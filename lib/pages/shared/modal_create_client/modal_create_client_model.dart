@@ -2,6 +2,7 @@ import '/backend/api_requests/api_calls.dart';
 import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/form_field_controller.dart';
+import '/security/password_utils.dart';
 import 'modal_create_client_widget.dart' show ModalCreateClientWidget;
 import 'package:flutter/material.dart';
 
@@ -35,15 +36,7 @@ class ModalCreateClientModel extends FlutterFlowModel<ModalCreateClientWidget> {
       tFPasswordUserTextControllerValidator;
   String? _tFPasswordUserTextControllerValidator(
       BuildContext context, String? val) {
-    if (val == null || val.isEmpty) {
-      return 'Campo obrigatório';
-    }
-
-    if (val.length < 8) {
-      return 'A senha deve ter o mínimo de 8 caracteres';
-    }
-
-    return null;
+    return strongPasswordValidator(val);
   }
 
   // Stores action output result for [Validate Form] action in BTNRegisterCertificate widget.

@@ -30,6 +30,14 @@ class ViewEditProposalModel extends FlutterFlowModel<ViewEditProposalWidget> {
   Map<String, String> aircraftToProposalItemId = {};
 
   List<String> listdIds = [];
+
+  // Cache de futures para os FutureBuilders da lista de opcionais. Sem isto, o
+  // `future:` é recriado a cada rebuild (qualquer setState) e refaz as queries
+  // — uma para categorias e uma por categoria — gerando dezenas de chamadas
+  // repetidas. Memoizamos: categorias uma vez, itens por id de categoria.
+  Future<List<CategoryRow>>? optionalCategoriesFuture;
+  final Map<String, Future<List<AircraftItemsRow>>> optionalItemsByCategory =
+      {};
   void addToListdIds(String item) => listdIds.add(item);
   void removeFromListdIds(String item) => listdIds.remove(item);
   void removeAtIndexFromListdIds(int index) => listdIds.removeAt(index);
@@ -101,6 +109,9 @@ class ViewEditProposalModel extends FlutterFlowModel<ViewEditProposalWidget> {
     /// Dispose query cache managers for this widget.
 
     clearProposalCache();
+
+    optionalCategoriesFuture = null;
+    optionalItemsByCategory.clear();
   }
 
   /// Additional helper methods.

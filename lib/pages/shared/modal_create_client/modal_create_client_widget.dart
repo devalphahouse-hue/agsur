@@ -5,6 +5,7 @@ import '/backend/schema/enums/enums.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/security/password_utils.dart';
 import 'modal_create_client_model.dart';
 
 export 'modal_create_client_model.dart';
@@ -40,10 +41,9 @@ class _ModalCreateClientWidgetState extends State<ModalCreateClientWidget> {
     super.dispose();
   }
 
-  String _generatePassword() {
-    final src = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
-    return 'Ag${src.substring(src.length - 6)}!';
-  }
+  // Senha aleatória forte (16 chars, Random.secure) — na prática nunca consta
+  // em vazamentos, então não dispara o 422 weak_password do servidor.
+  String _generatePassword() => generateStrongPassword();
 
   Future<void> _submit() async {
     if (_busy) return;

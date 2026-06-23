@@ -1,6 +1,7 @@
 import '/backend/api_requests/api_calls.dart';
 import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/security/password_utils.dart';
 import 'modal_register_collab_widget.dart' show ModalRegisterCollabWidget;
 import 'package:flutter/material.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
@@ -110,15 +111,7 @@ class ModalRegisterCollabModel
       tFPasswordUserTextControllerValidator;
   String? _tFPasswordUserTextControllerValidator(
       BuildContext context, String? val) {
-    if (val == null || val.isEmpty) {
-      return 'Campo obrigatório';
-    }
-
-    if (val.length < 8) {
-      return 'A senha deve conter o mínimo de 8 caracteres';
-    }
-
-    return null;
+    return strongPasswordValidator(val);
   }
 
   // Stores action output result for [Validate Form] action in BTNRegisterLead widget.

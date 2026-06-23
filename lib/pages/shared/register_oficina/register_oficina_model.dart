@@ -1,5 +1,6 @@
 import '/backend/api_requests/api_calls.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/security/password_utils.dart';
 import 'register_oficina_widget.dart' show RegisterOficinaWidget;
 import 'package:flutter/material.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
@@ -123,11 +124,7 @@ class RegisterOficinaModel extends FlutterFlowModel<RegisterOficinaWidget> {
   String? Function(BuildContext, String?)? tFEditPasswordTextControllerValidator;
   String? _tFEditPasswordTextControllerValidator(
       BuildContext context, String? val) {
-    if (val == null || val.isEmpty) {
-      return 'Campo obrigatório';
-    }
-    if (val.length < 8) return 'Mínimo 8 caracteres';
-    return null;
+    return strongPasswordValidator(val);
   }
 
   @override

@@ -7,6 +7,7 @@ import '/backend/schema/enums/enums.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/security/password_utils.dart';
 import 'modal_register_collab_model.dart';
 
 export 'modal_register_collab_model.dart';
@@ -61,6 +62,21 @@ class _ModalRegisterCollabWidgetState
   void dispose() {
     _model.maybeDispose();
     super.dispose();
+  }
+
+  void _fillStrongPassword() {
+    final pwd = generateStrongPassword();
+    setState(() {
+      _model.tFPasswordUserTextController?.text = pwd;
+      _showPwd = true;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+            'Senha forte gerada. Copie e repasse ao usuário — ele poderá trocá-la depois.'),
+        backgroundColor: Color(0xFFC2D51C),
+      ),
+    );
   }
 
   Future<void> _onCepChanged(String val) async {
@@ -314,6 +330,14 @@ class _ModalRegisterCollabWidgetState
               ),
               validator: (v) => _model.tFPasswordUserTextControllerValidator
                   ?.call(context, v),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _fillStrongPassword,
+                icon: const Icon(Icons.auto_fix_high_rounded, size: 18),
+                label: const Text('Gerar senha forte'),
+              ),
             ),
           ],
         ),

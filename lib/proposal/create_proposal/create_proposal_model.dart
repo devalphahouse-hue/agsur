@@ -25,6 +25,14 @@ class CreateProposalModel extends FlutterFlowModel<CreateProposalWidget> {
 
   int countController = 0;
 
+  // Cache de futures para os FutureBuilders da lista de opcionais. Sem isto, o
+  // `future:` é recriado a cada rebuild (qualquer setState) e refaz as queries
+  // — uma para categorias e uma por categoria — gerando dezenas de chamadas
+  // repetidas. Memoizamos: categorias uma vez, itens por id de categoria.
+  Future<List<CategoryRow>>? optionalCategoriesFuture;
+  final Map<String, Future<List<AircraftItemsRow>>> optionalItemsByCategory =
+      {};
+
   List<String> listIds = [];
   void addToListIds(String item) => listIds.add(item);
   void removeFromListIds(String item) => listIds.remove(item);
@@ -106,5 +114,8 @@ class CreateProposalModel extends FlutterFlowModel<CreateProposalWidget> {
 
     tFTotalDepositFocusNode?.dispose();
     tFTotalDepositTextController?.dispose();
+
+    optionalCategoriesFuture = null;
+    optionalItemsByCategory.clear();
   }
 }

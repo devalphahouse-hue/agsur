@@ -4428,7 +4428,8 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                             ),
                             decoration: BoxDecoration(),
                             child: FutureBuilder<List<CategoryRow>>(
-                              future: CategoryTable().queryRows(
+                              future: _model.optionalCategoriesFuture ??=
+                                  CategoryTable().queryRows(
                                 queryFn: (q) => q
                                     .eqOrNull(
                                       'item_type',
@@ -4589,7 +4590,10 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                       0.0, 12.0, 0.0, 12.0),
                                               child: FutureBuilder<
                                                   List<AircraftItemsRow>>(
-                                                future: AircraftItemsTable()
+                                                future: _model
+                                                        .optionalItemsByCategory[
+                                                    lVCategoriesCategoryRow
+                                                        .id] ??= AircraftItemsTable()
                                                     .queryRows(
                                                   queryFn: (q) => q
                                                       .eqOrNull(

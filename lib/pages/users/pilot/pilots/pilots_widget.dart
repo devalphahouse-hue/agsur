@@ -12,6 +12,7 @@ import '/index.dart';
 import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
 import '/pages/shared/modal_register_pilot/modal_register_pilot_widget.dart';
 import '/pages/shared/switch_component/switch_component_widget.dart';
+import '/security/password_utils.dart';
 import 'pilots_model.dart';
 
 export 'pilots_model.dart';
@@ -117,16 +118,29 @@ class _PilotsWidgetState extends State<PilotsWidget> {
                 final isDuplicateEmail =
                     errBody.contains('user_already_exists') ||
                         errBody.contains('already registered');
+                // O servidor exige senha forte: mínimo de 8 caracteres + checagem
+                // contra vazamentos conhecidos (HIBP/"pwned"). O "pwned" só dá pra
+                // verificar no servidor, então uma senha de 8+ caracteres mas
+                // vazada cai aqui mesmo passando pelo validador do formulário.
+                final isWeakPassword = isWeakPasswordError(errBody);
+                final String errTitle = isDuplicateEmail
+                    ? 'E-mail já cadastrado'
+                    : isWeakPassword
+                        ? 'Senha fraca'
+                        : 'Erro';
+                final String errMessage = isDuplicateEmail
+                    ? 'Este e-mail já possui uma conta na plataforma.'
+                    : isWeakPassword
+                        ? 'A senha é muito fraca ou já apareceu em vazamentos de dados conhecidos. Escolha uma senha mais forte: no mínimo 8 caracteres e evite senhas comuns (ex.: "12345678", "senha123").'
+                        : 'Não foi possível criar a conta do piloto.';
                 if (!mounted) return;
-                Navigator.of(dialogContext).pop();
+                // Não fechamos a modal de cadastro: assim o usuário corrige só o
+                // campo problemático (senha/e-mail) sem redigitar todo o resto.
                 await showDialog(
                   context: context,
                   builder: (alertCtx) => AlertDialog(
-                    title: Text(
-                        isDuplicateEmail ? 'E-mail já cadastrado' : 'Erro'),
-                    content: Text(isDuplicateEmail
-                        ? 'Este e-mail já possui uma conta na plataforma.'
-                        : 'Não foi possível criar a conta do piloto.'),
+                    title: Text(errTitle),
+                    content: Text(errMessage),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(alertCtx),

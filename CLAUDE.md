@@ -112,7 +112,7 @@ RPC `admin_delete_app_user` (nunca UPDATE direto em `users`): ela faz soft-delet
 
 ### Schema versionado em `supabase/migrations/`
 
-DDL agora vive **versionado no git** em `supabase/migrations/`. 30 migrations
+DDL agora vive **versionado no git** em `supabase/migrations/`. 35 migrations
 aplicadas. O batch de endurecimento (2026-05-08 a 2026-05-26) cobre:
 
 - **Defesa em camadas (triggers BEFORE):** 32 tabelas com triggers que
@@ -144,9 +144,44 @@ Lotes posteriores (fora do batch inicial):
   preservando contratos/propostas; cobre Cliente/Piloto/Oficina/Vendedor/Colaborador.
   RPC `admin_purge_orphan_auth_user(text)` — rollback de conta de auth órfã (sem
   linha em `public.users`). Também `app_login_precheck` e `users` em realtime.
+- **Endurecimento de exposição (2026-06-22):** fechou leitura de dados **sem
+  login** e **IDOR autenticado**. `revoke` de `anon` em todas as views;
+  `security_invoker=on` nas views do painel + dashboard; predicado de autorização
+  nas `vw_my_aircraft*` (definer, lidas pelo app cliente); `company` SELECT
+  restrito a seller/admin; `is_adm` com `search_path`. Detalhe + o que validar:
+  `SECURITY_AUDIT.md`.
 
 Status atual completo + smoke tests em `supabase/README.md`. Pendências
 manuais do dashboard em `supabase/DASHBOARD_TIER2_TODO.md`.
+
+### ⚠️ Endurecimento de segurança 2026-06-22 — handoff (VALIDAR)
+
+Várias mudanças foram aplicadas **direto em produção** via Management API (e
+versionadas em `supabase/migrations/`). Registro vivo: `SECURITY_AUDIT.md`. Se
+algo aparecer quebrado, comece por aqui.
+
+- **Validar no painel** (logar como **Admin** e como **Vendedor**): listas de
+  clientes, pilotos, contratos, tracking, notas e o dashboard carregam normal?
+  (flips de `security_invoker`). Rollback de qualquer view:
+  `alter view public.<v> set (security_invoker = off);`
+- **Validar no app cliente** (**Cliente / Piloto / Oficina**): "minhas aeronaves"
+  e os detalhes carregam? (predicado de authz nas `vw_my_aircraft*` —
+  migration `..._my_aircraft_views_authz_predicate`). Se vier vazio, reverter
+  removendo o predicado do `WHERE` das duas views.
+- **Buckets / signed URLs:** leituras dos 2 apps já convertidas para
+  `app_storage.dart` (fallback-safe). **NÃO** privar os buckets até a versão
+  mobile com signed URLs estar **adotada** (quebra clientes antigos). Flip
+  (reversível): `update storage.buckets set public=false where id in ('AGSur','service-letters');`.
+- **Política de senha:** servidor com `password_min_length=8` +
+  `password_hibp_enabled=true` (bloqueia senha vazada); validadores do painel já
+  em 8. **Pendente do dono:** trocar a senha fraca do Admin Master
+  (`vicenteroriz003`) e **rotacionar** o `SUPABASE_ACCESS_TOKEN` exposto em chat.
+- **MFA:** descartado por decisão de produto (implementação revertida); infra
+  server-side (`custom_access_token_hook` + flag `ENFORCE_MFA_ADMIN_MASTER`)
+  segue **OFF**.
+- **Reauditar:** skills `agsur-security-audit` / `db-migration-security-review` e
+  agentes `supabase-security-auditor` / `flutter-client-security-reviewer` /
+  `security-remediation-engineer` em `.claude/` (rodar de dentro de `agsur-main/`).
 
 ### Auth
 

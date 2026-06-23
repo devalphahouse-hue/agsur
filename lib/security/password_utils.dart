@@ -8,6 +8,11 @@ import 'dart:math';
 /// nunca caia no erro 422 `weak_password` é enviar uma senha aleatória longa —
 /// que na prática nunca aparece no corpus de vazamentos. Daí o gerador abaixo.
 
+/// Texto único da regra de senha, exibido nos formulários (helper) para casar
+/// com o que [strongPasswordValidator] exige. Mantenha os dois em sincronia.
+const String kPasswordRuleHint =
+    'Mínimo de 8 caracteres, com letras e números.';
+
 // Classes de caracteres sem ambíguos (sem l/I/1, O/0) para a senha ser
 // legível caso o admin precise comunicá-la ao piloto/cliente.
 const String _lower = 'abcdefghijkmnpqrstuvwxyz';

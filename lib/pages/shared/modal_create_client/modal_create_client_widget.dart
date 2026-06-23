@@ -260,12 +260,12 @@ class _ModalCreateClientWidgetState extends State<ModalCreateClientWidget> {
                         controller: _model.tFPasswordUserTextController,
                         focusNode: _model.tFPasswordUserFocusNode,
                         label: 'Senha temporária',
-                        placeholder: 'Mínimo 8 caracteres',
+                        placeholder: 'Crie uma senha forte',
                         icon: Icons.lock_outline_rounded,
                         required: true,
                         obscureText: !_showPwd,
                         helper:
-                            'O cliente pode trocar a senha após o primeiro acesso.',
+                            '$kPasswordRuleHint O cliente pode trocá-la após o primeiro acesso.',
                         suffix: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [

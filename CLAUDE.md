@@ -101,6 +101,20 @@ o insert local falhar após o auth criar, faça rollback via RPC
 RPC `admin_delete_app_user` (nunca UPDATE direto em `users`): ela faz soft-delete
 + ban + **libera o e-mail** para recadastro.
 
+**Senha de novos usuários (política do servidor).** Desde o endurecimento de
+2026-06-22 o GoTrue exige senha forte: **mínimo 8 caracteres + checagem HIBP
+("pwned")**. O `pwned` só é verificável no servidor, então senha vazada (mesmo
+com 8+) volta **422 `weak_password`** no signup. Para os formulários de criação
+de usuário **nunca** validar com regra própria (`length < 6/8` espalhado) —
+usar sempre `lib/security/password_utils.dart`: `strongPasswordValidator`
+(8+ com letra e número, casa com a regra do servidor), `generateStrongPassword`
+(16 chars `Random.secure`, nunca cai no `pwned`), `isWeakPasswordError(body)` e
+`evaluatePasswordStrength`. A UI mostra `kPasswordRuleHint` como helper e o
+medidor `PasswordStrengthMeter` (de `core_ui`) ao vivo. Padrão já aplicado em
+`modal_register_pilot/seller/collab`, `modal_create_client`, `register_oficina`.
+Ao tratar o erro do signup, mostre mensagem específica de senha fraca e **não
+feche a modal** (preserva os campos) — ver `pages/users/pilot/pilots`.
+
 - `lib/backend/supabase/supabase.dart` — `SupaFlow` com URL/anon key embarcadas
   como fallback. Em build de produção, valores são sobrescritos via
   `--dart-define`. Anon key é pública por design Supabase; segurança real
@@ -109,6 +123,17 @@ RPC `admin_delete_app_user` (nunca UPDATE direto em `users`): ela faz soft-delet
   por tabela/view, gerada pelo FlutterFlow. Helpers `queryRows / querySingleRow /
   insert / update / delete`.
 - Tabelas `vw_*` são views Postgres (read-only) — usar para leituras agregadas.
+- **RPCs com placeholder de texto (armadilha de UUID).** Algumas RPCs lidas pelo
+  painel — ex.: `get_proposal_details` (chamada em `api_calls.dart`, **não
+  versionada** em `supabase/migrations/`, criada via Studio = drift) — devolvem
+  `"Não cadastrado"` no lugar de campos ausentes, **inclusive `aircraft_id`**.
+  Esse texto não é UUID: filtrar `aircrafts`/`aircraft_items` por ele dá
+  **Postgres 22P02** e deixa a tela em branco (já aconteceu em
+  `view_contract` / `view_edit_proposal`). Antes de consultar por id, valide com
+  regex de UUID e caia no fallback se inválido. **Pendência:** a mesma RPC tem um
+  `42804` (coluna 10 declarada `uuid` mas retornando `text` por causa do
+  `COALESCE(..., 'Não cadastrado')`) — corrigir na origem (manter `aircraft_id`
+  `uuid`/`NULL`; o rótulo é problema de apresentação) via migration versionada.
 
 ### Schema versionado em `supabase/migrations/`
 
@@ -242,6 +267,14 @@ Fluxo de venda: `leads` → `proposal` (+ `proposal_item`, `proposal_financing`)
 - **Versões de dependência são pinadas.** Bumpar manualmente arrisca quebrar a
   próxima regeneração FlutterFlow. Só mexa com motivo claro e teste auth +
   queries depois.
+- **`FutureBuilder` com `future:` inline refaz a query a cada rebuild.** Padrão
+  do FlutterFlow `FutureBuilder(future: Tabela().queryRows(...))` dentro do
+  `build` dispara a consulta em todo `setState` — e se estiver dentro de um
+  `ListView`, uma vez por item, gerando dezenas de chamadas repetidas (já
+  aconteceu com `aircraft_items` em `view_contract`/`view_edit_proposal`/
+  `create_proposal`). Memoize o future no model (`_model.algumFuture ??= ...`,
+  ou `Map` por chave) e limpe no `dispose`. Os helpers `FutureRequestManager`
+  (`propostaFinanceiro`, `aircraft`) já fazem isso para as RPCs do topo.
 
 ### Flutter web — armadilhas conhecidas
 

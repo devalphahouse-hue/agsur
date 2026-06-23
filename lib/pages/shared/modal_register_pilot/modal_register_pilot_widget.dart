@@ -38,6 +38,7 @@ class _ModalRegisterPilotWidgetState extends State<ModalRegisterPilotWidget> {
   late ModalRegisterPilotModel _model;
   bool _showPwd = false;
   bool _busy = false;
+  String _pwd = '';
 
   @override
   void initState() {
@@ -76,6 +77,7 @@ class _ModalRegisterPilotWidgetState extends State<ModalRegisterPilotWidget> {
     final pwd = generateStrongPassword();
     setState(() {
       _model.tFPasswordUserTextController?.text = pwd;
+      _pwd = pwd;
       _showPwd = true;
     });
     ScaffoldMessenger.of(context).showSnackBar(
@@ -313,9 +315,11 @@ class _ModalRegisterPilotWidgetState extends State<ModalRegisterPilotWidget> {
                 visible: _showPwd,
                 onTap: () => setState(() => _showPwd = !_showPwd),
               ),
+              onChanged: (v) => setState(() => _pwd = v),
               validator: (v) => _model.tFPasswordUserTextControllerValidator
                   ?.call(context, v),
             ),
+            PasswordStrengthMeter(password: _pwd),
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(

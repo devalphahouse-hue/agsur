@@ -22,6 +22,7 @@ class _ModalCreateClientWidgetState extends State<ModalCreateClientWidget> {
   late ModalCreateClientModel _model;
   bool _showPwd = false;
   bool _busy = false;
+  String _pwd = '';
   LeadsRow? _selectedLead;
   String? _leadError;
 
@@ -272,9 +273,12 @@ class _ModalCreateClientWidgetState extends State<ModalCreateClientWidget> {
                             _IconAction(
                               icon: Icons.auto_fix_high_rounded,
                               tooltip: 'Gerar senha',
-                              onTap: () => setState(() => _model
-                                  .tFPasswordUserTextController!
-                                  .text = _generatePassword()),
+                              onTap: () => setState(() {
+                                final pwd = _generatePassword();
+                                _model.tFPasswordUserTextController!.text = pwd;
+                                _pwd = pwd;
+                                _showPwd = true;
+                              }),
                             ),
                             const SizedBox(width: 4),
                             _IconAction(
@@ -287,10 +291,12 @@ class _ModalCreateClientWidgetState extends State<ModalCreateClientWidget> {
                             ),
                           ],
                         ),
+                        onChanged: (v) => setState(() => _pwd = v),
                         validator: (v) => _model
                             .tFPasswordUserTextControllerValidator
                             ?.call(context, v),
                       ),
+                      PasswordStrengthMeter(password: _pwd),
                     ],
                   ),
                 ),

@@ -23,6 +23,7 @@ export 'app_list_scaffold.dart';
 export 'app_modal.dart';
 export 'app_page_header.dart';
 export 'app_person_card.dart';
+export 'password_strength_meter.dart';
 export 'app_responsive.dart';
 export 'app_row_action.dart';
 export 'app_search_input.dart';

@@ -64,3 +64,65 @@ bool isWeakPasswordError(String errBodyLower) {
       errBodyLower.contains('known to be weak') ||
       errBodyLower.contains('password should be at least');
 }
+
+/// Resultado da avaliação de força de senha, consumido pelo medidor visual.
+class PasswordStrength {
+  const PasswordStrength({
+    required this.score,
+    required this.label,
+    required this.meetsMinLength,
+    required this.meetsLetterAndNumber,
+  });
+
+  /// 0..4 — quantidade de barras preenchidas no medidor.
+  final int score;
+
+  /// Rótulo exibido ('Fraca' / 'Média' / 'Forte'); vazio quando sem senha.
+  final String label;
+
+  /// Atende ao mínimo de 8 caracteres.
+  final bool meetsMinLength;
+
+  /// Contém letras e números.
+  final bool meetsLetterAndNumber;
+
+  /// Atende aos requisitos obrigatórios (os mesmos de [strongPasswordValidator]).
+  bool get acceptable => meetsMinLength && meetsLetterAndNumber;
+}
+
+/// Avalia a força da senha enquanto o usuário digita. Os requisitos
+/// obrigatórios (8+ caracteres, letras e números) batem com
+/// [strongPasswordValidator]; comprimento >= 12 e símbolos somam força extra.
+PasswordStrength evaluatePasswordStrength(String v) {
+  final hasLetter = v.contains(RegExp(r'[A-Za-z]'));
+  final hasNumber = v.contains(RegExp(r'[0-9]'));
+  final hasSymbol = v.contains(RegExp(r'[^A-Za-z0-9]'));
+  final meetsMinLength = v.length >= 8;
+  final meetsLetterAndNumber = hasLetter && hasNumber;
+
+  var score = 0;
+  if (v.isNotEmpty) {
+    if (meetsMinLength) score++;
+    if (v.length >= 12) score++;
+    if (meetsLetterAndNumber) score++;
+    if (hasSymbol) score++;
+  }
+
+  String label;
+  if (v.isEmpty) {
+    label = '';
+  } else if (!meetsMinLength || !meetsLetterAndNumber || score <= 1) {
+    label = 'Fraca';
+  } else if (score == 2) {
+    label = 'Média';
+  } else {
+    label = 'Forte';
+  }
+
+  return PasswordStrength(
+    score: score,
+    label: label,
+    meetsMinLength: meetsMinLength,
+    meetsLetterAndNumber: meetsLetterAndNumber,
+  );
+}

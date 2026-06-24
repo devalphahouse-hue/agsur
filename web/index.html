@@ -63,6 +63,26 @@
   
   
   
+  <!-- Atualização automática pós-deploy: quando o service worker novo assume
+       o controle (graças ao skipWaiting()/clients.claim() injetado no CI),
+       recarregamos a página uma única vez para servir o build novo. Sem isto,
+       um deploy novo só aparece após o usuário fechar todas as abas / dar
+       hard-refresh (o SW novo ficaria "waiting"). Guardas: não recarrega na
+       primeira instalação (quando ainda não havia controller) nem em loop. -->
+  <script>
+    (function () {
+      if (!('serviceWorker' in navigator)) return;
+      var hadController = !!navigator.serviceWorker.controller;
+      var reloading = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (!hadController) { hadController = true; return; }
+        if (reloading) return;
+        reloading = true;
+        window.location.reload();
+      });
+    })();
+  </script>
+
   <script>
     {{flutter_bootstrap_js}}
   </script>

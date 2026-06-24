@@ -64,6 +64,28 @@ jobs:
             exit 1
           fi
 
+      - name: Service worker assume na hora (skipWaiting + claim)
+        run: |
+          # O SW gerado pelo Flutter NÃO faz skipWaiting: o SW novo fica
+          # "waiting" até TODAS as abas fecharem, então um deploy novo só
+          # aparece após hard-refresh manual. Anexamos listeners extras de
+          # install/activate para o SW novo assumir imediatamente; o
+          # index.html então recarrega a página uma vez no 'controllerchange'.
+          # Só anexa listeners — não altera o mapa RESOURCES nem os hashes de
+          # cache (a validação de assets do SW continua intacta).
+          SW=build/web/flutter_service_worker.js
+          {
+            echo ""
+            echo "// --- AGSur: ativa o SW novo imediatamente (sem esperar fechar abas) ---"
+            echo "self.addEventListener('install', function () { self.skipWaiting(); });"
+            echo "self.addEventListener('activate', function (e) { e.waitUntil(self.clients.claim()); });"
+          } >> "$SW"
+          # Sanity: confirma que anexou.
+          if ! grep -q "AGSur: ativa o SW novo" "$SW"; then
+            echo "::error::Falha ao injetar skipWaiting/claim em $SW"
+            exit 1
+          fi
+
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 

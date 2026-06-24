@@ -114,3 +114,6 @@ node_modules/
 .next/
 dist/
 out/
+
+# Artefatos de build (reconstruídos no CI antes do deploy)
+/build/

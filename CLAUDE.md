@@ -294,8 +294,24 @@ quebrou produção:
 - **Fontes de ícone precisam de `<link rel="preload">` em `web/index.html`.** Sem
   isso o CanvasKit pinta antes da fonte carregar e ícones (MaterialIcons /
   FontAwesome) somem de forma intermitente.
-- **Cache do `main.dart.js`:** ao testar mudança no web local, hard-refresh
-  (Cmd+Shift+R) — senão você vê o bundle antigo.
+- **Cache do `main.dart.js`:** ao testar mudança no web **local**, hard-refresh
+  (Cmd+Shift+R) — senão você vê o bundle antigo. (Em dev/`flutter run` o service
+  worker nem é registrado; o cache aqui é o do navegador.)
+- **Service worker se auto-atualiza pós-deploy (não precisa hard-refresh em
+  produção).** O SW gerado pelo Flutter, por padrão, fica "waiting" até **todas**
+  as abas fecharem — então um deploy novo só aparecia após hard-refresh manual, e
+  já causou falsos "o Vercel está na versão antiga" (o servidor estava certo; o
+  navegador é que servia o SW velho). Resolvido em duas pontas: o
+  `deploy-vercel.yml` **injeta `self.skipWaiting()` + `clients.claim()` no
+  `build/web/flutter_service_worker.js`** (passo "Service worker assume na hora",
+  só anexa listeners — não mexe no mapa `RESOURCES`/hashes), e o `web/index.html`
+  **recarrega a página uma vez no `controllerchange`** (com guarda contra a
+  primeira instalação e contra loop). Resultado: deploy novo aparece sozinho no
+  próximo carregamento. **Não remova** nenhuma das duas pontas — sem o
+  `skipWaiting` o `controllerchange` não dispara; sem o reload do `index.html` o
+  SW troca mas a aba aberta segue com o bundle antigo. Pra saber qual commit está
+  no ar, o build injeta o short-SHA (`__AGSUR_BUILD_ID__`) no `index.html`
+  publicado — `curl -s painel-agsur.vercel.app/index.html | grep -o '<short-sha>'`.
 
 ### Responsividade (mobile / tablet)
 

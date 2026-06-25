@@ -4,7 +4,7 @@ import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import '/backend/api_requests/api_calls.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/pages/shared/client_multi_select/client_multi_select_widget.dart';
+import '/pages/shared/aircraft_multi_select/aircraft_multi_select_widget.dart';
 import '/security/password_utils.dart';
 import 'modal_register_pilot_model.dart';
 
@@ -26,7 +26,7 @@ class ModalRegisterPilotWidget extends StatefulWidget {
     String city,
     String uf,
     String password,
-    Set<String> clientIds,
+    Set<String> aircraftIds,
   )? btnAction;
 
   @override
@@ -115,11 +115,11 @@ class _ModalRegisterPilotWidgetState extends State<ModalRegisterPilotWidget> {
     if (_busy) return;
     if (_model.formKey.currentState == null ||
         !_model.formKey.currentState!.validate()) return;
-    // Empresa/cliente vinculado é obrigatório para piloto (BUG-007).
-    if (_model.selectedClientIds.isEmpty) {
+    // Aeronave vinculada é obrigatória para piloto.
+    if (_model.selectedAircraftIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Vincule ao menos um cliente/empresa ao piloto.'),
+          content: Text('Vincule ao menos uma aeronave ao piloto.'),
           backgroundColor: Color(0xFFFF5963),
         ),
       );
@@ -139,7 +139,7 @@ class _ModalRegisterPilotWidgetState extends State<ModalRegisterPilotWidget> {
         _model.tFCityTextController!.text,
         _model.tFZIpCodeTextController!.text,
         _model.tFPasswordUserTextController!.text,
-        _model.selectedClientIds,
+        _model.selectedAircraftIds,
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -152,7 +152,7 @@ class _ModalRegisterPilotWidgetState extends State<ModalRegisterPilotWidget> {
       icon: Icons.flight_rounded,
       title: 'Cadastrar piloto',
       description:
-          'Cadastre um piloto e vincule aos clientes que ele atende.',
+          'Cadastre um piloto e vincule às aeronaves que ele poderá acessar.',
       maxWidth: 760,
       footer: Row(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -330,12 +330,12 @@ class _ModalRegisterPilotWidgetState extends State<ModalRegisterPilotWidget> {
             ),
             const SizedBox(height: 22),
             const _PilotSection(
-                icon: Icons.groups_outlined, text: 'Clientes vinculados'),
+                icon: Icons.flight_outlined, text: 'Aeronaves vinculadas'),
             const SizedBox(height: 12),
-            ClientMultiSelectWidget(
-              selectedIds: _model.selectedClientIds,
+            AircraftMultiSelectWidget(
+              selectedIds: _model.selectedAircraftIds,
               onChanged: (ids) =>
-                  setState(() => _model.selectedClientIds = ids),
+                  setState(() => _model.selectedAircraftIds = ids),
             ),
           ],
         ),

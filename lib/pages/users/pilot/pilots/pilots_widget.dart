@@ -63,7 +63,7 @@ class _PilotsWidgetState extends State<PilotsWidget> {
           },
           child: ModalRegisterPilotWidget(
             btnAction: (name, lastname, fullname, cpf, email, phone, city, uf,
-                password, clientIds) async {
+                password, aircraftIds) async {
               _model.createAuthUserForColab =
                   await CreateAccountAnotherUserCall.call(
                 email: email,
@@ -89,12 +89,12 @@ class _PilotsWidgetState extends State<PilotsWidget> {
                   'lastname': lastname,
                   'fullname': fullname,
                 });
-                if (clientIds.isNotEmpty) {
-                  for (final cid in clientIds) {
+                if (aircraftIds.isNotEmpty) {
+                  for (final aid in aircraftIds) {
                     try {
-                      await PilotClientsTable().insert({
+                      await PilotAircraftsTable().insert({
                         'pilot_id': newUserId,
-                        'client_id': cid,
+                        'user_aircraft_id': aid,
                       });
                     } catch (_) {}
                   }

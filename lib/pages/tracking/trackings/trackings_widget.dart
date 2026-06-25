@@ -55,17 +55,26 @@ class _TrackingsWidgetState extends State<TrackingsWidget> {
 
     final list = map.entries.map((e) {
       final items = e.value;
-      // Ordena por `order` pra pegar a próxima etapa pendente
       items.sort((a, b) => (a.order ?? 0).compareTo(b.order ?? 0));
-      final concluidas =
-          items.where((r) => (r.isCheck ?? false) == true).length;
-      final pendentes = items
-          .where((r) => (r.isCheck ?? false) == false)
-          .map((r) => r.trackingDescription ?? '')
-          .toList();
 
-      // Pega o primeiro item para metadados da aeronave
+      // Pega o primeiro item para metadados da aeronave.
       final first = items.first;
+
+      // Progresso vem agregado da view (completed_steps/total_steps/next_step).
+      // A view faz DISTINCT ON e devolve 1 linha/aeronave, então NÃO dá pra
+      // contar isCheck nas linhas — usamos os agregados. Fallback para a
+      // contagem antiga caso a view ainda não tenha as colunas novas.
+      final total =
+          (first.totalSteps ?? 0) > 0 ? first.totalSteps! : totalEtapas;
+      final concluidasRaw = first.completedSteps ??
+          items.where((r) => (r.isCheck ?? false) == true).length;
+      final concluidas = concluidasRaw > total ? total : concluidasRaw;
+      final proxima = first.nextStep ??
+          items
+              .where((r) => (r.isCheck ?? false) == false)
+              .map((r) => r.trackingDescription ?? '')
+              .firstWhere((d) => d.isNotEmpty, orElse: () => '');
+
       return _AircraftProgress(
         userAircraftId: e.key,
         aircraftModel: first.aircraftModel ?? 'Aeronave',
@@ -74,8 +83,8 @@ class _TrackingsWidgetState extends State<TrackingsWidget> {
         proposalIdRef: first.proposalIdRef,
         sellerName: first.createdByFullname,
         concluidas: concluidas,
-        total: totalEtapas,
-        proximaEtapa: pendentes.isNotEmpty ? pendentes.first : null,
+        total: total,
+        proximaEtapa: proxima.isNotEmpty ? proxima : null,
         userAircraftCreatedAt: first.userAircraftCreatedAt,
       );
     }).toList();

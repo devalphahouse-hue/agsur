@@ -46,4 +46,6 @@ export 'tables/proposal.dart';
 export 'tables/tracking_details.dart';
 export 'tables/oficina_clients.dart';
 export 'tables/pilot_clients.dart';
+export 'tables/pilot_aircrafts.dart';
+export 'tables/vw_aircraft_options.dart';
 export 'tables/service_letter.dart';

@@ -86,4 +86,13 @@ class VwAllTrackingRow extends SupabaseDataRow {
 
   String? get companyName => getField<String>('company_name');
   set companyName(String? value) => setField<String>('company_name', value);
+
+  int? get completedSteps => getField<int>('completed_steps');
+  set completedSteps(int? value) => setField<int>('completed_steps', value);
+
+  int? get totalSteps => getField<int>('total_steps');
+  set totalSteps(int? value) => setField<int>('total_steps', value);
+
+  String? get nextStep => getField<String>('next_step');
+  set nextStep(String? value) => setField<String>('next_step', value);
 }

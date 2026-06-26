@@ -18,9 +18,8 @@ class PilotAircraftsRow extends SupabaseDataRow {
   String get pilotId => getField<String>('pilot_id')!;
   set pilotId(String value) => setField<String>('pilot_id', value);
 
-  String get userAircraftId => getField<String>('user_aircraft_id')!;
-  set userAircraftId(String value) =>
-      setField<String>('user_aircraft_id', value);
+  String get aircraftId => getField<String>('aircraft_id')!;
+  set aircraftId(String value) => setField<String>('aircraft_id', value);
 
   DateTime get createdAt => getField<DateTime>('created_at')!;
   set createdAt(DateTime value) => setField<DateTime>('created_at', value);

@@ -15,9 +15,8 @@ class VwAircraftOptionsRow extends SupabaseDataRow {
   @override
   SupabaseTable get table => VwAircraftOptionsTable();
 
-  String? get userAircraftId => getField<String>('user_aircraft_id');
-  set userAircraftId(String? value) =>
-      setField<String>('user_aircraft_id', value);
+  String? get aircraftId => getField<String>('aircraft_id');
+  set aircraftId(String? value) => setField<String>('aircraft_id', value);
 
   String? get aircraftModel => getField<String>('aircraft_model');
   set aircraftModel(String? value) =>
@@ -26,10 +25,4 @@ class VwAircraftOptionsRow extends SupabaseDataRow {
   String? get aircraftPhotoUrl => getField<String>('aircraft_photo_url');
   set aircraftPhotoUrl(String? value) =>
       setField<String>('aircraft_photo_url', value);
-
-  String? get ownerId => getField<String>('owner_id');
-  set ownerId(String? value) => setField<String>('owner_id', value);
-
-  String? get ownerName => getField<String>('owner_name');
-  set ownerName(String? value) => setField<String>('owner_name', value);
 }

@@ -70,7 +70,7 @@ class _AircraftMultiSelectWidgetState extends State<AircraftMultiSelectWidget> {
 
   /// IDs válidos (não vazios) de todas as aeronaves carregadas.
   Set<String> get _allIds => _aircrafts
-      .map((a) => a.userAircraftId ?? '')
+      .map((a) => a.aircraftId ?? '')
       .where((id) => id.isNotEmpty)
       .toSet();
 
@@ -89,8 +89,7 @@ class _AircraftMultiSelectWidgetState extends State<AircraftMultiSelectWidget> {
         ? _aircrafts
         : _aircrafts.where((a) {
             final q = _filter.trim().toLowerCase();
-            return (a.aircraftModel ?? '').toLowerCase().contains(q) ||
-                (a.ownerName ?? '').toLowerCase().contains(q);
+            return (a.aircraftModel ?? '').toLowerCase().contains(q);
           }).toList();
 
     final all = _allIds;
@@ -161,7 +160,7 @@ class _AircraftMultiSelectWidgetState extends State<AircraftMultiSelectWidget> {
                     style: const TextStyle(color: Colors.white, fontSize: 13),
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: 'Buscar por modelo ou dono...',
+                      hintText: 'Buscar por modelo...',
                       hintStyle: const TextStyle(
                           color: Color(0x99FFFFFF), fontSize: 12),
                       prefixIcon: const Icon(Icons.search,
@@ -234,7 +233,7 @@ class _AircraftMultiSelectWidgetState extends State<AircraftMultiSelectWidget> {
                     ),
                     itemBuilder: (_, i) {
                       final a = filtered[i];
-                      final id = a.userAircraftId ?? '';
+                      final id = a.aircraftId ?? '';
                       final selected = widget.selectedIds.contains(id);
                       return InkWell(
                         onTap: id.isEmpty ? null : () => _toggle(id),
@@ -259,27 +258,13 @@ class _AircraftMultiSelectWidgetState extends State<AircraftMultiSelectWidget> {
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      a.aircraftModel ?? '—',
-                                      style: GoogleFonts.roboto(
-                                        color: Colors.white,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    if ((a.ownerName ?? '').isNotEmpty)
-                                      Text(
-                                        'Dono: ${a.ownerName!}',
-                                        style: GoogleFonts.roboto(
-                                          color: const Color(0x99FFFFFF),
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                  ],
+                                child: Text(
+                                  a.aircraftModel ?? '—',
+                                  style: GoogleFonts.roboto(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
                             ],

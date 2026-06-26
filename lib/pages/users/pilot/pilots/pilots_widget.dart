@@ -94,7 +94,7 @@ class _PilotsWidgetState extends State<PilotsWidget> {
                     try {
                       await PilotAircraftsTable().insert({
                         'pilot_id': newUserId,
-                        'user_aircraft_id': aid,
+                        'aircraft_id': aid,
                       });
                     } catch (_) {}
                   }

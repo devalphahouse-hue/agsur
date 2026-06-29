@@ -1,9 +1,12 @@
 import '/flutter_flow/upload_data.dart';
 import '../supabase.dart';
 
-/// Tamanho máximo padrão por arquivo (10 MB).
-/// Override por chamada via [maxBytes] se necessário.
-const int _kDefaultMaxUploadBytes = 10 * 1024 * 1024;
+/// Sem teto de tamanho por padrão (`null` = não valida tamanho no cliente).
+/// O limite real passa a ser o do backend: `file_size_limit` do bucket +
+/// o teto global de upload do projeto (Studio → Storage → Settings).
+/// Override por chamada via [maxBytes] se algum fluxo quiser um teto próprio
+/// (ex.: o chat passa 20 MB explicitamente).
+const int? _kDefaultMaxUploadBytes = null;
 
 /// Whitelist de extensões aceitas, mapeadas para content-type.
 /// Se a extensão não estiver aqui, o upload é rejeitado.
@@ -42,8 +45,8 @@ String _inferContentType(String filename) {
   return type;
 }
 
-void _validateUpload(SelectedFile file, {required int maxBytes}) {
-  if (file.bytes.lengthInBytes > maxBytes) {
+void _validateUpload(SelectedFile file, {required int? maxBytes}) {
+  if (maxBytes != null && file.bytes.lengthInBytes > maxBytes) {
     final mb = (maxBytes / (1024 * 1024)).toStringAsFixed(0);
     throw StorageUploadException('Arquivo excede o limite de ${mb}MB');
   }
@@ -55,7 +58,7 @@ void _validateUpload(SelectedFile file, {required int maxBytes}) {
 Future<List<String>> uploadSupabaseStorageFiles({
   required String bucketName,
   required List<SelectedFile> selectedFiles,
-  int maxBytes = _kDefaultMaxUploadBytes,
+  int? maxBytes = _kDefaultMaxUploadBytes,
 }) =>
     Future.wait(
       selectedFiles.map(
@@ -70,7 +73,7 @@ Future<List<String>> uploadSupabaseStorageFiles({
 Future<String> uploadSupabaseStorageFile({
   required String bucketName,
   required SelectedFile selectedFile,
-  int maxBytes = _kDefaultMaxUploadBytes,
+  int? maxBytes = _kDefaultMaxUploadBytes,
 }) async {
   _validateUpload(selectedFile, maxBytes: maxBytes);
   final contentType = _inferContentType(selectedFile.storagePath);

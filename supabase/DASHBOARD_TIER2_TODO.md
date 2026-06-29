@@ -94,6 +94,21 @@ Se Cliente realmente cria conta sozinho pelo app, deixar ON.
 
 ---
 
+## 6. Teto global de upload do Storage
+
+**Onde:** Storage → Settings → "Upload file size limit"
+**Valor atual:** padrão do projeto (50 MB)
+**Por quê:** os manuais de aeronave (OEM/AFM/IPC) passaram a ser "sem limite" —
+o teto client-side foi removido (`storage.dart`) e o `file_size_limit` do bucket
+`AGSur` foi para `NULL` (migration `20260629120000_agsur_bucket_no_size_limit.sql`).
+**Mas o teto GLOBAL do projeto continua valendo** e não é configurável por SQL.
+Enquanto ele estiver em 50 MB, arquivo maior que isso volta erro do servidor
+mesmo com o bucket sem limite. Suba esse valor para o máximo desejado (o limite
+do plano é o teto real — uploads padrão acima de ~50 MB podem exigir upload
+resumável).
+
+---
+
 ## Checklist final
 
 - [ ] 1. Site URL trocado
@@ -101,5 +116,4 @@ Se Cliente realmente cria conta sozinho pelo app, deixar ON.
 - [ ] 3. `Inactivity timeout` = 3600
 - [ ] 4. `MFA Allow Low AAL` OFF + Hook `custom_access_token_hook` ativado + TOTP cadastrado em todos os Admin Masters
 - [ ] 5. (decisão de produto) Disable signup público — Sim/Não
-
-Depois desses 5, estamos em **10/10** na parte de plataforma.
+- [ ] 6. Teto global de upload do Storage elevado (senão o "sem limite" dos manuais para em 50 MB)

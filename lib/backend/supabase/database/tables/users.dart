@@ -33,6 +33,12 @@ class UsersRow extends SupabaseDataRow {
   String get profileType => getField<String>('profile_type')!;
   set profileType(String value) => setField<String>('profile_type', value);
 
+  // Sub-nível de acesso do painel (só para profile_type='Admin'):
+  // 'recepcao' | 'documentacao'. NULL para os demais perfis.
+  // Edição manual (não-FlutterFlow) — revalidar após regen.
+  String? get accessLevel => getField<String>('access_level');
+  set accessLevel(String? value) => setField<String>('access_level', value);
+
   DateTime get createdAt => getField<DateTime>('created_at')!;
   set createdAt(DateTime value) => setField<DateTime>('created_at', value);
 

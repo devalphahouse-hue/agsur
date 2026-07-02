@@ -10,6 +10,11 @@ class ViewTrackingModel {
   List<UserAircraftRow>? updateUserAircraft;
   List<UsersRow>? user;
 
+  /// Dados preenchidos de cada etapa (memoizado para não refazer a query por
+  /// rebuild/por card — ver armadilha do FutureBuilder inline no CLAUDE.md).
+  /// Zerado em `_refresh`.
+  Future<TrackingExtras>? extrasFuture;
+
   void dispose() {}
 
   Future<void> waitForApiRequestCompleted({
@@ -26,4 +31,13 @@ class ViewTrackingModel {
       }
     }
   }
+}
+
+/// Dados preenchidos das etapas: os `tracking_details` (um por etapa, indexado
+/// por `tracking_id`) + a linha `user_aircraft` (guarda cor/filtro/painel da
+/// etapa 1). Carregado uma vez por aeronave e passado aos cards.
+class TrackingExtras {
+  const TrackingExtras(this.detailsByTrackingId, this.aircraft);
+  final Map<String, TrackingDetailsRow> detailsByTrackingId;
+  final UserAircraftRow? aircraft;
 }

@@ -12,6 +12,7 @@ import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/pages/modal_tracking/modal_tracking_widget.dart';
 import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
+import '/security/access_control.dart';
 import 'view_tracking_model.dart';
 
 export 'view_tracking_model.dart';
@@ -54,12 +55,43 @@ class _ViewTrackingWidgetState extends State<ViewTrackingWidget> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _model.apiRequestCompleter = null);
+    setState(() {
+      _model.apiRequestCompleter = null;
+      _model.extrasFuture = null;
+    });
     await _model.waitForApiRequestCompleted();
   }
 
-  bool get _isAdmin =>
-      _model.user?.firstOrNull?.profileType == 'Admin Master';
+  /// Carrega os dados preenchidos de todas as etapas desta aeronave numa
+  /// leitura só (memoizado em `_model.extrasFuture`): `tracking_details`
+  /// indexado por `tracking_id` + a linha `user_aircraft`.
+  Future<TrackingExtras> _loadExtras() async {
+    final aircraftId = widget.userAircraftId;
+    if (aircraftId == null || aircraftId.isEmpty) {
+      return TrackingExtras(<String, TrackingDetailsRow>{}, null);
+    }
+    final trackingRows = await TrackingTable().queryRows(
+      queryFn: (q) => q.eqOrNull('user_aircraft', aircraftId),
+    );
+    final ids = trackingRows.map((t) => t.id).toList();
+    final details = ids.isEmpty
+        ? <TrackingDetailsRow>[]
+        : await TrackingDetailsTable().queryRows(
+            queryFn: (q) => q.inFilter('tracking_id', ids),
+          );
+    final byId = <String, TrackingDetailsRow>{
+      for (final d in details) d.trackingId: d,
+    };
+    final aircraftRows = await UserAircraftTable().queryRows(
+      queryFn: (q) => q.eqOrNull('id', aircraftId),
+    );
+    return TrackingExtras(byId, aircraftRows.firstOrNull);
+  }
+
+  // Só master e documentação editam/checam etapas. Vendedor vê em modo
+  // somente-leitura (view-only); recepção nem acessa a tela.
+  bool get _isAdmin => AccessControl.canEditTracking(
+      AccessControl.roleOf(_model.user?.firstOrNull));
 
   @override
   Widget build(BuildContext context) {
@@ -105,6 +137,8 @@ class _ViewTrackingWidgetState extends State<ViewTrackingWidget> {
           final progress =
               tracking.isEmpty ? 0.0 : completed / tracking.length;
 
+          _model.extrasFuture ??= _loadExtras();
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -124,25 +158,54 @@ class _ViewTrackingWidgetState extends State<ViewTrackingWidget> {
                           ? 2
                           : 1;
                   const spacing = 16.0;
-                  final width = (c.maxWidth - (crossAxis - 1) * spacing) /
-                      crossAxis;
-                  return Wrap(
-                    spacing: spacing,
-                    runSpacing: spacing,
-                    children: [
-                      for (var i = 0; i < tracking.length; i++)
-                        SizedBox(
-                          width: width,
-                          child: _TrackingCard(
-                            item: tracking[i],
-                            refId: refId,
-                            clientName: clientName,
-                            isAdmin: _isAdmin,
-                            userAircraftId: widget.userAircraftId,
-                            onChanged: _refresh,
-                          ).appStagger(i),
-                        ),
-                    ],
+                  return FutureBuilder<TrackingExtras>(
+                    future: _model.extrasFuture,
+                    builder: (context, extrasSnap) {
+                      final extras = extrasSnap.data;
+                      // Grade manual em linhas de ALTURA IGUAL: dentro de cada
+                      // linha os cards esticam para a altura do mais alto
+                      // (IntrinsicHeight + stretch), pra não sobrar espaço vazio
+                      // embaixo do card mais curto.
+                      Widget cell(int index) {
+                        if (index >= tracking.length) {
+                          return const SizedBox.shrink();
+                        }
+                        return _TrackingCard(
+                          item: tracking[index],
+                          refId: refId,
+                          clientName: clientName,
+                          isAdmin: _isAdmin,
+                          userAircraftId: widget.userAircraftId,
+                          onChanged: _refresh,
+                          details:
+                              extras?.detailsByTrackingId[tracking[index].id],
+                          aircraft: extras?.aircraft,
+                        ).appStagger(index);
+                      }
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (var row = 0;
+                              row < tracking.length;
+                              row += crossAxis) ...[
+                            if (row > 0) const SizedBox(height: spacing),
+                            IntrinsicHeight(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  for (var col = 0; col < crossAxis; col++) ...[
+                                    if (col > 0)
+                                      const SizedBox(width: spacing),
+                                    Expanded(child: cell(row + col)),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      );
+                    },
                   );
                 },
               ),
@@ -351,6 +414,8 @@ class _TrackingCard extends StatelessWidget {
     required this.isAdmin,
     required this.userAircraftId,
     required this.onChanged,
+    this.details,
+    this.aircraft,
   });
 
   final TrackingStruct item;
@@ -359,11 +424,146 @@ class _TrackingCard extends StatelessWidget {
   final bool isAdmin;
   final String? userAircraftId;
   final Future<void> Function() onChanged;
+  final TrackingDetailsRow? details;
+  final UserAircraftRow? aircraft;
 
   bool get _checked => item.isCheck == true;
   int get _orderInt => int.tryParse(item.order ?? '') ?? -1;
   bool get _isConfigurable =>
       _kConfigurableOrders.contains(item.order?.toString() ?? '');
+
+  // ---- Dados preenchidos exibidos no card ---------------------------------
+
+  /// Campos "de valor" preenchidos naquela etapa (só os não-vazios). As etapas
+  /// de checklist (16/18) não entram aqui — elas usam [_checklist].
+  List<_FieldKV> get _valueFields {
+    final d = details;
+    final a = aircraft;
+    String? t(String? v) =>
+        (v != null && v.trim().isNotEmpty) ? v.trim() : null;
+    String yn(bool? v) => v == true ? 'Sim' : 'Não';
+    final out = <_FieldKV>[];
+    void add(String label, String? value) {
+      if (value != null && value.isNotEmpty) out.add(_FieldKV(label, value));
+    }
+
+    switch (_orderInt) {
+      case 1:
+        add('Cor da faixa', t(a?.stripeColor));
+        add('Filtro de Ar', t(a?.airFilter));
+        add('Painel', t(a?.panel));
+        add('Descrição Técnica', t(d?.customizationDescription));
+        break;
+      case 2:
+        add('Proforma', t(d?.invoiceNumber));
+        break;
+      case 3:
+        add('Equipamento', t(d?.equipmentType));
+        break;
+      case 4:
+        if (d != null) add('Reserva paga', yn(d.reservationPaid));
+        break;
+      case 5:
+        if (d != null) add('Pagamento 5%', yn(d.fivePercentPaid));
+        break;
+      case 6:
+        if (d != null) {
+          add('Benefício fiscal', yn(d.fiscalBenefitActive));
+          add('Radar', yn(d.hasRadar));
+        }
+        break;
+      case 7:
+        add('Despachante', t(d?.brokerName));
+        break;
+      case 8:
+        add('Marca', t(d?.brand));
+        add('Prefixo', t(d?.prefix));
+        break;
+      case 9:
+        add('Forma de pagamento', t(d?.paymentMethod));
+        break;
+      case 10:
+        if (d != null) add('Financiamento aprovado', yn(d.financingApproved));
+        break;
+      case 11:
+        if (d != null) add('Pré-contrato assinado', yn(d.preContractSigned));
+        break;
+      case 12:
+        add('Seguradora', t(d?.insuranceCompany));
+        break;
+      case 13:
+        if (d != null) add('Apólice enviada', yn(d.insurancePolicySent));
+        break;
+      case 14:
+        add('Saldo de entrada', t(d?.entryPaymentInfo));
+        break;
+      case 17:
+        if (d != null) add('Contrato final assinado', yn(d.finalContractSigned));
+        break;
+      case 19:
+        add('Desembaraço', t(d?.customsStatus));
+        if (d != null) add('CND', yn(d.customsCnd));
+        break;
+    }
+    return out;
+  }
+
+  /// Progresso do checklist de documentos das etapas 16 (Docs Oficina, 18
+  /// itens) e 18 (Despachante, 11 itens). `null` para etapas que não são
+  /// checklist. `total==0` nunca ocorre aqui.
+  ({int checked, int total})? get _checklist {
+    final d = details;
+    List<bool?> items;
+    switch (_orderInt) {
+      case 16:
+        items = [
+          d?.oficInvoice, d?.oficExportCertificate, d?.oficBillOfSale,
+          d?.oficTecat, d?.oficAadsac, d?.oficGendec,
+          d?.oficSpecialAirworthness, d?.oficSeguroReta, d?.oficBoletoReta,
+          d?.oficComprovanteReta, d?.oficDocsDespachante, d?.oficCopiaCadernetas,
+          d?.oficPesoBalanceamento, d?.oficDesregistro, d?.oficFlightTest,
+          d?.oficForm337, d?.oficListaComponentes, d?.oficListaAds,
+        ];
+        break;
+      case 18:
+        items = [
+          d?.despCnd, d?.despInvoice, d?.despExportCertificate,
+          d?.despBillOfSale, d?.despTecat, d?.despAvanac, d?.despGendec,
+          d?.despSpecialAirworthness, d?.despSeguroReta, d?.despBoletoReta,
+          d?.despComprovanteReta,
+        ];
+        break;
+      default:
+        return null;
+    }
+    final checked = items.where((e) => e == true).length;
+    return (checked: checked, total: items.length);
+  }
+
+  static const ({Color background, Color border}) _redTone = (
+    background: Color(0xFF3B2626),
+    border: Color(0x80FF5963),
+  );
+  static const ({Color background, Color border}) _greenTone = (
+    background: Color(0xFF243B36),
+    border: Color(0x804FBFA9),
+  );
+
+  /// Cor de fundo/borda do card:
+  /// - etapas de checklist (16/18): neutro (0 itens), **vermelho** (parcial),
+  ///   **verde** (todos). A regra SOBREPÕE o "Concluído" — se falta um
+  ///   documento, o card fica vermelho mesmo com a etapa marcada como concluída.
+  /// - demais etapas: **verde** quando preenchida/concluída (`isCheck`), senão
+  ///   neutro.
+  ({Color background, Color border})? get _cardTone {
+    final cl = _checklist;
+    if (cl != null) {
+      if (cl.checked == 0) return null; // neutro
+      if (cl.checked < cl.total) return _redTone; // parcial
+      return _greenTone; // completo
+    }
+    return _checked ? _greenTone : null;
+  }
 
   String get _statusLabel {
     if (_checked) {
@@ -508,11 +708,19 @@ class _TrackingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final canAct = isAdmin && !_checked;
+    final tone = _cardTone;
     return AppCard(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      background: tone?.background,
+      border: tone != null
+          ? Border.all(color: tone.border, width: 1.5)
+          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+        // max + Spacer antes do rodapé: o conteúdo fica no topo e o botão
+        // encosta na base, então cards da mesma linha (altura igual) ficam
+        // alinhados sem sobra.
+        mainAxisSize: MainAxisSize.max,
         children: [
           Row(
             children: [
@@ -590,11 +798,65 @@ class _TrackingCard extends StatelessWidget {
               _LinkRow(label: 'Link 2', url: item.link2 ?? ''),
             ],
           ],
+          if (_valueFields.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF313131),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0x14FFFFFF)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Dois campos por linha (lado a lado) para o card não ficar
+                  // comprido. Última linha ímpar deixa a 2ª coluna vazia.
+                  for (var i = 0; i < _valueFields.length; i += 2) ...[
+                    if (i > 0) const SizedBox(height: 10),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _MetaCol(
+                            label: _valueFields[i].label.toUpperCase(),
+                            value: _valueFields[i].value,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: i + 1 < _valueFields.length
+                              ? _MetaCol(
+                                  label:
+                                      _valueFields[i + 1].label.toUpperCase(),
+                                  value: _valueFields[i + 1].value,
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+          if (_checklist != null) ...[
+            const SizedBox(height: 10),
+            _ChecklistBar(
+              checked: _checklist!.checked,
+              total: _checklist!.total,
+            ),
+          ],
           const SizedBox(height: 14),
+          const Spacer(),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              if (_checked) ...[
+              // Rastreio é view-only para quem não pode editar (ex.: Vendedor):
+              // sem botão de visualizar dados (abre modal editável) nem ação.
+              if (_checked && isAdmin) ...[
                 _GhostIconBtn(
                   icon: Icons.visibility_outlined,
                   tooltip: 'Visualizar dados',
@@ -602,11 +864,18 @@ class _TrackingCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
               ],
-              AppPrimaryButton(
-                label: _statusLabel,
-                icon: _checked ? Icons.check_rounded : null,
-                onPressed: canAct ? () => _openAction(context) : null,
-              ),
+              if (isAdmin)
+                AppPrimaryButton(
+                  label: _statusLabel,
+                  icon: _checked ? Icons.check_rounded : null,
+                  onPressed: canAct ? () => _openAction(context) : null,
+                )
+              else
+                AppStatusBadge(
+                  label: 'Somente leitura',
+                  tone: AppStatusTone.neutral,
+                  icon: Icons.lock_outline_rounded,
+                ),
             ],
           ),
         ],
@@ -708,6 +977,70 @@ class _MetaCol extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _FieldKV {
+  const _FieldKV(this.label, this.value);
+  final String label;
+  final String value;
+}
+
+/// Resumo do checklist de documentos no card (etapas 16/18): "X de N
+/// documentos", colorido por estado (neutro/vermelho/verde).
+class _ChecklistBar extends StatelessWidget {
+  const _ChecklistBar({required this.checked, required this.total});
+
+  final int checked;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final started = checked > 0;
+    final complete = checked >= total;
+    final color = !started
+        ? const Color(0x99FFFFFF)
+        : complete
+            ? const Color(0xFF4FBFA9)
+            : const Color(0xFFFF5963);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF313131),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0x14FFFFFF)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            complete
+                ? Icons.check_circle_rounded
+                : Icons.fact_check_outlined,
+            size: 16,
+            color: color,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '$checked de $total documentos',
+            style: GoogleFonts.roboto(
+              fontSize: 12.5,
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const Spacer(),
+          if (started && !complete)
+            Text(
+              'faltam ${total - checked}',
+              style: GoogleFonts.roboto(
+                fontSize: 11,
+                color: const Color(0xFFFF5963),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

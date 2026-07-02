@@ -10,6 +10,7 @@ import '/auth/base_auth_user_provider.dart';
 
 import '/core_ui/app_asset_image.dart';
 import '/core_ui/app_shell.dart';
+import '/security/access_control.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 
@@ -222,6 +223,29 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           name: ClientsWidget.routeName,
           path: ClientsWidget.routePath,
           builder: (context, params) => ClientsWidget(),
+        ),
+        FFRoute(
+          name: ChatWidget.routeName,
+          path: ChatWidget.routePath,
+          builder: (context, params) => ChatWidget(),
+        ),
+        FFRoute(
+          name: ChatDetailWidget.routeName,
+          path: ChatDetailWidget.routePath,
+          builder: (context, params) => ChatDetailWidget(
+            threadId: params.getParam(
+              'threadId',
+              ParamType.String,
+            ),
+            otherName: params.getParam(
+              'otherName',
+              ParamType.String,
+            ),
+            otherProfile: params.getParam(
+              'otherProfile',
+              ParamType.String,
+            ),
+          ),
         ),
         FFRoute(
           name: EmployeesWidget.routeName,
@@ -658,6 +682,17 @@ class FFRoute {
           if (requireAuth && !appStateNotifier.loggedIn) {
             appStateNotifier.setRedirectLocationIfUnset(state.uri.toString());
             return '/login';
+          }
+
+          // Trava por nível de acesso (RBAC). Só bloqueia quando o papel já é
+          // conhecido — o menu seta AccessControl.current após carregar o
+          // usuário. No cold-start (none) deixa passar: a Home é comum a todos
+          // e o gate de menu + RLS cobrem enquanto o papel não resolveu.
+          final role = AccessControl.current;
+          if (appStateNotifier.loggedIn &&
+              role != PanelRole.none &&
+              !AccessControl.canView(role, name)) {
+            return HomePageWidget.routePath;
           }
           return null;
         },

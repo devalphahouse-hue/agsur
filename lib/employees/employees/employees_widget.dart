@@ -88,10 +88,26 @@ class _EmployeesWidgetState extends State<EmployeesWidget> {
               // Soft-delete + ban no auth + libera o e-mail para recadastro
               // (BUG-008/009). Antes era UPDATE direto, sem ban e sem liberar
               // o e-mail.
-              await SupaFlow.client.rpc(
-                'admin_delete_app_user',
-                params: {'p_user_id': item.id},
-              );
+              try {
+                await SupaFlow.client.rpc(
+                  'admin_delete_app_user',
+                  params: {'p_user_id': item.id},
+                );
+              } catch (e) {
+                if (!mounted) return;
+                Navigator.of(dialogContext).pop();
+                final msg = item.profileType == 'Admin Master'
+                    ? 'Admin Master não pode ser excluído. Altere o nível de acesso antes de excluir.'
+                    : 'Não foi possível excluir o colaborador. Tente novamente.';
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(msg,
+                        style: GoogleFonts.inter(color: Colors.white)),
+                    backgroundColor: const Color(0xFFCC3B45),
+                  ),
+                );
+                return;
+              }
               if (!mounted) return;
               Navigator.of(dialogContext).pop();
               _refresh();
@@ -134,7 +150,7 @@ class _EmployeesWidgetState extends State<EmployeesWidget> {
         future: (_model.requestCompleter ??= Completer<List<UsersRow>>()
               ..complete(UsersTable().queryRows(
                 queryFn: (q) => q
-                    .eqOrNull('profile_type', ProfileType.Admin.name)
+                    .inFilter('profile_type', const ['Admin', 'Admin Master'])
                     .eqOrNull('is_deleted', false),
               )))
             .future,
@@ -225,6 +241,7 @@ class _EmployeeRow extends StatelessWidget {
       isActive: item.isActive ?? false,
       onTap: onTap,
       metas: [
+        AppPersonMeta(Icons.shield_outlined, _levelLabel(item)),
         if ((item.phone ?? '').isNotEmpty)
           AppPersonMeta(Icons.phone_outlined, item.phone!),
       ],
@@ -262,6 +279,12 @@ class _EmployeeRow extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  String _levelLabel(UsersRow u) {
+    if (u.profileType == 'Admin Master') return 'Admin master';
+    if (u.accessLevel == 'documentacao') return 'Admin documentação';
+    return 'Admin recepção';
   }
 
   void _toast(BuildContext context, String msg) {

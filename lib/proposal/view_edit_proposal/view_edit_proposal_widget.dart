@@ -3,6 +3,7 @@ import '/backend/api_requests/api_calls.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/schema/structs/index.dart';
 import '/backend/supabase/supabase.dart';
+import '/security/password_utils.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -5359,17 +5360,6 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                           context)
                                                       .primary,
                                                   confirmBtnAction: () async {
-                                                    await ProposalTable()
-                                                        .update(
-                                                      data: {
-                                                        'is_contract': true,
-                                                      },
-                                                      matchingRows: (rows) =>
-                                                          rows.eqOrNull(
-                                                        'id',
-                                                        widget!.proposalId,
-                                                      ),
-                                                    );
                                                     _model.userExist =
                                                         await UsersTable()
                                                             .queryRows(
@@ -5405,9 +5395,22 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                             .asGetProposalDetails
                                                             .proposalLead
                                                             .email,
-                                                        password: '123456',
+                                                        password: generateStrongPassword(),
                                                       );
 
+                                                      final novoUserId = getJsonField(
+                                                          (_model.createUserAuth?.jsonBody ?? ''),
+                                                          r'''$.user.id''');
+                                                      if (novoUserId == null) {
+                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                          SnackBar(
+                                                            content: Text(
+                                                                'Nao foi possivel criar o acesso do cliente. Verifique o e-mail do lead e tente novamente.'),
+                                                            backgroundColor: FlutterFlowTheme.of(context).error,
+                                                          ),
+                                                        );
+                                                        return;
+                                                      }
                                                       _model.createUserPublic =
                                                           await UsersTable()
                                                               .insert({
@@ -5450,6 +5453,14 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                             ?.firstOrNull
                                                             ?.fullname,
                                                       });
+                                                      // dispara o e-mail de "definir senha" pro cliente novo
+                                                      // (o link abre o app em agsurclientapp://.../resetPassword)
+                                                      try {
+                                                        await SupaFlow.client.auth.resetPasswordForEmail(
+                                                          FFAppState().asGetProposalDetails.proposalLead.email,
+                                                          redirectTo: 'agsurclientapp://agsurclientapp.com/resetPassword',
+                                                        );
+                                                      } catch (_) {}
                                                     }
                                                     final createdContract =
                                                         await ContractTable()
@@ -5571,11 +5582,26 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                               1;
                                                     }
                                                     _model.countController = 0;
+                                                    await ProposalTable().update(
+                                                      data: {
+                                                        'is_contract': true,
+                                                      },
+                                                      matchingRows: (rows) => rows.eqOrNull(
+                                                        'id',
+                                                        widget!.proposalId,
+                                                      ),
+                                                    );
                                                     // Contrato/dados já gravados
                                                     // acima; navega direto para
                                                     // a lista de contratos (sem
                                                     // spinner travado nem pop
                                                     // extra na rota errada).
+                                                    // fecha a modal de confirmação antes de navegar
+                                                    if (Navigator.of(dialogContext)
+                                                        .canPop()) {
+                                                      Navigator.of(dialogContext)
+                                                          .pop();
+                                                    }
                                                     context.goNamed(
                                                       ContractsWidget.routeName,
                                                       extra: <String, dynamic>{

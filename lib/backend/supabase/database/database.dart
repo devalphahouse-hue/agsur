@@ -49,3 +49,6 @@ export 'tables/pilot_clients.dart';
 export 'tables/pilot_aircrafts.dart';
 export 'tables/vw_aircraft_options.dart';
 export 'tables/service_letter.dart';
+export 'tables/chat_messages.dart';
+export 'tables/chat_participants.dart';
+export 'tables/vw_chat_my_threads.dart';

@@ -6,6 +6,7 @@ import '/auth/supabase_auth/auth_util.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/security/access_control.dart';
 import '/index.dart';
 import 'menu_model.dart';
 
@@ -103,16 +104,34 @@ class _MenuWidgetState extends State<MenuWidget> {
   @override
   Widget build(BuildContext context) {
     final user = _model.user?.firstOrNull;
-    final isAdmin = user?.profileType == 'Admin Master';
+    final role = AccessControl.roleOf(user);
+    AccessControl.current = role;
+    bool can(String r) => AccessControl.canView(role, r);
+    final showFunil = can(LeadsWidget.routeName);
+    final showPessoas = can(PilotsWidget.routeName) ||
+        can(OficinaWidget.routeName) ||
+        can(SellersWidget.routeName) ||
+        can(EmployeesWidget.routeName);
+    final showOperacao = can(TrackingsWidget.routeName) ||
+        can(RegistedAircraftWidget.routeName) ||
+        can(ServicesOfferingWidget.routeName) ||
+        can(PartQuoteWidget.routeName) ||
+        can(GuaranteesWidget.routeName) ||
+        can(CertificatesWidget.routeName);
+    final showConfig = can(ViewEditRatesWidget.routeName) ||
+        can(ViewEditContractTermsWidget.routeName);
 
     return Container(
       color: const Color(0xFF1B1B1B),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(14, 18, 14, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _MenuHeader(user: user),
+      child: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(14, 18, 14, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _MenuHeader(user: user),
             const SizedBox(height: 18),
             const _MenuSectionLabel(label: 'Geral'),
             _MenuItem(
@@ -121,7 +140,14 @@ class _MenuWidgetState extends State<MenuWidget> {
               active: _isActive(HomePageWidget.routePath),
               onTap: () => context.pushNamed(HomePageWidget.routeName),
             ),
-            if (isAdmin)
+            _MenuItem(
+              icon: Icons.forum_rounded,
+              label: 'Chat',
+              active: _isActive(ChatWidget.routePath) ||
+                  _isActive(ChatDetailWidget.routePath),
+              onTap: () => context.pushNamed(ChatWidget.routeName),
+            ),
+            if (can(ProfileAnalysisWidget.routeName))
               _MenuItem(
                 icon: Icons.assignment_rounded,
                 label: 'Solicitações',
@@ -129,7 +155,7 @@ class _MenuWidgetState extends State<MenuWidget> {
                 onTap: () =>
                     context.pushNamed(ProfileAnalysisWidget.routeName),
               ),
-            if (isAdmin) ...[
+            if (showFunil) ...[
               const SizedBox(height: 16),
               const _MenuSectionLabel(label: 'Funil de vendas'),
               _MenuExpandable(
@@ -167,51 +193,57 @@ class _MenuWidgetState extends State<MenuWidget> {
                 ],
               ),
             ],
-            if (isAdmin) ...[
+            if (showPessoas) ...[
               const SizedBox(height: 16),
               const _MenuSectionLabel(label: 'Pessoas'),
-              _MenuItem(
-                icon: Icons.person_outline_rounded,
-                label: 'Pilotos',
-                active: _isActive(PilotsWidget.routePath),
-                onTap: () => context.pushNamed(PilotsWidget.routeName),
-              ),
-              _MenuItem(
-                icon: Icons.build_outlined,
-                label: 'Oficinas',
-                active: _isActive(OficinaWidget.routePath),
-                onTap: () => context.pushNamed(OficinaWidget.routeName),
-              ),
-              _MenuItem(
-                icon: Icons.business_center_outlined,
-                label: 'Vendedores',
-                active: _isActive(SellersWidget.routePath),
-                onTap: () => context.pushNamed(SellersWidget.routeName),
-              ),
-              _MenuItem(
-                icon: Icons.badge_outlined,
-                label: 'Colaboradores',
-                active: _isActive(EmployeesWidget.routePath),
-                onTap: () => context.pushNamed(EmployeesWidget.routeName),
-              ),
+              if (can(PilotsWidget.routeName))
+                _MenuItem(
+                  icon: Icons.person_outline_rounded,
+                  label: 'Pilotos',
+                  active: _isActive(PilotsWidget.routePath),
+                  onTap: () => context.pushNamed(PilotsWidget.routeName),
+                ),
+              if (can(OficinaWidget.routeName))
+                _MenuItem(
+                  icon: Icons.build_outlined,
+                  label: 'Oficinas',
+                  active: _isActive(OficinaWidget.routePath),
+                  onTap: () => context.pushNamed(OficinaWidget.routeName),
+                ),
+              if (can(SellersWidget.routeName))
+                _MenuItem(
+                  icon: Icons.business_center_outlined,
+                  label: 'Vendedores',
+                  active: _isActive(SellersWidget.routePath),
+                  onTap: () => context.pushNamed(SellersWidget.routeName),
+                ),
+              if (can(EmployeesWidget.routeName))
+                _MenuItem(
+                  icon: Icons.badge_outlined,
+                  label: 'Colaboradores',
+                  active: _isActive(EmployeesWidget.routePath),
+                  onTap: () => context.pushNamed(EmployeesWidget.routeName),
+                ),
             ],
-            if (isAdmin) ...[
+            if (showOperacao) ...[
               const SizedBox(height: 16),
               const _MenuSectionLabel(label: 'Operação'),
-              _MenuItem(
-                icon: Icons.timeline_rounded,
-                label: 'Rastreamento',
-                active: _isActive(TrackingsWidget.routePath),
-                onTap: () => context.pushNamed(TrackingsWidget.routeName),
-              ),
-              _MenuExpandable(
-                icon: Icons.flight_outlined,
-                label: 'Aeronaves',
-                expanded: _model.avioes,
-                active: _isAvioesRoute(widget.currentPath),
-                onToggle: () =>
-                    safeSetState(() => _model.avioes = !_model.avioes),
-                children: [
+              if (can(TrackingsWidget.routeName))
+                _MenuItem(
+                  icon: Icons.timeline_rounded,
+                  label: 'Rastreamento',
+                  active: _isActive(TrackingsWidget.routePath),
+                  onTap: () => context.pushNamed(TrackingsWidget.routeName),
+                ),
+              if (can(RegistedAircraftWidget.routeName))
+                _MenuExpandable(
+                  icon: Icons.flight_outlined,
+                  label: 'Aeronaves',
+                  expanded: _model.avioes,
+                  active: _isAvioesRoute(widget.currentPath),
+                  onToggle: () =>
+                      safeSetState(() => _model.avioes = !_model.avioes),
+                  children: [
                   _MenuSubItem(
                     icon: Icons.menu_book_outlined,
                     label: 'Catálogo',
@@ -236,58 +268,70 @@ class _MenuWidgetState extends State<MenuWidget> {
                   ),
                 ],
               ),
-              _MenuItem(
-                icon: Icons.miscellaneous_services_outlined,
-                label: 'Carta de serviços',
-                active: _isActive(ServicesOfferingWidget.routePath),
-                onTap: () =>
-                    context.pushNamed(ServicesOfferingWidget.routeName),
-              ),
-              _MenuItem(
-                icon: Icons.precision_manufacturing_outlined,
-                label: 'Cotação de peças',
-                active: _isActive(PartQuoteWidget.routePath),
-                onTap: () => context.pushNamed(PartQuoteWidget.routeName),
-              ),
-              _MenuItem(
-                icon: Icons.verified_user_outlined,
-                label: 'Garantias',
-                active: _isActive(GuaranteesWidget.routePath),
-                onTap: () => context.pushNamed(GuaranteesWidget.routeName),
-              ),
-              _MenuItem(
-                icon: Icons.workspace_premium_outlined,
-                label: 'Certificados',
-                active: _isActive(CertificatesWidget.routePath),
-                onTap: () => context.pushNamed(CertificatesWidget.routeName),
-              ),
+              if (can(ServicesOfferingWidget.routeName))
+                _MenuItem(
+                  icon: Icons.miscellaneous_services_outlined,
+                  label: 'Carta de serviços',
+                  active: _isActive(ServicesOfferingWidget.routePath),
+                  onTap: () =>
+                      context.pushNamed(ServicesOfferingWidget.routeName),
+                ),
+              if (can(PartQuoteWidget.routeName))
+                _MenuItem(
+                  icon: Icons.precision_manufacturing_outlined,
+                  label: 'Cotação de peças',
+                  active: _isActive(PartQuoteWidget.routePath),
+                  onTap: () => context.pushNamed(PartQuoteWidget.routeName),
+                ),
+              if (can(GuaranteesWidget.routeName))
+                _MenuItem(
+                  icon: Icons.verified_user_outlined,
+                  label: 'Garantias',
+                  active: _isActive(GuaranteesWidget.routePath),
+                  onTap: () => context.pushNamed(GuaranteesWidget.routeName),
+                ),
+              if (can(CertificatesWidget.routeName))
+                _MenuItem(
+                  icon: Icons.workspace_premium_outlined,
+                  label: 'Certificados',
+                  active: _isActive(CertificatesWidget.routePath),
+                  onTap: () => context.pushNamed(CertificatesWidget.routeName),
+                ),
             ],
-            if (isAdmin) ...[
+            if (showConfig) ...[
               const SizedBox(height: 16),
               const _MenuSectionLabel(label: 'Configurações'),
-              _MenuItem(
-                icon: Icons.percent_rounded,
-                label: 'Taxas e juros',
-                active: _isActive(ViewEditRatesWidget.routePath),
-                onTap: () => context.pushNamed(ViewEditRatesWidget.routeName),
-              ),
-              _MenuItem(
-                icon: Icons.lan_outlined,
-                label: 'Termos e instruções',
-                active: _isActive(ViewEditContractTermsWidget.routePath),
-                onTap: () =>
-                    context.pushNamed(ViewEditContractTermsWidget.routeName),
-              ),
+              if (can(ViewEditRatesWidget.routeName))
+                _MenuItem(
+                  icon: Icons.percent_rounded,
+                  label: 'Taxas e juros',
+                  active: _isActive(ViewEditRatesWidget.routePath),
+                  onTap: () => context.pushNamed(ViewEditRatesWidget.routeName),
+                ),
+              if (can(ViewEditContractTermsWidget.routeName))
+                _MenuItem(
+                  icon: Icons.lan_outlined,
+                  label: 'Termos e instruções',
+                  active: _isActive(ViewEditContractTermsWidget.routePath),
+                  onTap: () =>
+                      context.pushNamed(ViewEditContractTermsWidget.routeName),
+                ),
             ],
-            const SizedBox(height: 24),
-            _LogoutItem(onLogout: _logout),
-          ],
-        ),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 20),
+            child: _LogoutItem(onLogout: _logout),
+          ),
+        ],
       ),
     );
   }
 
   Future<void> _logout() async {
+    AccessControl.current = PanelRole.none;
     GoRouter.of(context).prepareAuthEvent();
     QueryCache.clear();
     await authManager.signOut();

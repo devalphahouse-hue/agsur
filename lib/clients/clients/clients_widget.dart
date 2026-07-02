@@ -119,13 +119,9 @@ class _ClientsWidgetState extends State<ClientsWidget> {
       title: 'Clientes',
       description:
           'Pessoas com acesso ao app que estão vinculadas a uma proposta ou contrato.',
-      actions: [
-        _PrimaryAction(
-          icon: Icons.person_add_alt_rounded,
-          label: 'Cadastrar cliente',
-          onTap: _openCreate,
-        ),
-      ],
+      // Botão "Cadastrar cliente" ocultado: clientes passam a ser criados
+      // automaticamente na conversão de proposta em contrato.
+      actions: const [],
       search: AppSearchInput(
         value: _query,
         placeholder: 'Buscar por nome do cliente...',

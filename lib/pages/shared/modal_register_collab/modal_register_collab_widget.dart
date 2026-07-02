@@ -31,6 +31,95 @@ class _ModalRegisterCollabWidgetState
   bool _showPwd = false;
   bool _busy = false;
   String _pwd = '';
+  // Nível de acesso do colaborador: 'admin_master' | 'recepcao' | 'documentacao'.
+  String _accessLevel = 'recepcao';
+
+  static const List<String> _levelOptions = [
+    'admin_master',
+    'recepcao',
+    'documentacao',
+  ];
+
+  String _levelLabel(String v) {
+    switch (v) {
+      case 'admin_master':
+        return 'Admin master — acesso total';
+      case 'documentacao':
+        return 'Admin documentação';
+      default:
+        return 'Admin recepção';
+    }
+  }
+
+  // Dropdown compacto (menu ancorado ao campo) para o nível de acesso — o
+  // AppDropdown padrão abre um bottom sheet de tela cheia, ruim no desktop.
+  Widget _buildLevelField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Nível de acesso',
+              style: GoogleFonts.inter(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Colors.white.withValues(alpha: 0.85),
+              ),
+            ),
+            Text(' *',
+                style: GoogleFonts.inter(
+                    fontSize: 12.5, color: const Color(0xFFE05656))),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: 52,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF232323),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.shield_outlined,
+                  size: 18, color: Color(0xCCFFFFFF)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _accessLevel,
+                    isExpanded: true,
+                    dropdownColor: const Color(0xFF262626),
+                    borderRadius: BorderRadius.circular(12),
+                    icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                        color: Color(0xCCFFFFFF)),
+                    style: GoogleFonts.roboto(
+                        color: Colors.white, fontSize: 14),
+                    items: _levelOptions
+                        .map((v) => DropdownMenuItem(
+                            value: v, child: Text(_levelLabel(v))))
+                        .toList(),
+                    onChanged: (v) =>
+                        setState(() => _accessLevel = v ?? _accessLevel),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Define quais telas do painel o colaborador poderá acessar.',
+          style: GoogleFonts.roboto(
+            fontSize: 11.5,
+            color: Colors.white.withValues(alpha: 0.45),
+          ),
+        ),
+      ],
+    );
+  }
 
   @override
   void initState() {
@@ -132,12 +221,14 @@ class _ModalRegisterCollabWidgetState
         );
         return;
       }
+      final isMaster = _accessLevel == 'admin_master';
       await UsersTable().insert({
         'id': CreateAccountAnotherUserCall.userID(auth.jsonBody),
         'name': _model.tFNameTextController!.text,
         'email': CreateAccountAnotherUserCall.emailUser(auth.jsonBody),
         'phone': _model.tFPhoneTextController!.text,
-        'profile_type': ProfileType.Admin.name,
+        'profile_type': isMaster ? 'Admin Master' : ProfileType.Admin.name,
+        'access_level': isMaster ? null : _accessLevel,
         'cpf': _model.tFCpfTextController!.text,
         'status': UserStatus.approved.name,
         'lastname': _model.tFLastNameTextController!.text,
@@ -318,6 +409,8 @@ class _ModalRegisterCollabWidgetState
             const SizedBox(height: 22),
             _CollabSection(icon: Icons.lock_outline_rounded, text: 'Acesso'),
             const SizedBox(height: 12),
+            _buildLevelField(),
+            const SizedBox(height: 14),
             AppFormField(
               controller: _model.tFPasswordUserTextController,
               focusNode: _model.tFPasswordUserFocusNode,

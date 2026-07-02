@@ -27,6 +27,8 @@ export '/pages/profile/profile_analysis/profile_analysis_widget.dart'
 export '/leads/leads/leads_widget.dart' show LeadsWidget;
 export '/sellers/sellers/sellers_widget.dart' show SellersWidget;
 export '/pages/users/pilot/pilots/pilots_widget.dart' show PilotsWidget;
+export '/pages/chat/chat/chat_widget.dart' show ChatWidget;
+export '/pages/chat/chat_detail/chat_detail_widget.dart' show ChatDetailWidget;
 export '/pages/aircrafts/create_aircraft/create_aircraft_widget.dart'
     show CreateAircraftWidget;
 export '/pages/items/create_items_standard/create_items_standard_widget.dart'

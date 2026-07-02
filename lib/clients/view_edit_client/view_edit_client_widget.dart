@@ -3400,14 +3400,16 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                         FutureBuilder<List<VwNotesDetailsRow>>(
                           future: (_model.requestCompleter ??=
                                   Completer<List<VwNotesDetailsRow>>()
-                                    ..complete(VwNotesDetailsTable().queryRows(
-                                      queryFn: (q) => q
-                                          .eqOrNull(
-                                            'lead_id',
-                                            widget!.leadId,
-                                          )
-                                          .order('created_at'),
-                                    )))
+                                    ..complete(widget!.leadId == null
+                                        ? Future.value(<VwNotesDetailsRow>[])
+                                        : VwNotesDetailsTable().queryRows(
+                                            queryFn: (q) => q
+                                                .eq(
+                                                  'lead_id',
+                                                  widget!.leadId!,
+                                                )
+                                                .order('created_at'),
+                                          )))
                               .future,
                           builder: (context, snapshot) {
                             // Customize what your widget looks like when it's loading.

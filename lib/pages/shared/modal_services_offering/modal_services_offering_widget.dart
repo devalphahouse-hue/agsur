@@ -397,19 +397,76 @@ class _ModalServicesOfferingWidgetState
     required ValueChanged<String> onChanged,
     String? errorText,
   }) {
-    return AppDropdown<String>(
-      label: 'Tipo',
-      icon: Icons.layers_outlined,
-      placeholder: 'Selecione o tipo...',
-      required: true,
-      value: value == null || value.isEmpty ? null : value,
-      options: _typeOptions.map((e) => e.$1).toList(),
-      labelOf: (v) => _typeOptions.firstWhere(
-        (e) => e.$1 == v,
-        orElse: () => (v, v),
-      ).$2,
-      errorText: errorText,
-      onChanged: onChanged,
+    // Dropdown compacto (menu ancorado ao campo) — o AppDropdown padrão abre
+    // um bottom sheet de tela cheia, ruim no desktop.
+    final current = (value == null || value.isEmpty) ? null : value;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('Tipo',
+                style: GoogleFonts.inter(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withValues(alpha: 0.85))),
+            Text(' *',
+                style: GoogleFonts.inter(
+                    fontSize: 12.5, color: const Color(0xFFE05656))),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: 52,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF232323),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: errorText != null
+                  ? const Color(0xFFE05656)
+                  : Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.layers_outlined,
+                  size: 18, color: Color(0xCCFFFFFF)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: current,
+                    isExpanded: true,
+                    hint: Text('Selecione o tipo...',
+                        style: GoogleFonts.roboto(
+                            color: const Color(0x80FFFFFF), fontSize: 14)),
+                    dropdownColor: const Color(0xFF262626),
+                    borderRadius: BorderRadius.circular(12),
+                    icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                        color: Color(0xCCFFFFFF)),
+                    style:
+                        GoogleFonts.roboto(color: Colors.white, fontSize: 14),
+                    items: _typeOptions
+                        .map((e) => DropdownMenuItem(
+                            value: e.$1, child: Text(e.$2)))
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null) onChanged(v);
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (errorText != null) ...[
+          const SizedBox(height: 6),
+          Text(errorText,
+              style: GoogleFonts.roboto(
+                  fontSize: 11.5, color: const Color(0xFFE05656))),
+        ],
+      ],
     );
   }
 }

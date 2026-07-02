@@ -89,6 +89,7 @@ class _AppShellState extends State<AppShell> {
       drawer: wide ? null : Drawer(elevation: 16.0, child: menu),
       body: wide
           ? Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(
                   width: kSidebarWidth,

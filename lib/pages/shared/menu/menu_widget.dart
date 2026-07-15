@@ -147,14 +147,17 @@ class _MenuWidgetState extends State<MenuWidget> {
                   _isActive(ChatDetailWidget.routePath),
               onTap: () => context.pushNamed(ChatWidget.routeName),
             ),
-            if (can(ProfileAnalysisWidget.routeName))
-              _MenuItem(
-                icon: Icons.assignment_rounded,
-                label: 'Solicitações',
-                active: _isActive(ProfileAnalysisWidget.routePath),
-                onTap: () =>
-                    context.pushNamed(ProfileAnalysisWidget.routeName),
-              ),
+            // "Solicitações" (ProfileAnalysisWidget) oculto do menu a pedido.
+            // A rota /profileAnalysis segue registrada e acessível por URL
+            // direta; este era o único ponto de entrada pela UI.
+            // if (can(ProfileAnalysisWidget.routeName))
+            //   _MenuItem(
+            //     icon: Icons.assignment_rounded,
+            //     label: 'Solicitações',
+            //     active: _isActive(ProfileAnalysisWidget.routePath),
+            //     onTap: () =>
+            //         context.pushNamed(ProfileAnalysisWidget.routeName),
+            //   ),
             if (showFunil) ...[
               const SizedBox(height: 16),
               const _MenuSectionLabel(label: 'Funil de vendas'),

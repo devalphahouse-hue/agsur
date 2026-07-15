@@ -14,23 +14,27 @@ import 'package:intl/intl.dart';
 
 // ===================== HELPERS =====================
 
+// Regra de negócio (cliente, 2026-07-15): TODO valor monetário do PDF
+// arredonda SEMPRE PARA CIMA na unidade inteira — $ 1.138.684,91 vira
+// $ 1.138.685,00. O round nos centavos antes do ceil evita que ruído de
+// ponto flutuante (ex.: X,000000002) empurre o valor um dólar acima.
 double _roundUp(double value) {
-  return (value * 100).ceil() / 100;
+  return ((value * 100).round() / 100).ceilToDouble();
 }
 
 String _formatCurrency(double value) {
   final formatter = NumberFormat("#,##0.00", "en_US");
-  return "\$ ${formatter.format(value)}";
+  return "\$ ${formatter.format(_roundUp(value))}";
 }
 
 String _formatCurrencyUS(double value) {
   final formatter = NumberFormat("#,##0.00", "en_US");
-  return "US\$ ${formatter.format(value)}";
+  return "US\$ ${formatter.format(_roundUp(value))}";
 }
 
 String _formatCurrencyU(double value) {
   final formatter = NumberFormat("#,##0.00", "en_US");
-  return "U\$${formatter.format(value)}";
+  return "U\$${formatter.format(_roundUp(value))}";
 }
 
 Future<pw.ImageProvider> _safeNetworkImage(String url) async {
@@ -627,7 +631,7 @@ Future<void> generateContractPdf(
                       pw.SizedBox(width: 8),
                       pw.Container(
                         width: 80,
-                        child: pw.Text(NumberFormat("#,##0.00", "en_US").format(invoiceTotal),
+                        child: pw.Text(NumberFormat("#,##0.00", "en_US").format(_roundUp(invoiceTotal)),
                             style: pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.right),
                       ),
                     ]),
@@ -648,7 +652,7 @@ Future<void> generateContractPdf(
                       pw.SizedBox(width: 8),
                       pw.Container(
                         width: 80,
-                        child: pw.Text(NumberFormat("#,##0.00", "en_US").format(invoiceTotal),
+                        child: pw.Text(NumberFormat("#,##0.00", "en_US").format(_roundUp(invoiceTotal)),
                             style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right),
                       ),
                     ]),

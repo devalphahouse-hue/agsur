@@ -24,18 +24,22 @@ DateTime addMonths(DateTime date, int months) {
   return DateTime(newYear, newMonth, newDay);
 }
 
+// Regra de negócio (cliente, 2026-07-15): TODO valor monetário do PDF
+// arredonda SEMPRE PARA CIMA na unidade inteira — $ 1.138.684,91 vira
+// $ 1.138.685,00. O round nos centavos antes do ceil evita que ruído de
+// ponto flutuante (ex.: X,000000002) empurre o valor um dólar acima.
 double roundUp(double value) {
-  return (value * 100).ceil() / 100;
+  return ((value * 100).round() / 100).ceilToDouble();
 }
 
 String formatCurrency(double value) {
   final formatter = NumberFormat("#,##0.00", "en_US");
-  return "\$ ${formatter.format(value)}";
+  return "\$ ${formatter.format(roundUp(value))}";
 }
 
 String formatCurrencyU(double value) {
   final formatter = NumberFormat("#,##0.00", "en_US");
-  return "U\$${formatter.format(value)}";
+  return "U\$${formatter.format(roundUp(value))}";
 }
 
 Future<pw.ImageProvider> safeNetworkImage(String url) async {
@@ -613,9 +617,14 @@ Future<void> generateProposalPdf(
                 _tableRow('VALOR DO BEM', formatCurrency(fullPrice)),
                 _tableRow('DEPOSITO ENTRADA ${(sinalPercent * 100).toStringAsFixed(0)}% - ATE (DATA)', formatCurrency(sinalValor)),
                 _tableRow('DEPOSITO SALDO ${(depositoPercent * 100).toStringAsFixed(0)}% - (ANTES DA ENTREGA)', formatCurrency(depositoValor)),
-                _tableRow('SALDO', formatCurrency(premium)),
-                _tableRow('RISCO PAIS - TAXA EXIM (ESTIMADA)', formatCurrency(creditoTotal)),
-                _tableRow('TOTAL FINANCIADO', formatCurrency(roundUp(creditoTotal - premium))),
+                _tableRow('DEPOSITO TOTAL ${((sinalPercent + depositoPercent) * 100).toStringAsFixed(0)}%', formatCurrency(roundUp(sinalValor + depositoValor))),
+                // Ordem validada com o cliente (2026-07-15): SALDO = bem menos
+                // entradas; RISCO PAIS = prêmio; TOTAL FINANCIADO = saldo +
+                // risco país (crédito total). Antes os três valores estavam
+                // rodiziados entre os rótulos.
+                _tableRow('SALDO', formatCurrency(roundUp(creditoTotal - premium))),
+                _tableRow('RISCO PAIS - TAXA EXIM (ESTIMADA)', formatCurrency(premium)),
+                _tableRow('TOTAL FINANCIADO', formatCurrency(creditoTotal)),
                 _tableRow('CUSTO BANCARIO', formatCurrency(2500)),
                 _tableRow('*PAGAMENTO CAUÇÃO (ATO)', formatCurrency(10000)),
                 pw.Container(
@@ -828,7 +837,7 @@ Future<void> generateProposalPdf(
                 _tableRow('SINAL.: 1° PAGAMENTO', formatCurrency(sinalValor)),
                 _tableRow('2° PAGAMENTO (ANTES DA ENTREGA)', formatCurrency(depositoValor)),
                 _tableRow('VALOR DO PREMIO ESTIMATIVO', formatCurrency(premium)),
-                _tableRow('TOTAL FIANCIADO', formatCurrency(creditoTotal)),
+                _tableRow('TOTAL FINANCIADO', formatCurrency(creditoTotal)),
                 pw.Container(height: 4),
                 _tableRow('ENCARGO BANCARIO', formatCurrency(2500)),
                 _tableRow('RESERVA DE SEGURO (ATO)', formatCurrency(10000)),

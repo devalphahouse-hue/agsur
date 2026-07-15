@@ -4,8 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## O que é este repo
 
-**`agsur` — painel administrativo Agsur** (Flutter web, deploy Vercel em
-`painel-agsur.vercel.app`). Gerencia leads, vendedores, propostas, contratos,
+**`agsur` — painel administrativo Agsur** (Flutter web, deploy Vercel;
+produção em **`painel.agsurbrasil.app`**, com `painel-agsur.vercel.app` como
+endereço alternativo). Gerencia leads, vendedores, propostas, contratos,
 oficina, esteira de importação ("tracking"), funcionários, taxas de
 financiamento.
 
@@ -403,6 +404,16 @@ Fluxo de venda: `leads` → `proposal` (+ `proposal_item`, `proposal_financing`)
 (`user_aircraft`). PDFs em `lib/custom_code/actions/generate_*_pdf.dart`
 (libs `pdf` + `printing`).
 
+**PDFs — regras de dinheiro (cliente, 2026-07-15).** TODO valor monetário dos
+PDFs (proposta e contrato) arredonda **sempre para cima na unidade inteira**
+($ 1.138.684,91 → $ 1.138.685,00). A regra vive nos formatadores
+(`formatCurrency`/`_formatCurrency*`) e no `roundUp` de cada arquivo — valor
+novo no PDF deve passar por eles, nunca por `NumberFormat` inline (dois
+escaparam no contrato e foram corrigidos). Na tabela CONDIÇÕES DE PAGAMENTO
+da proposta: SALDO = bem − entradas; RISCO PAIS = prêmio; TOTAL FINANCIADO =
+saldo + risco país (crédito total) — os três já estiveram rodiziados entre os
+rótulos; DEPOSITO TOTAL = entrada + depósito saldo (% dinâmico no rótulo).
+
 ## Convenções
 
 ### Flutter
@@ -488,6 +499,15 @@ já trata a casca; ao mexer em telas/conteúdo, mantenha o padrão:
 
 ### Operação e produção
 
+- **Domínio `painel.agsurbrasil.app`:** DNS no GoDaddy (nameservers
+  `domaincontrol.com`), CNAME `painel` → `52bd46848322ad47.vercel-dns-017.com`
+  (projeto Vercel `painel-agsur`). O MESMO domínio tem os registros de e-mail
+  do Resend (`send.painel...`, `resend._domainkey.painel...`) — ao mexer num
+  conjunto, não tocar no outro. Incidente 2026-07-15: na configuração do
+  Resend o CNAME do site foi removido sem querer no GoDaddy e o painel saiu
+  do ar (diagnóstico: `dig painel.agsurbrasil.app A/CNAME` vazio + serial SOA
+  do dia). E-mail transacional sai pela Edge Function `send-credentials-email`
+  (remetente `acesso@painel.agsurbrasil.app`).
 - Antes de subir uma migration nova, sempre fazer `npx supabase db push --dry-run`.
 - Buscar problemas de RLS via smoke test: `gh workflow run rls-smoke.yml`.
 - Para qualquer incidente real (escalation, vazamento de chave, conta

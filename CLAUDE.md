@@ -32,7 +32,7 @@ antes de subir.
 
 ## Comandos comuns
 
-```powershell
+```bash
 flutter pub get
 flutter analyze
 flutter test                                 # todos
@@ -44,16 +44,16 @@ flutter build web --release                  # antes de deploy Vercel
 
 ### Build de produção (com Sentry e env vars)
 
-```powershell
-$env:SENTRY_DSN = "https://...@sentry.io/..."
-$env:SUPABASE_URL = "https://bkzybtmxxzpxtztesdye.supabase.co"
-$env:SUPABASE_ANON_KEY = "eyJ..."
+```bash
+export SENTRY_DSN="https://...@sentry.io/..."
+export SUPABASE_URL="https://bkzybtmxxzpxtztesdye.supabase.co"
+export SUPABASE_ANON_KEY="eyJ..."
 
-flutter build web --release `
-  --dart-define=SENTRY_DSN=$env:SENTRY_DSN `
-  --dart-define=SUPABASE_URL=$env:SUPABASE_URL `
-  --dart-define=SUPABASE_ANON_KEY=$env:SUPABASE_ANON_KEY `
-  --dart-define=APP_ENV=production `
+flutter build web --release \
+  --dart-define=SENTRY_DSN="$SENTRY_DSN" \
+  --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+  --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+  --dart-define=APP_ENV=production \
   --dart-define=APP_RELEASE=agsur-painel@$(git rev-parse --short HEAD)
 
 # Para forçar MFA em Admin Master (depois que TODOS cadastrarem TOTP):
@@ -64,10 +64,31 @@ flutter build web --release `
 `buildCommand` é `null`, então o `flutter build web` precisa rodar **antes**
 do deploy (manualmente ou via script). Vercel apenas serve o resultado.
 
+> 🚨 **Deploy SÓ via CI. Nunca conecte a integração Git nativa do Vercel neste
+> projeto.** Como o Vercel não builda Flutter (`buildCommand: null`), um deploy
+> disparado pelo push sai **vazio** (sem `index.html`) e mesmo assim **rouba o
+> alias de produção** → `painel.agsurbrasil.app` inteiro vira `404 NOT_FOUND`.
+>
+> Isso já aconteceu **duas vezes** (2026-06-25 e 2026-07-15). Na segunda, a
+> integração estava ligada desde 02/07 e ficava escondida: o deploy do CI rodava
+> logo depois de cada push e re-aliasava por cima. Um commit **só de `.md`** —
+> que o `deploy-vercel.yml` pula via `paths-ignore` — deixou o deployment vazio
+> sozinho e derrubou o painel.
+>
+> A guarda hoje é `"git": {"deploymentEnabled": false}` no `vercel.json`
+> (versionada, sobrevive a mexida no dashboard). **Não remova.** Ela não afeta o
+> `vercel deploy --prebuilt` do CI, só o auto-deploy por push.
+>
+> **Sintoma → diagnóstico:** 404 com `x-vercel-error: NOT_FOUND` (e *não*
+> `DEPLOYMENT_NOT_FOUND`) = o deployment existe mas está vazio. Confirme com
+> `vercel inspect https://painel.agsurbrasil.app`: se o deployment servindo prod
+> tiver `"source": "git"`, é isso. Conserto: `vercel promote <dpl_ do último CI
+> verde>` restaura em segundos.
+
 ### Workflow de schema (Supabase)
 
-```powershell
-$env:SUPABASE_ACCESS_TOKEN = "<token de https://supabase.com/dashboard/account/tokens>"
+```bash
+export SUPABASE_ACCESS_TOKEN="<token de https://supabase.com/dashboard/account/tokens>"
 npx -y supabase@latest link --project-ref bkzybtmxxzpxtztesdye
 
 npx supabase migration new <slug>

@@ -2,6 +2,9 @@
   "buildCommand": null,
   "outputDirectory": "build/web",
   "framework": null,
+  "git": {
+    "deploymentEnabled": false
+  },
   "rewrites": [
     {
       "source": "/privacidade",

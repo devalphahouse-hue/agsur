@@ -279,17 +279,24 @@ permitidas via `AccessControl.canView`), e telas com edição condicional — ex
 editam/checam etapas; vendedor visualiza; recepção nem vê a tela). Ao mexer em
 menu/rotas/edição, passe por esta camada — não hardcode perfil.
 
-**Estado atual (verificado em produção em 2026-07-14):** a coluna
-`users.access_level` (`20260701170000`) e os helpers de nível
-(`20260701170500`: `auth_access_level`, `auth_is_admin_documentacao`,
-`auth_is_admin_recepcao`, `auth_is_vendedor`) **ESTÃO aplicados** e registrados
-no histórico. O que falta é o enforcement geral nos triggers (Fase 7 —
-`20260701171000_rbac_level_enforcement`), escrito mas **não aplicado** — só
-entra via PR + `rls-smoke` + o checklist do próprio arquivo. Exceção já em
-vigor: o write de `company` (`20260714120000`) usa os helpers de nível — é o
-primeiro enforcement server-side por nível. Nota histórica: versões anteriores
-deste arquivo diziam que nada disso estava aplicado; estava errado (as
-migrations foram aplicadas por fora em 2026-07-01 sem registro no histórico).
+**Estado atual (2026-07-15): Fase 7 APLICADA em produção** (rls-smoke verde
+antes e depois), junto com um fix crítico descoberto na validação: **as
+triggers de guarda eram no-op desde 2026-05-08** — dentro de função SECURITY
+DEFINER, `current_user` é o dono (postgres) e `auth_is_service_role()`
+retornava true para qualquer chamador; só a RLS segurava as escritas. O fix
+(`20260715120000_fix_trigger_service_role_bypass`) cria
+`auth_is_service_request()` (usa `session_user`, imune a definer) e troca a
+checagem nas 5 funções de guarda (`tg_require_admin/seller_or_admin/
+documentacao/funil`, `tg_block_edit_when_soft_deleted`). **Seguem
+deliberadamente neutralizadas** (bypass antigo; RLS é o guarda):
+`tg_users_block_privilege_escalation` e as `tg_*_ownership` — armar exige
+reconciliar as regras com os fluxos reais (vendedor cria cliente na conversão;
+recepção cadastra piloto/oficina); `tg_require_service_role` (gate do audit
+log) precisa do bypass por current_user. ⚠️ Personificação via Management
+API/psql NÃO testa as triggers (session_user = postgres → bypass): valide com
+JWT real via PostgREST. No client-side, `AccessControl.canEditFunil`
+(master+documentação) decide o `typeAccess=edit` das listagens de
+proposta/contrato (lápis + converter em contrato).
 
 ### Escritas do painel — bloqueio silencioso de RLS (`write_guard`)
 

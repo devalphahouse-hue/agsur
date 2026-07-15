@@ -3,7 +3,9 @@ import '/backend/api_requests/api_calls.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/schema/structs/index.dart';
 import '/backend/supabase/supabase.dart';
+import '/security/credentials_email.dart';
 import '/security/password_utils.dart';
+import '/security/write_guard.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -124,9 +126,17 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                 _model.selectedItemPrices.values.fold(0.0, (a, b) => a + b);
         // Sync fullprice in DB with actual base + selected optionals
         final correctFullprice = _model.baseAircraftPrice + _model.selectedItemPrices.values.fold(0.0, (a, b) => a + b);
-        await ProposalTable().update(
-          data: {'fullprice': correctFullprice},
-          matchingRows: (rows) => rows.eqOrNull('id', FFAppState().asGetProposalDetails.proposal.id),
+        // silent: roda no load da tela, não num botão — bloqueio aqui vai pro
+        // Sentry em vez de virar alerta vermelho sem o usuário ter clicado.
+        await guardWrite(
+          context,
+          () => ProposalTable().update(
+            data: {'fullprice': correctFullprice},
+            matchingRows: (rows) => rows.eqOrNull('id', FFAppState().asGetProposalDetails.proposal.id),
+            returnRows: true,
+          ),
+          silent: true,
+          contexto: 'view_edit_proposal: sync de fullprice no load',
         );
         safeSetState(() {});
         return;
@@ -1174,30 +1184,42 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                           cpf,
                                                           typeDoc,
                                                           stateRegistration) async {
-                                                        await CompanyTable()
-                                                            .update(
-                                                          data: {
-                                                            'company_name':
-                                                                companyName,
-                                                            'cnpj': companyCnpj,
-                                                            'phone':
-                                                                companyPhone,
-                                                            'created_by':
-                                                                currentUserUid,
-                                                            'cpf': cpf,
-                                                            'type_doc': typeDoc
-                                                                ?.toString(),
-                                                          },
-                                                          matchingRows:
-                                                              (rows) =>
-                                                                  rows.eqOrNull(
-                                                            'id',
-                                                            FFAppState()
-                                                                .asGetProposalDetails
-                                                                .proposalCompany
-                                                                .id,
+                                                        final okCompany =
+                                                            await guardWrite(
+                                                          context,
+                                                          () => CompanyTable()
+                                                              .update(
+                                                            data: {
+                                                              'company_name':
+                                                                  companyName,
+                                                              'cnpj':
+                                                                  companyCnpj,
+                                                              'phone':
+                                                                  companyPhone,
+                                                              'created_by':
+                                                                  currentUserUid,
+                                                              'cpf': cpf,
+                                                              'type_doc':
+                                                                  typeDoc
+                                                                      ?.toString(),
+                                                              'state_registration':
+                                                                  stateRegistration,
+                                                            },
+                                                            matchingRows:
+                                                                (rows) =>
+                                                                    rows.eqOrNull(
+                                                              'id',
+                                                              FFAppState()
+                                                                  .asGetProposalDetails
+                                                                  .proposalCompany
+                                                                  .id,
+                                                            ),
+                                                            returnRows: true,
                                                           ),
                                                         );
+                                                        if (!okCompany) {
+                                                          return;
+                                                        }
                                                         ScaffoldMessenger.of(
                                                                 context)
                                                             .showSnackBar(
@@ -2115,32 +2137,41 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                                 state,
                                                                 complement,
                                                                 addressId) async {
-                                                              await AddressTable()
-                                                                  .update(
-                                                                data: {
-                                                                  'zipcode':
-                                                                      zipcode,
-                                                                  'street':
-                                                                      street,
-                                                                  'number':
-                                                                      number,
-                                                                  'neighborhood':
-                                                                      neighborhood,
-                                                                  'city': city,
-                                                                  'state':
-                                                                      state,
-                                                                  'complement':
-                                                                      complement,
-                                                                  'created_by':
-                                                                      currentUserUid,
-                                                                },
-                                                                matchingRows:
-                                                                    (rows) => rows
-                                                                        .eqOrNull(
-                                                                  'id',
-                                                                  addressId,
+                                                              final okAddress =
+                                                                  await guardWrite(
+                                                                context,
+                                                                () => AddressTable()
+                                                                    .update(
+                                                                  data: {
+                                                                    'zipcode':
+                                                                        zipcode,
+                                                                    'street':
+                                                                        street,
+                                                                    'number':
+                                                                        number,
+                                                                    'neighborhood':
+                                                                        neighborhood,
+                                                                    'city': city,
+                                                                    'state':
+                                                                        state,
+                                                                    'complement':
+                                                                        complement,
+                                                                    'created_by':
+                                                                        currentUserUid,
+                                                                  },
+                                                                  matchingRows:
+                                                                      (rows) => rows
+                                                                          .eqOrNull(
+                                                                    'id',
+                                                                    addressId,
+                                                                  ),
+                                                                  returnRows:
+                                                                      true,
                                                                 ),
                                                               );
+                                                              if (!okAddress) {
+                                                                return;
+                                                              }
                                                               ScaffoldMessenger
                                                                       .of(context)
                                                                   .showSnackBar(
@@ -4598,12 +4629,34 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                             thickness: 2.0,
                                             color: Color(0x74FFFFFF),
                                           ),
-                                          FutureBuilder<List<AircraftItemsRow>>(
+                                          FutureBuilder<
+                                              List<
+                                                  VwAircraftItemsByAircraftRow>>(
                                             future: _model
                                                     .optionalItemsByCategory[
-                                                category.id] ??= AircraftItemsTable()
+                                                category.id] ??= VwAircraftItemsByAircraftTable()
                                                 .queryRows(
+                                              // Filtra pelo avião da proposta.
+                                              // aircraftId pode vir como o
+                                              // placeholder 'Não cadastrado'
+                                              // (armadilha de UUID do
+                                              // get_proposal_details) — nesse
+                                              // caso passa null e não filtra,
+                                              // em vez de estourar 22P02.
                                               queryFn: (q) => q
+                                                  .eqOrNull(
+                                                    'aircraft_id',
+                                                    RegExp(r'^[0-9a-fA-F-]{36}$')
+                                                            .hasMatch(FFAppState()
+                                                                .asGetProposalDetails
+                                                                .proposal
+                                                                .aircraftId)
+                                                        ? FFAppState()
+                                                            .asGetProposalDetails
+                                                            .proposal
+                                                            .aircraftId
+                                                        : null,
+                                                  )
                                                   .eqOrNull(
                                                       'category_id', category.id)
                                                   .eqOrNull(
@@ -4885,25 +4938,46 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                                       try {
                                                                         final proposalItemId = _model.aircraftToProposalItemId[item.id];
                                                                         if (proposalItemId != null && proposalItemId.isNotEmpty) {
-                                                                          await ProposalItemTable().delete(
-                                                                            matchingRows: (rows) => rows.eqOrNull('id', proposalItemId),
+                                                                          final okItemDeleteById = await guardWrite(
+                                                                            context,
+                                                                            () => ProposalItemTable().delete(
+                                                                              matchingRows: (rows) => rows.eqOrNull('id', proposalItemId),
+                                                                              returnRows: true,
+                                                                            ),
                                                                           );
+                                                                          if (!okItemDeleteById) {
+                                                                            return;
+                                                                          }
                                                                         } else {
-                                                                          await ProposalItemTable().delete(
-                                                                            matchingRows: (rows) => rows
-                                                                                .eqOrNull('aircraft_item_id', item.id)
-                                                                                .eqOrNull('proposal_id', widget!.proposalId),
+                                                                          final okItemDeleteByAircraft = await guardWrite(
+                                                                            context,
+                                                                            () => ProposalItemTable().delete(
+                                                                              matchingRows: (rows) => rows
+                                                                                  .eqOrNull('aircraft_item_id', item.id)
+                                                                                  .eqOrNull('proposal_id', widget!.proposalId),
+                                                                              returnRows: true,
+                                                                            ),
                                                                           );
+                                                                          if (!okItemDeleteByAircraft) {
+                                                                            return;
+                                                                          }
                                                                         }
                                                                         _model.removeFromListdIds(item.id);
                                                                         _model.selectedItemPrices.remove(item.id);
                                                                         _model.aircraftToProposalItemId.remove(item.id);
                                                                         // Update fullprice in proposal table and refresh FFAppState
                                                                         final newFullprice = _model.baseAircraftPrice + _model.selectedItemPrices.values.fold(0.0, (a, b) => a + b);
-                                                                        await ProposalTable().update(
-                                                                          data: {'fullprice': newFullprice},
-                                                                          matchingRows: (rows) => rows.eqOrNull('id', widget!.proposalId),
+                                                                        final okRemoveFullprice = await guardWrite(
+                                                                          context,
+                                                                          () => ProposalTable().update(
+                                                                            data: {'fullprice': newFullprice},
+                                                                            matchingRows: (rows) => rows.eqOrNull('id', widget!.proposalId),
+                                                                            returnRows: true,
+                                                                          ),
                                                                         );
+                                                                        if (!okRemoveFullprice) {
+                                                                          return;
+                                                                        }
                                                                         // Refresh proposal details in FFAppState
                                                                         final refreshedDetails = await GetProposalDetailsCall.call(pProposalId: widget!.proposalId);
                                                                         if (refreshedDetails.succeeded) {
@@ -4981,10 +5055,17 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                                               (item.qty ?? 1).toDouble();
                                                                       // Update fullprice in proposal table and refresh FFAppState
                                                                       final newFullprice = _model.baseAircraftPrice + _model.selectedItemPrices.values.fold(0.0, (a, b) => a + b);
-                                                                      await ProposalTable().update(
-                                                                        data: {'fullprice': newFullprice},
-                                                                        matchingRows: (rows) => rows.eqOrNull('id', widget!.proposalId),
+                                                                      final okAddFullprice = await guardWrite(
+                                                                        context,
+                                                                        () => ProposalTable().update(
+                                                                          data: {'fullprice': newFullprice},
+                                                                          matchingRows: (rows) => rows.eqOrNull('id', widget!.proposalId),
+                                                                          returnRows: true,
+                                                                        ),
                                                                       );
+                                                                      if (!okAddFullprice) {
+                                                                        return;
+                                                                      }
                                                                       // Refresh proposal details in FFAppState
                                                                       final refreshedDetails = await GetProposalDetailsCall.call(pProposalId: widget!.proposalId);
                                                                       if (refreshedDetails.succeeded) {
@@ -5388,6 +5469,8 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                               .id,
                                                         ),
                                                       );
+                                                      final clientPassword =
+                                                          generateStrongPassword();
                                                       _model.createUserAuth =
                                                           await CreateAccountAnotherUserCall
                                                               .call(
@@ -5395,7 +5478,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                             .asGetProposalDetails
                                                             .proposalLead
                                                             .email,
-                                                        password: generateStrongPassword(),
+                                                        password: clientPassword,
                                                       );
 
                                                       final novoUserId = getJsonField(
@@ -5453,14 +5536,17 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                             ?.firstOrNull
                                                             ?.fullname,
                                                       });
-                                                      // dispara o e-mail de "definir senha" pro cliente novo
-                                                      // (o link abre o app em agsurclientapp://.../resetPassword)
-                                                      try {
-                                                        await SupaFlow.client.auth.resetPasswordForEmail(
-                                                          FFAppState().asGetProposalDetails.proposalLead.email,
-                                                          redirectTo: 'agsurclientapp://agsurclientapp.com/resetPassword',
-                                                        );
-                                                      } catch (_) {}
+                                                      // e-mail de boas-vindas com as credenciais do cliente novo
+                                                      // (via Edge Function send-credentials-email / Resend)
+                                                      final emailSent = await sendCredentialsEmail(
+                                                        email: FFAppState().asGetProposalDetails.proposalLead.email,
+                                                        password: clientPassword,
+                                                        profileType: 'Cliente',
+                                                        name: _model.getLead?.firstOrNull?.name,
+                                                      );
+                                                      if (!emailSent && context.mounted) {
+                                                        showCredentialsEmailWarning(context);
+                                                      }
                                                     }
                                                     final createdContract =
                                                         await ContractTable()
@@ -5582,15 +5668,23 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                               1;
                                                     }
                                                     _model.countController = 0;
-                                                    await ProposalTable().update(
-                                                      data: {
-                                                        'is_contract': true,
-                                                      },
-                                                      matchingRows: (rows) => rows.eqOrNull(
-                                                        'id',
-                                                        widget!.proposalId,
+                                                    final okIsContract =
+                                                        await guardWrite(
+                                                      context,
+                                                      () => ProposalTable().update(
+                                                        data: {
+                                                          'is_contract': true,
+                                                        },
+                                                        matchingRows: (rows) => rows.eqOrNull(
+                                                          'id',
+                                                          widget!.proposalId,
+                                                        ),
+                                                        returnRows: true,
                                                       ),
                                                     );
+                                                    if (!okIsContract) {
+                                                      return;
+                                                    }
                                                     // Contrato/dados já gravados
                                                     // acima; navega direto para
                                                     // a lista de contratos (sem

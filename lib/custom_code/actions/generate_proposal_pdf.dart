@@ -535,6 +535,24 @@ Future<void> generateProposalPdf(
               ),
             ),
 
+            // Itens de série (vêm de fábrica com a aeronave; o preço já está
+            // incluso no valor base — por isso "Incluso" e sem coluna de total,
+            // senão o leitor somaria de novo).
+            ...List.generate(seriesItems.length, (index) {
+              final serie = seriesItems[index];
+              return pw.Container(
+                padding: const pw.EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                decoration: pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(width: 0.3))),
+                child: pw.Row(children: [
+                  pw.Container(width: 30, child: pw.Text('', style: pw.TextStyle(fontSize: 7))),
+                  pw.Container(width: 25, child: pw.Text('${serie.qty}', style: pw.TextStyle(fontSize: 7))),
+                  pw.Expanded(child: pw.Text(_pdfSafe('${serie.itemName} (item de série)'), style: pw.TextStyle(fontSize: 7))),
+                  pw.Container(width: 90, child: pw.Text('Incluso', style: pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.right)),
+                  pw.Container(width: 80, child: pw.Text('-', style: pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.right)),
+                ]),
+              );
+            }),
+
             // Optional items
             ...List.generate(optionalItems.length, (index) {
               final opt = optionalItems[index];

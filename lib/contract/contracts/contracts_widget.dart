@@ -6,6 +6,7 @@ import '/auth/supabase_auth/auth_util.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/security/access_control.dart';
 import '/index.dart';
 import 'contracts_model.dart';
 
@@ -55,8 +56,8 @@ class _ContractsWidgetState extends State<ContractsWidget> {
     super.dispose();
   }
 
-  bool get _isAdmin =>
-      _model.user?.firstOrNull?.profileType == 'Admin Master';
+  bool get _canEdit => AccessControl.canEditFunil(
+      AccessControl.roleOf(_model.user?.firstOrNull));
 
   @override
   Widget build(BuildContext context) {
@@ -121,7 +122,7 @@ class _ContractsWidgetState extends State<ContractsWidget> {
                         'proposalId':
                             serializeParam(list[i].id, ParamType.String),
                         'typeAccess': serializeParam(
-                            _isAdmin ? 'edit' : 'view', ParamType.String),
+                            _canEdit ? 'edit' : 'view', ParamType.String),
                         'companyName': serializeParam(
                             list[i].companyName, ParamType.String),
                       }.withoutNulls,

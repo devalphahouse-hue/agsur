@@ -71,6 +71,11 @@ class ViewContractModel extends FlutterFlowModel<ViewContractWidget> {
   FocusNode? tFTermsFocusNode;
   TextEditingController? tFTermsTextController;
   String? Function(BuildContext, String?)? tFTermsTextControllerValidator;
+  // Termos preenchíveis: os rótulos vêm do template (contract_terms.terms) e
+  // são fixos na UI; o usuário só preenche o valor de cada linha. Um
+  // controller por linha do template; o texto final é remontado no Gerar PDF.
+  String termsTemplate = '';
+  final Map<int, TextEditingController> termsFieldControllers = {};
 
   /// Query cache managers for this widget.
 
@@ -115,6 +120,9 @@ class ViewContractModel extends FlutterFlowModel<ViewContractWidget> {
 
     tFTermsFocusNode?.dispose();
     tFTermsTextController?.dispose();
+    for (final c in termsFieldControllers.values) {
+      c.dispose();
+    }
 
     /// Dispose query cache managers for this widget.
 

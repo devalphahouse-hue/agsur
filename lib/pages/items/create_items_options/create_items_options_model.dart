@@ -1,6 +1,5 @@
 import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/form_field_controller.dart';
 import '/index.dart';
 import 'create_items_options_widget.dart' show CreateItemsOptionsWidget;
 import 'dart:async';
@@ -14,40 +13,24 @@ class CreateItemsOptionsModel
 
   ///  State fields for stateful widgets in this page.
 
-  // State field(s) for DPDCategory widget.
-  String? dPDCategoryValue;
-  FormFieldController<String>? dPDCategoryValueController;
-  // State field(s) for TFAircraftName widget.
-  FocusNode? tFAircraftNameFocusNode;
-  TextEditingController? tFAircraftNameTextController;
-  String? Function(BuildContext, String?)?
-      tFAircraftNameTextControllerValidator;
-  // State field(s) for TFQtyItem widget.
-  FocusNode? tFQtyItemFocusNode;
-  TextEditingController? tFQtyItemTextController;
-  String? Function(BuildContext, String?)? tFQtyItemTextControllerValidator;
-  // State field(s) for TFPrice widget.
-  FocusNode? tFPriceFocusNode;
-  TextEditingController? tFPriceTextController;
-  String? Function(BuildContext, String?)? tFPriceTextControllerValidator;
-  // Stores action output result for [Backend Call - Insert Row] action in Button widget.
-  AircraftItemsRow? createOptionalItem;
   Completer<List<AircraftItemsRow>>? requestCompleter;
+
+  // Cache de itens POR categoria. O bug original (FlutterFlow) usava um único
+  // requestCompleter para todas: a primeira categoria a renderizar completava
+  // a future com os itens DELA e as demais reutilizavam o mesmo resultado —
+  // toda categoria mostrava os mesmos itens. Invalidar com .clear().
+  final Map<String, Future<List<AircraftItemsRow>>> itemsByCategory = {};
+  // Dados de apoio memoizados — aeronaves ativas do catálogo e vínculos
+  // item↔aeronave (agrupados por aircraft_item_id em memória). Invalidar
+  // (= null) + safeSetState após criar/editar/excluir.
+  Future<List<AircraftsRow>>? aircraftsFuture;
+  Future<List<AircraftItemLinksRow>>? aircraftLinksFuture;
 
   @override
   void initState(BuildContext context) {}
 
   @override
-  void dispose() {
-    tFAircraftNameFocusNode?.dispose();
-    tFAircraftNameTextController?.dispose();
-
-    tFQtyItemFocusNode?.dispose();
-    tFQtyItemTextController?.dispose();
-
-    tFPriceFocusNode?.dispose();
-    tFPriceTextController?.dispose();
-  }
+  void dispose() {}
 
   /// Additional helper methods.
   Future waitForRequestCompleted({

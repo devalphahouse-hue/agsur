@@ -12,6 +12,7 @@ import '/index.dart';
 import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
 import '/pages/shared/modal_register_pilot/modal_register_pilot_widget.dart';
 import '/pages/shared/switch_component/switch_component_widget.dart';
+import '/security/credentials_email.dart';
 import '/security/password_utils.dart';
 import 'pilots_model.dart';
 
@@ -99,7 +100,14 @@ class _PilotsWidgetState extends State<PilotsWidget> {
                     } catch (_) {}
                   }
                 }
+                final emailSent = await sendCredentialsEmail(
+                  email: email,
+                  password: password,
+                  profileType: 'Piloto',
+                  name: name,
+                );
                 if (!mounted) return;
+                if (!emailSent) showCredentialsEmailWarning(context);
                 _refresh();
                 Navigator.of(dialogContext).pop();
                 ScaffoldMessenger.of(context).showSnackBar(

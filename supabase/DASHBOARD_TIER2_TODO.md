@@ -96,8 +96,8 @@ Se Cliente realmente cria conta sozinho pelo app, deixar ON.
 
 ## 6. Teto global de upload do Storage
 
-**Onde:** Storage → Settings → "Upload file size limit"
-**Valor atual:** padrão do projeto (50 MB)
+**Onde:** Storage → Settings → "Global file size limit"
+**Valor atual:** **1 GB** (resolvido em 2026-07-01).
 **Por quê:** os manuais de aeronave (OEM/AFM/IPC) passaram a ser "sem limite" —
 o teto client-side foi removido (`storage.dart`) e o `file_size_limit` do bucket
 `AGSur` foi para `NULL` (migration `20260629120000_agsur_bucket_no_size_limit.sql`).
@@ -106,6 +106,18 @@ Enquanto ele estiver em 50 MB, arquivo maior que isso volta erro do servidor
 mesmo com o bucket sem limite. Suba esse valor para o máximo desejado (o limite
 do plano é o teto real — uploads padrão acima de ~50 MB podem exigir upload
 resumável).
+
+**Resolução (2026-07-01):** o teto estava preso em 50 MB por causa do **spend
+cap** (limite de gastos), que reduz o máximo de upload — não dá pra passar de
+50 MB com ele ligado. Foi preciso **desativar o spend cap** (Storage → Settings
+→ "Disable spend cap"; decisão do dono: excedente do plano Pro passa a ser
+cobrado) e então subir o "Global file size limit" para **1 GB**. Além disso, a
+migration `20260629120000` **não tinha sido aplicada em produção** — o
+`file_size_limit` do bucket `AGSur` ainda era 50 MB (52428800). Aplicado direto
+via Management API (`update storage.buckets set file_size_limit = null where
+id = 'AGSur'`), então o estado do banco agora casa com a migration versionada.
+⚠️ O `SUPABASE_ACCESS_TOKEN` usado nesse ajuste foi exposto em chat e **deve ser
+rotacionado**.
 
 ---
 
@@ -116,4 +128,4 @@ resumável).
 - [ ] 3. `Inactivity timeout` = 3600
 - [ ] 4. `MFA Allow Low AAL` OFF + Hook `custom_access_token_hook` ativado + TOTP cadastrado em todos os Admin Masters
 - [ ] 5. (decisão de produto) Disable signup público — Sim/Não
-- [ ] 6. Teto global de upload do Storage elevado (senão o "sem limite" dos manuais para em 50 MB)
+- [x] 6. Teto global de upload do Storage elevado — **1 GB** (2026-07-01; spend cap desativado + bucket `AGSur` `file_size_limit=NULL` aplicado via Management API)

@@ -7,6 +7,7 @@ import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
+import '/security/write_guard.dart';
 import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
 import '/pages/shared/modal_register_lead/modal_register_lead_widget.dart';
 import 'leads_model.dart';
@@ -109,10 +110,15 @@ class _LeadsWidgetState extends State<LeadsWidget> {
             iconColor: const Color(0xFFFF5963),
             btnColor: const Color(0xFFFF5963),
             confirmBtnAction: () async {
-              await LeadsTable().update(
-                data: {'is_deleted': true},
-                matchingRows: (rows) => rows.eqOrNull('id', item.id),
+              final okDeleteLead = await guardWrite(
+                context,
+                () => LeadsTable().update(
+                  data: {'is_deleted': true},
+                  matchingRows: (rows) => rows.eqOrNull('id', item.id),
+                  returnRows: true,
+                ),
               );
+              if (!okDeleteLead) return;
               if (!mounted) return;
               Navigator.of(dialogContext).pop();
               _refresh();

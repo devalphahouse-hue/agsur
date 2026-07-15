@@ -57,6 +57,8 @@ class _OficinaDetailsWidgetState extends State<OficinaDetailsWidget> {
         MaskTextInputFormatter(mask: '##.###.###/####-##');
 
     _model.tFPhoneOficinaFocusNode ??= FocusNode();
+    _model.tFPhoneOficinaMask =
+        MaskTextInputFormatter(mask: '(##) # ####.####');
 
     _model.tFEmailOficinaFocusNode ??= FocusNode();
 
@@ -1470,6 +1472,10 @@ class _OficinaDetailsWidgetState extends State<OficinaDetailsWidget> {
                                                             .tFPhoneOficinaTextControllerValidator
                                                             .asValidator(
                                                                 context),
+                                                        inputFormatters: [
+                                                          _model
+                                                              .tFPhoneOficinaMask
+                                                        ],
                                                       ),
                                                     ].divide(
                                                         SizedBox(height: 8.0)),

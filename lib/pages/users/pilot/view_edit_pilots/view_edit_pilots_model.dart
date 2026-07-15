@@ -4,6 +4,7 @@ import '/index.dart';
 import 'dart:async';
 import 'view_edit_pilots_widget.dart' show ViewEditPilotsWidget;
 import 'package:flutter/material.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 
 class ViewEditPilotsModel extends FlutterFlowModel<ViewEditPilotsWidget> {
   ///  Local state fields for this page.
@@ -27,6 +28,7 @@ class ViewEditPilotsModel extends FlutterFlowModel<ViewEditPilotsWidget> {
   // State field(s) for TFPhonePilot widget.
   FocusNode? tFPhonePilotFocusNode;
   TextEditingController? tFPhonePilotTextController;
+  late MaskTextInputFormatter tFPhonePilotMask;
   String? Function(BuildContext, String?)? tFPhonePilotTextControllerValidator;
   // Stores action output result for [Backend Call - Update Row(s)] action in BTNAddRegister widget.
   List<UsersRow>? updatePilot;

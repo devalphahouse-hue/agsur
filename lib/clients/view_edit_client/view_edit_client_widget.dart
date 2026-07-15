@@ -1,6 +1,7 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/api_requests/api_calls.dart';
 import '/backend/supabase/supabase.dart';
+import '/security/write_guard.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -3284,39 +3285,60 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                     0.0, 16.0, 0.0, 0.0),
                                             child: FFButtonWidget(
                                               onPressed: () async {
-                                                await LeadsTable().update(
-                                                  data: {
-                                                    'phone': _model
-                                                        .tFPhoneLeadTextController
-                                                        .text,
-                                                    'city': _model
-                                                        .tFEmpresaLeadTextController
-                                                        .text,
-                                                    'state': _model
-                                                        .tFCargoLeadTextController
-                                                        .text,
-                                                    'job_title': _model
-                                                        .tFCargoLeadTextController
-                                                        .text,
-                                                  },
-                                                  matchingRows: (rows) =>
-                                                      rows.eqOrNull(
-                                                    'id',
-                                                    widget!.leadId,
+                                                final okLead = await guardWrite(
+                                                  context,
+                                                  () => LeadsTable().update(
+                                                    data: {
+                                                      'phone': _model
+                                                          .tFPhoneLeadTextController
+                                                          .text,
+                                                      // city/state liam os
+                                                      // controllers de Empresa e
+                                                      // Cargo (bug desde o commit
+                                                      // inicial): salvar aqui
+                                                      // sobrescrevia a cidade com
+                                                      // o nome da empresa e a UF
+                                                      // com o cargo. Nome/CPF/
+                                                      // e-mail/Empresa são
+                                                      // readOnly nesta tela, por
+                                                      // isso não entram no update.
+                                                      'city': _model
+                                                          .tFCityLeadTextController
+                                                          .text,
+                                                      'state': _model
+                                                          .tFUfLeadTextController
+                                                          .text,
+                                                      'job_title': _model
+                                                          .tFCargoLeadTextController
+                                                          .text,
+                                                    },
+                                                    matchingRows: (rows) =>
+                                                        rows.eqOrNull(
+                                                      'id',
+                                                      widget!.leadId,
+                                                    ),
+                                                    returnRows: true,
                                                   ),
                                                 );
-                                                await UsersTable().update(
-                                                  data: {
-                                                    'phone': _model
-                                                        .tFPhoneLeadTextController
-                                                        .text,
-                                                  },
-                                                  matchingRows: (rows) =>
-                                                      rows.eqOrNull(
-                                                    'lead_id',
-                                                    widget!.leadId,
+                                                if (!okLead) return;
+                                                final okClientUser =
+                                                    await guardWrite(
+                                                  context,
+                                                  () => UsersTable().update(
+                                                    data: {
+                                                      'phone': _model
+                                                          .tFPhoneLeadTextController
+                                                          .text,
+                                                    },
+                                                    matchingRows: (rows) =>
+                                                        rows.eqOrNull(
+                                                      'lead_id',
+                                                      widget!.leadId,
+                                                    ),
+                                                    returnRows: true,
                                                   ),
                                                 );
+                                                if (!okClientUser) return;
                                                 ScaffoldMessenger.of(context)
                                                     .showSnackBar(
                                                   SnackBar(

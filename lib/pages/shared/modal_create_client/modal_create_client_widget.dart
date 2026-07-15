@@ -5,6 +5,7 @@ import '/backend/schema/enums/enums.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/security/credentials_email.dart';
 import '/security/password_utils.dart';
 import 'modal_create_client_model.dart';
 
@@ -145,7 +146,14 @@ class _ModalCreateClientWidgetState extends State<ModalCreateClientWidget> {
         });
       } catch (_) {}
 
+      final emailSent = await sendCredentialsEmail(
+        email: email,
+        password: _model.tFPasswordUserTextController!.text,
+        profileType: 'Cliente',
+        name: _selectedLead?.name,
+      );
       if (!mounted) return;
+      if (!emailSent) showCredentialsEmailWarning(context);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Cliente criado com sucesso!',

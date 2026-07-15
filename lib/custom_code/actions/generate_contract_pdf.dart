@@ -213,6 +213,7 @@ Future<void> generateContractPdf(
   final company = asGetProposalDetails.proposalCompany;
   final address = asGetProposalDetails.proposalAddress;
   final aircraft = asGetProposalDetails.proposalAircraft;
+  final seriesItems = asGetProposalDetails.proposalSeriesItems ?? [];
   final optionalItems = asGetProposalDetails.proposalOptionalItems ?? [];
 
   final fullPrice = asGetFinancialProposal.fullprice;
@@ -460,6 +461,23 @@ Future<void> generateContractPdf(
               ),
             ),
 
+            // Itens de série (vêm de fábrica com a aeronave; preço incluso no
+            // valor base — "Incluso" evita que o leitor some de novo).
+            ...List.generate(seriesItems.length, (index) {
+              final serie = seriesItems[index];
+              return pw.Container(
+                padding: const pw.EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                decoration: pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(width: 0.3))),
+                child: pw.Row(children: [
+                  pw.Container(width: 30, child: pw.Text('', style: pw.TextStyle(fontSize: 7))),
+                  pw.Container(width: 25, child: pw.Text('${serie.qty}', style: pw.TextStyle(fontSize: 7))),
+                  pw.Expanded(child: pw.Text(_pdfSafe('${serie.itemName} (item de série)'), style: pw.TextStyle(fontSize: 7))),
+                  pw.Container(width: 90, child: pw.Text('Incluso', style: pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.right)),
+                  pw.Container(width: 80, child: pw.Text('-', style: pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.right)),
+                ]),
+              );
+            }),
+
             // Optional items
             ...List.generate(optionalItems.length, (index) {
               final opt = optionalItems[index];
@@ -515,7 +533,12 @@ Future<void> generateContractPdf(
                 _tableRow('Saldo:', _formatCurrencyUS(subtotal)),
                 _tableRow('Risco Pais - Taxa EXIM (estimada)', _formatCurrencyUS(premium)),
                 _tableRow('Total Financiado:', _formatCurrencyUS(creditoTotal)),
+                // Custo bancário e caução em linhas separadas, cada um com o
+                // próprio rótulo (mesmo padrão do PDF da proposta). Nenhum dos
+                // dois entra em soma — o Total Financiado é calculado antes.
                 _tableRow('Custo Bancário:', _formatCurrencyUS(2500)),
+                _tableRow(
+                    'Pagamento Caução (ato)*:', _formatCurrencyUS(10000)),
                 pw.Container(
                   padding: const pw.EdgeInsets.all(6),
                   child: pw.Text(

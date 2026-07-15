@@ -115,6 +115,21 @@ medidor `PasswordStrengthMeter` (de `core_ui`) ao vivo. Padrão já aplicado em
 Ao tratar o erro do signup, mostre mensagem específica de senha fraca e **não
 feche a modal** (preserva os campos) — ver `pages/users/pilot/pilots`.
 
+**E-mail de credenciais (Resend, 2026-07-15).** Todo fluxo de criação de
+usuário (colaborador, vendedor, piloto, oficina, cliente manual e cliente via
+conversão proposta→contrato) dispara um e-mail pt-BR com e-mail+senha pela Edge
+Function **`send-credentials-email`** (`supabase/functions/`; Resend, domínio
+verificado `painel.agsurbrasil.app`, remetente `acesso@`). No Dart, use
+`lib/security/credentials_email.dart` (`sendCredentialsEmail` — a falha de
+e-mail NUNCA aborta o cadastro; em erro, `showCredentialsEmailWarning` avisa o
+admin para repassar a senha manualmente e o evento vai ao Sentry sem a senha).
+A função exige JWT de perfil do painel (Admin Master/Admin/Vendedor/Admin2) —
+sessão de app cliente leva 403. Secret `RESEND_API_KEY` via
+`npx supabase secrets set` (nunca no código). Deploy:
+`npx supabase functions deploy send-credentials-email --project-ref bkzybtmxxzpxtztesdye --use-api`.
+A conversão proposta→contrato **não usa mais** `resetPasswordForEmail` (o
+e-mail nativo do Supabase, limitado a 2/hora, ficou só para "esqueci a senha").
+
 - `lib/backend/supabase/supabase.dart` — `SupaFlow` com URL/anon key embarcadas
   como fallback. Em build de produção, valores são sobrescritos via
   `--dart-define`. Anon key é pública por design Supabase; segurança real
@@ -124,8 +139,9 @@ feche a modal** (preserva os campos) — ver `pages/users/pilot/pilots`.
   insert / update / delete`.
 - Tabelas `vw_*` são views Postgres (read-only) — usar para leituras agregadas.
 - **RPCs com placeholder de texto (armadilha de UUID).** Algumas RPCs lidas pelo
-  painel — ex.: `get_proposal_details` (chamada em `api_calls.dart`, **não
-  versionada** em `supabase/migrations/`, criada via Studio = drift) — devolvem
+  painel — ex.: `get_proposal_details` (chamada em `api_calls.dart`; versionada
+  desde `20260714130000`, que também passou a filtrar os itens de série pelo
+  avião da proposta via `aircraft_item_links`) — devolvem
   `"Não cadastrado"` no lugar de campos ausentes, **inclusive `aircraft_id`**.
   Esse texto não é UUID: filtrar `aircrafts`/`aircraft_items` por ele dá
   **Postgres 22P02** e deixa a tela em branco (já aconteceu em
@@ -137,8 +153,13 @@ feche a modal** (preserva os campos) — ver `pages/users/pilot/pilots`.
 
 ### Schema versionado em `supabase/migrations/`
 
-DDL agora vive **versionado no git** em `supabase/migrations/`. 35 migrations
-aplicadas. O batch de endurecimento (2026-05-08 a 2026-05-26) cobre:
+DDL agora vive **versionado no git** em `supabase/migrations/` (47 arquivos em
+2026-07-15; todos aplicados em produção e registrados no histórico do Supabase,
+exceto o enforcement da Fase 7 — ver RBAC abaixo). Em 2026-07-14 o histórico
+foi **reparado** via `migration repair` (4 migrations tinham sido aplicadas por
+fora sem registro); desde então `db push --dry-run` reflete a realidade e o
+CLI recusa aplicar a Fase 7 fora de ordem sem `--include-all`. O batch de
+endurecimento (2026-05-08 a 2026-05-26) cobre:
 
 - **Defesa em camadas (triggers BEFORE):** 32 tabelas com triggers que
   rejeitam writes não autorizados independente de RLS.
@@ -175,6 +196,18 @@ Lotes posteriores (fora do batch inicial):
   nas `vw_my_aircraft*` (definer, lidas pelo app cliente); `company` SELECT
   restrito a seller/admin; `is_adm` com `search_path`. Detalhe + o que validar:
   `SECURITY_AUDIT.md`.
+- **Write de `company` = funil (2026-07-14, `20260714120000`):** as policies e a
+  trigger que exigiam Admin Master foram trocadas por documentação + vendedor +
+  master (`company` é a empresa DO LEAD, escrita durante o funil — a policy de
+  2026-05-08 a tratava como cadastro institucional). Corrigiu o bug de
+  Admin/documentação e Vendedor "salvarem" Dados Empresariais sem persistir
+  nada (bloqueio silencioso de RLS; ver seção write_guard). Matriz dos 7 perfis
+  validada em produção por personificação.
+- **Vínculo item↔aeronave (2026-07-14, `20260714130000`):** tabela
+  `aircraft_item_links` (N:N), view `vw_aircraft_items_by_aircraft`
+  (`security_invoker`) e a `get_proposal_details` versionada pela primeira vez,
+  com os itens de série filtrados pelo avião da proposta (antes o JOIN era
+  `ON item_type='series'` — todo item entraria em toda proposta).
 
 Status atual completo + smoke tests em `supabase/README.md`. Pendências
 manuais do dashboard em `supabase/DASHBOARD_TIER2_TODO.md`.
@@ -229,6 +262,98 @@ até todos os Admin Masters cadastrarem TOTP. Quando estiverem cadastrados:
 build com `--dart-define=ENFORCE_MFA_ADMIN_MASTER=true` e ativar o hook
 `custom_access_token_hook` no Studio (defesa em camadas server-side).
 
+### RBAC por perfil (menu / rotas / edição)
+
+**Fonte da verdade única: `lib/security/access_control.dart`.** Define
+`PanelRole` (`adminMaster`, `adminRecepcao`, `adminDocumentacao`, `vendedor`,
+`none`) e o mapeamento a partir de `users`:
+
+- `profile_type = 'Admin Master'` → `adminMaster` (vê/edita tudo).
+- `profile_type = 'Vendedor'` → `vendedor` (funil de vendas + rastreio view-only).
+- `profile_type = 'Admin'` + `access_level = 'documentacao'` → `adminDocumentacao`;
+  qualquer outro `access_level` (inclusive **NULL**) → `adminRecepcao`.
+
+Consumido por: `menu_widget` (itens do menu por papel), `nav.dart` (rotas
+permitidas via `AccessControl.canView`), e telas com edição condicional — ex.
+`view_tracking` usa `AccessControl.canEditTracking` (só master/documentação
+editam/checam etapas; vendedor visualiza; recepção nem vê a tela). Ao mexer em
+menu/rotas/edição, passe por esta camada — não hardcode perfil.
+
+**Estado atual (verificado em produção em 2026-07-14):** a coluna
+`users.access_level` (`20260701170000`) e os helpers de nível
+(`20260701170500`: `auth_access_level`, `auth_is_admin_documentacao`,
+`auth_is_admin_recepcao`, `auth_is_vendedor`) **ESTÃO aplicados** e registrados
+no histórico. O que falta é o enforcement geral nos triggers (Fase 7 —
+`20260701171000_rbac_level_enforcement`), escrito mas **não aplicado** — só
+entra via PR + `rls-smoke` + o checklist do próprio arquivo. Exceção já em
+vigor: o write de `company` (`20260714120000`) usa os helpers de nível — é o
+primeiro enforcement server-side por nível. Nota histórica: versões anteriores
+deste arquivo diziam que nada disso estava aplicado; estava errado (as
+migrations foram aplicadas por fora em 2026-07-01 sem registro no histórico).
+
+### Escritas do painel — bloqueio silencioso de RLS (`write_guard`)
+
+**Num UPDATE/DELETE, a RLS não levanta erro:** ela filtra as linhas ANTES das
+triggers BEFORE, a operação "sucede" afetando 0 linhas e o PostgREST devolve
+2xx — o painel mostrava "salvo com sucesso" sem persistir nada (foi assim que o
+bug do `company` passou meses invisível). Regras ao escrever no banco:
+
+- Use `lib/security/write_guard.dart`: `guardWrite(context, op)` para
+  UPDATE/DELETE (**o op TEM que passar `returnRows: true`** — sem isso,
+  `SupabaseTable.update/delete` devolvem `[]` SEMPRE e o guard acusaria
+  bloqueio em toda escrita), `checkWrite(context, rows)` quando envolver num
+  lambda exigiria reindentar um `data:{}` gigante, e `guardInsert` para INSERT
+  (que usa `.single()` e LANÇA em vez de devolver vazio).
+- `silent: true` para escritas de segundo plano (ex.: sync de `fullprice` no
+  load de `view_contract`/`view_edit_proposal`): bloqueio vai pro Sentry em vez
+  de alertar quem não clicou em nada. Escrita por clique fica ruidosa.
+- Nem todo bloqueio deve abortar: se a escrita anterior JÁ persistiu (delete de
+  item + sync de total), early-return deixaria a tela inconsistente — reporte e
+  siga. Todos os 26 update/delete das telas do funil estão cobertos
+  (2026-07-14).
+
+### Itens de série/opcionais — vínculo com aeronave (2026-07-14)
+
+Um item (`aircraft_items`) vincula a N aeronaves via `aircraft_item_links`;
+**item sem vínculo não aparece em proposta nenhuma**. O painel consulta pela
+view `vw_aircraft_items_by_aircraft` (uma linha por par item↔avião; classe Dart
+escrita à mão). Mapa do fluxo:
+
+- **Cadastro:** menu Aeronaves → Categorias (`create_category`, tela core_ui):
+  abas Série/Opcionais (filtram a lista E definem o tipo criado) + botão
+  "Adicionar" que abre modal composto (categoria + itens + aeronaves numa
+  tacada). Clicar numa categoria navega para a tela de itens do tipo
+  (`create_items_standard`/`create_items_options`) com ela pré-selecionada —
+  **essas telas eram rotas órfãs** (nenhuma navegação chegava nelas) até
+  2026-07-14; lá há criação por modal, edição (nome/qtd/preço/vínculos) e a
+  listagem com os modelos vinculados.
+- **Proposta (`create_proposal`/`view_edit_proposal`):** seção "Itens de série"
+  do avião selecionado + opcionais filtrados pelo avião (via view). Trocar o
+  avião invalida os caches (`optionalItemsByCategory`, `seriesItemsFuture`).
+  No `view_edit_proposal`, o filtro valida o `aircraftId` com regex de UUID
+  (armadilha do placeholder "Não cadastrado").
+- **PDFs (proposta E contrato):** itens de série saem sob a aeronave com
+  "Incluso" no preço (não somam no total). No contrato, Custo Bancário
+  (US$ 2.500) e Pagamento Caução (US$ 10.000, nota de reembolso) são linhas
+  separadas e informativas — fora de qualquer soma.
+- **Armadilha corrigida (e a caçar em outras telas):** um único
+  `requestCompleter` compartilhado entre categorias fazia toda categoria
+  mostrar os itens da primeira que renderizasse — o cache tem que ser POR
+  chave (`itemsByCategory`), como em `create_proposal`.
+- `qty` e `created_by` de `aircraft_items` são NOT NULL **sem default** —
+  inserts novos têm que mandá-los (`active`/`deleted` têm default).
+
+### Contrato (`view_contract`) — preenchimento e exibição
+
+- **Termos de Contrato:** os rótulos vêm do template (`contract_terms.terms`) e
+  são FIXOS na UI (`_TermsFillIn`) — o usuário só preenche o valor de cada
+  linha; `_composeTerms()` remonta "rótulo: valor" na hora do Gerar PDF (nada é
+  gravado no banco, como antes). Linha nova no template vira campo novo
+  sozinha.
+- **Data do contrato:** a RPC devolve timestamp ISO cru; exibir via
+  `_formatContractDate` (`dd/MM/yyyy 'às' HH:mm`, local, `tryParse` contra
+  placeholder).
+
 ### Observabilidade
 
 Sentry está integrado em `lib/observability/sentry.dart`:
@@ -248,6 +373,23 @@ fixas do processo de importação (Cadastro Inicial → Personalização → Pro
 Reserva → Pagamentos → RAB → Seguro → Apólices → Despachante → Desembaraço →
 Liberação para Voo). A esteira de tracking (`tracking`, `tracking_details`,
 `vw_all_tracking`) é indexada por essa lista.
+
+**Cards da esteira (`view_tracking`).** Cada card mostra os dados **preenchidos**
+daquela etapa (campos de `tracking_details` + `user_aircraft` — cor/filtro/painel
+da etapa 1), carregados de uma vez e memoizados no model (`extrasFuture`, sem
+`FutureBuilder` por card) e renderizados 2 por linha. **Cor do card (regra de
+2026-07-15, vale para toda etapa com campos e SOBREPÕE o selo "Concluído"):**
+neutro = nunca preenchido; **vermelho** = começou e falta algo; **verde** = tudo
+preenchido. A conta é do getter `_completion` (`_TrackingCard`): texto conta
+preenchido quando não-vazio; booleano-**tarefa** (pagou/assinou/enviou) conta
+feito só com `true` (`false` = respondido "Não" = começado e pendente; `null` =
+nunca respondido); booleano-**resposta** (tem radar? benefício?) conta
+preenchido com qualquer resposta. A etapa 10 (order 9) é condicional: a
+documentação `fin_*` só entra na conta quando `payment_method='financiamento'`.
+Checklists de documentos (order 16 = 18 itens, order 18 = 11 itens) seguem a
+mesma regra via `_checklist`; etapas sem campos (links/entrega) ficam verdes
+quando `isCheck`. `order` é 0-indexed (`TrackingDescription[order]`); a UI
+mostra `Etapa order+1`.
 
 Fluxo de venda: `leads` → `proposal` (+ `proposal_item`, `proposal_financing`)
 → `contract` (+ `contract_terms`) → `sales` → `tracking` por aeronave

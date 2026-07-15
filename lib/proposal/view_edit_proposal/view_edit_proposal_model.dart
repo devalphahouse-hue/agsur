@@ -11,16 +11,18 @@ import 'package:flutter/material.dart';
 class ViewEditProposalModel extends FlutterFlowModel<ViewEditProposalWidget> {
   ///  Local state fields for this page.
 
-  List<AircraftItemsRow> itemsOptional = [];
-  void addToItemsOptional(AircraftItemsRow item) => itemsOptional.add(item);
-  void removeFromItemsOptional(AircraftItemsRow item) =>
+  List<VwAircraftItemsByAircraftRow> itemsOptional = [];
+  void addToItemsOptional(VwAircraftItemsByAircraftRow item) =>
+      itemsOptional.add(item);
+  void removeFromItemsOptional(VwAircraftItemsByAircraftRow item) =>
       itemsOptional.remove(item);
   void removeAtIndexFromItemsOptional(int index) =>
       itemsOptional.removeAt(index);
-  void insertAtIndexInItemsOptional(int index, AircraftItemsRow item) =>
+  void insertAtIndexInItemsOptional(
+          int index, VwAircraftItemsByAircraftRow item) =>
       itemsOptional.insert(index, item);
   void updateItemsOptionalAtIndex(
-          int index, Function(AircraftItemsRow) updateFn) =>
+          int index, Function(VwAircraftItemsByAircraftRow) updateFn) =>
       itemsOptional[index] = updateFn(itemsOptional[index]);
 
   int countController = 0;
@@ -36,8 +38,8 @@ class ViewEditProposalModel extends FlutterFlowModel<ViewEditProposalWidget> {
   // — uma para categorias e uma por categoria — gerando dezenas de chamadas
   // repetidas. Memoizamos: categorias uma vez, itens por id de categoria.
   Future<List<CategoryRow>>? optionalCategoriesFuture;
-  final Map<String, Future<List<AircraftItemsRow>>> optionalItemsByCategory =
-      {};
+  final Map<String, Future<List<VwAircraftItemsByAircraftRow>>>
+      optionalItemsByCategory = {};
   void addToListdIds(String item) => listdIds.add(item);
   void removeFromListdIds(String item) => listdIds.remove(item);
   void removeAtIndexFromListdIds(int index) => listdIds.removeAt(index);

@@ -290,12 +290,16 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
         FFRoute(
           name: CreateItemsStandardWidget.routeName,
           path: CreateItemsStandardWidget.routePath,
-          builder: (context, params) => CreateItemsStandardWidget(),
+          builder: (context, params) => CreateItemsStandardWidget(
+            categoryId: params.getParam('categoryId', ParamType.String),
+          ),
         ),
         FFRoute(
           name: CreateItemsOptionsWidget.routeName,
           path: CreateItemsOptionsWidget.routePath,
-          builder: (context, params) => CreateItemsOptionsWidget(),
+          builder: (context, params) => CreateItemsOptionsWidget(
+            categoryId: params.getParam('categoryId', ParamType.String),
+          ),
         ),
         FFRoute(
           name: CreateCategoryWidget.routeName,

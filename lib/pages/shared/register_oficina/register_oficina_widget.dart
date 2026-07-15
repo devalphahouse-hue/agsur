@@ -49,7 +49,7 @@ class _RegisterOficinaWidgetState extends State<RegisterOficinaWidget> {
     _model.tFEditNameFocusNode ??= FocusNode();
     _model.tFEditCpfTextController ??= TextEditingController();
     _model.tFEditCpfFocusNode ??= FocusNode();
-    _model.tFEditCpfMask = MaskTextInputFormatter(mask: ' ##.###.###/####-##');
+    _model.tFEditCpfMask = MaskTextInputFormatter(mask: '##.###.###/####-##');
     _model.tFEditEmailTextController ??= TextEditingController();
     _model.tFEditEmailFocusNode ??= FocusNode();
     _model.tFEditPhoneTextController ??= TextEditingController();

@@ -1,6 +1,7 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/api_requests/api_calls.dart';
 import '/backend/supabase/supabase.dart';
+import '/security/write_guard.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -3371,42 +3372,48 @@ class _ViewEditLeadWidgetState extends State<ViewEditLeadWidget> {
                                                     0.0, 16.0, 0.0, 0.0),
                                             child: FFButtonWidget(
                                               onPressed: () async {
-                                                await LeadsTable().update(
-                                                  data: {
-                                                    'cpf': _model
-                                                        .tFCpfLeadTextController
-                                                        .text,
-                                                    'email': _model
-                                                        .tFEmailLeadTextController
-                                                        .text,
-                                                    'phone': _model
-                                                        .tFPhoneLeadTextController
-                                                        .text,
-                                                    'city': _model
-                                                        .tFCityLeadTextController
-                                                        .text,
-                                                    'state': _model
-                                                        .tFUfLeadTextController
-                                                        .text,
-                                                    'job_title': _model
-                                                        .tFCargoLeadTextController
-                                                        .text,
-                                                    'company_name': _model
-                                                        .tFEmpresaLeadTextController
-                                                        .text,
-                                                    'name': _model
-                                                        .tFNameLeadTextController
-                                                        .text,
-                                                    'last_name': _model
-                                                        .tFLastnameLeadTextController
-                                                        .text,
-                                                  },
-                                                  matchingRows: (rows) =>
-                                                      rows.eqOrNull(
-                                                    'id',
-                                                    widget!.leadId,
+                                                final okEditLead =
+                                                    await guardWrite(
+                                                  context,
+                                                  () => LeadsTable().update(
+                                                    data: {
+                                                      'cpf': _model
+                                                          .tFCpfLeadTextController
+                                                          .text,
+                                                      'email': _model
+                                                          .tFEmailLeadTextController
+                                                          .text,
+                                                      'phone': _model
+                                                          .tFPhoneLeadTextController
+                                                          .text,
+                                                      'city': _model
+                                                          .tFCityLeadTextController
+                                                          .text,
+                                                      'state': _model
+                                                          .tFUfLeadTextController
+                                                          .text,
+                                                      'job_title': _model
+                                                          .tFCargoLeadTextController
+                                                          .text,
+                                                      'company_name': _model
+                                                          .tFEmpresaLeadTextController
+                                                          .text,
+                                                      'name': _model
+                                                          .tFNameLeadTextController
+                                                          .text,
+                                                      'last_name': _model
+                                                          .tFLastnameLeadTextController
+                                                          .text,
+                                                    },
+                                                    matchingRows: (rows) =>
+                                                        rows.eqOrNull(
+                                                      'id',
+                                                      widget!.leadId,
+                                                    ),
+                                                    returnRows: true,
                                                   ),
                                                 );
+                                                if (!okEditLead) return;
                                                 ScaffoldMessenger.of(context)
                                                     .showSnackBar(
                                                   SnackBar(

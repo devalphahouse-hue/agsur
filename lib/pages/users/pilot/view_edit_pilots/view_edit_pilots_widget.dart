@@ -11,6 +11,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import '/core_ui/core_ui.dart';
 import 'view_edit_pilots_model.dart';
 export 'view_edit_pilots_model.dart';
@@ -51,6 +52,7 @@ class _ViewEditPilotsWidgetState extends State<ViewEditPilotsWidget> {
     _model.tFEmailPilotFocusNode ??= FocusNode();
 
     _model.tFPhonePilotFocusNode ??= FocusNode();
+    _model.tFPhonePilotMask = MaskTextInputFormatter(mask: '(##) # ####.####');
 
     WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {}));
   }
@@ -1648,6 +1650,9 @@ class _ViewEditPilotsWidgetState extends State<ViewEditPilotsWidget> {
                                                             .tFPhonePilotTextControllerValidator
                                                             .asValidator(
                                                                 context),
+                                                        inputFormatters: [
+                                                          _model.tFPhonePilotMask
+                                                        ],
                                                       ),
                                                     ].divide(
                                                         SizedBox(height: 8.0)),

@@ -1,5 +1,6 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/supabase/supabase.dart';
+import '/security/write_guard.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
@@ -165,8 +166,9 @@ class _CreateContractTermsWidgetState extends State<CreateContractTermsWidget> {
                                                 onPressed: !_model.termsActive
                                                     ? null
                                                     : () async {
-                                                        await ContractTermsTable()
-                                                            .update(
+                                                        final rowsTerms =
+                                                            await ContractTermsTable()
+                                                                .update(
                                                           data: {
                                                             'terms': _model
                                                                 .tFContractTermsTextController
@@ -185,7 +187,12 @@ class _CreateContractTermsWidgetState extends State<CreateContractTermsWidget> {
                                                             widget!
                                                                 .idContractTerms,
                                                           ),
+                                                          returnRows: true,
                                                         );
+                                                        if (!checkWrite(context,
+                                                            rowsTerms)) {
+                                                          return;
+                                                        }
                                                         ScaffoldMessenger.of(
                                                                 context)
                                                             .showSnackBar(
@@ -520,8 +527,9 @@ class _CreateContractTermsWidgetState extends State<CreateContractTermsWidget> {
                                                         .instructionsActive
                                                     ? null
                                                     : () async {
-                                                        await ContractTermsTable()
-                                                            .update(
+                                                        final rowsInstructions =
+                                                            await ContractTermsTable()
+                                                                .update(
                                                           data: {
                                                             'payment_instructions':
                                                                 _model
@@ -541,7 +549,12 @@ class _CreateContractTermsWidgetState extends State<CreateContractTermsWidget> {
                                                             widget!
                                                                 .idContractTerms,
                                                           ),
+                                                          returnRows: true,
                                                         );
+                                                        if (!checkWrite(context,
+                                                            rowsInstructions)) {
+                                                          return;
+                                                        }
                                                         ScaffoldMessenger.of(
                                                                 context)
                                                             .showSnackBar(

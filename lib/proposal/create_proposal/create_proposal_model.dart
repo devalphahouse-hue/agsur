@@ -11,16 +11,18 @@ class CreateProposalModel extends FlutterFlowModel<CreateProposalWidget> {
 
   int section = 0;
 
-  List<AircraftItemsRow> itemsOptional = [];
-  void addToItemsOptional(AircraftItemsRow item) => itemsOptional.add(item);
-  void removeFromItemsOptional(AircraftItemsRow item) =>
+  List<VwAircraftItemsByAircraftRow> itemsOptional = [];
+  void addToItemsOptional(VwAircraftItemsByAircraftRow item) =>
+      itemsOptional.add(item);
+  void removeFromItemsOptional(VwAircraftItemsByAircraftRow item) =>
       itemsOptional.remove(item);
   void removeAtIndexFromItemsOptional(int index) =>
       itemsOptional.removeAt(index);
-  void insertAtIndexInItemsOptional(int index, AircraftItemsRow item) =>
+  void insertAtIndexInItemsOptional(
+          int index, VwAircraftItemsByAircraftRow item) =>
       itemsOptional.insert(index, item);
   void updateItemsOptionalAtIndex(
-          int index, Function(AircraftItemsRow) updateFn) =>
+          int index, Function(VwAircraftItemsByAircraftRow) updateFn) =>
       itemsOptional[index] = updateFn(itemsOptional[index]);
 
   int countController = 0;
@@ -30,8 +32,12 @@ class CreateProposalModel extends FlutterFlowModel<CreateProposalWidget> {
   // — uma para categorias e uma por categoria — gerando dezenas de chamadas
   // repetidas. Memoizamos: categorias uma vez, itens por id de categoria.
   Future<List<CategoryRow>>? optionalCategoriesFuture;
-  final Map<String, Future<List<AircraftItemsRow>>> optionalItemsByCategory =
-      {};
+  // Desde o vínculo item↔avião (migration 20260714130000), os opcionais vêm da
+  // view vw_aircraft_items_by_aircraft filtrada pelo avião selecionado.
+  final Map<String, Future<List<VwAircraftItemsByAircraftRow>>>
+      optionalItemsByCategory = {};
+  // Itens de série do avião selecionado (exibição na etapa de opcionais).
+  Future<List<VwAircraftItemsByAircraftRow>>? seriesItemsFuture;
 
   List<String> listIds = [];
   void addToListIds(String item) => listIds.add(item);
@@ -117,5 +123,6 @@ class CreateProposalModel extends FlutterFlowModel<CreateProposalWidget> {
 
     optionalCategoriesFuture = null;
     optionalItemsByCategory.clear();
+    seriesItemsFuture = null;
   }
 }

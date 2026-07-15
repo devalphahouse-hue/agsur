@@ -43,9 +43,9 @@
 	<true/>
 
 	<key>NSCameraUsageDescription</key>
-    <string>In order to take a picture or video, this app requires permission to access the camera.</string>
+    <string>O AGSur Painel usa a câmera para fotografar fotos de perfil, fotos de aeronave, documentos e anexos enviados no chat interno.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-    <string>In order to upload data, this app requires permission to access the photo library.</string>
+    <string>O AGSur Painel acessa suas fotos para anexar imagens e documentos nos cadastros (perfil, aeronaves, certificados) e no chat interno.</string>
 
 
 

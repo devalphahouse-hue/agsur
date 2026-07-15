@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '/backend/api_requests/api_calls.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/supabase/supabase.dart';
+import '/security/credentials_email.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
@@ -95,7 +96,14 @@ class _OficinaWidgetState extends State<OficinaWidget> {
                     } catch (_) {}
                   }
                 }
+                final emailSent = await sendCredentialsEmail(
+                  email: email,
+                  password: password,
+                  profileType: 'Oficina',
+                  name: name,
+                );
                 if (!mounted) return;
+                if (!emailSent) showCredentialsEmailWarning(context);
                 _refresh();
                 Navigator.of(dialogContext).pop();
                 ScaffoldMessenger.of(context).showSnackBar(

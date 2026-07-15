@@ -549,18 +549,125 @@ class _TrackingCard extends StatelessWidget {
     border: Color(0x804FBFA9),
   );
 
-  /// Cor de fundo/borda do card:
-  /// - etapas de checklist (16/18): neutro (0 itens), **vermelho** (parcial),
-  ///   **verde** (todos). A regra SOBREPÕE o "Concluído" — se falta um
-  ///   documento, o card fica vermelho mesmo com a etapa marcada como concluída.
-  /// - demais etapas: **verde** quando preenchida/concluída (`isCheck`), senão
-  ///   neutro.
+  /// Preenchimento dos campos da etapa: `touched` = mexeu em algo,
+  /// `allDone` = tudo preenchido. `null` para etapas sem campos (só
+  /// confirmação, ex.: 15/20) e para as de checklist 16/18 ([_checklist]).
+  ///
+  /// Semântica por tipo de campo:
+  /// - texto: preenchido quando não-vazio;
+  /// - booleano-tarefa (pagou? assinou? enviou?): null = nunca respondido,
+  ///   false = respondido "Não" → conta como começado E pendente,
+  ///   true = feito;
+  /// - booleano-resposta (tem radar? benefício ativo?): qualquer resposta
+  ///   conta como preenchido — "Não" é resposta final, não pendência;
+  /// - etapa 9 (Formalização de Pagamento): a documentação de financiamento
+  ///   só entra na conta quando a forma escolhida é 'financiamento'.
+  ({bool touched, bool allDone})? get _completion {
+    final d = details;
+    final a = aircraft;
+    (bool, bool) text(String? v) {
+      final ok = v != null && v.trim().isNotEmpty;
+      return (ok, ok);
+    }
+
+    (bool, bool) task(bool? v) => (v != null, v == true);
+    (bool, bool) answer(bool? v) => (v != null, v != null);
+
+    List<(bool, bool)> fields;
+    switch (_orderInt) {
+      case 1:
+        fields = [
+          text(a?.stripeColor),
+          text(a?.airFilter),
+          text(a?.panel),
+          text(d?.customizationDescription),
+        ];
+        break;
+      case 2:
+        fields = [text(d?.invoiceNumber)];
+        break;
+      case 3:
+        fields = [text(d?.equipmentType)];
+        break;
+      case 4:
+        fields = [task(d?.reservationPaid)];
+        break;
+      case 5:
+        fields = [task(d?.fivePercentPaid)];
+        break;
+      case 6:
+        fields = [answer(d?.fiscalBenefitActive), answer(d?.hasRadar)];
+        break;
+      case 7:
+        fields = [text(d?.brokerName)];
+        break;
+      case 8:
+        fields = [text(d?.brand), text(d?.prefix)];
+        break;
+      case 9:
+        fields = [text(d?.paymentMethod)];
+        if ((d?.paymentMethod ?? '').trim() == 'financiamento') {
+          fields.addAll([
+            task(d?.finDoc),
+            task(d?.finContadora),
+            task(d?.finEndUser),
+            task(d?.finCpi),
+            task(d?.finCartaHistorico),
+            task(d?.finRefsComerciais),
+            task(d?.finRefBancaria),
+            task(d?.finFotosOperacao),
+          ]);
+        }
+        break;
+      case 10:
+        fields = [task(d?.financingApproved)];
+        break;
+      case 11:
+        fields = [task(d?.preContractSigned)];
+        break;
+      case 12:
+        fields = [text(d?.insuranceCompany)];
+        break;
+      case 13:
+        fields = [task(d?.insurancePolicySent)];
+        break;
+      case 14:
+        fields = [text(d?.entryPaymentInfo)];
+        break;
+      case 17:
+        fields = [task(d?.finalContractSigned)];
+        break;
+      case 19:
+        fields = [text(d?.customsStatus), task(d?.customsCnd)];
+        break;
+      default:
+        return null;
+    }
+    return (
+      touched: fields.any((f) => f.$1),
+      allDone: fields.every((f) => f.$2),
+    );
+  }
+
+  /// Cor de fundo/borda do card (regra de 2026-07-15, vale para TODAS as
+  /// etapas com campos, sobrepondo o "Concluído"):
+  /// - nunca preenchido → neutro;
+  /// - começou e falta algo → **vermelho**;
+  /// - tudo preenchido → **verde**.
+  /// Etapas de checklist (16/18) seguem a mesma ideia via [_checklist];
+  /// etapas sem campos (só confirmação) ficam verdes quando `isCheck`.
   ({Color background, Color border})? get _cardTone {
     final cl = _checklist;
     if (cl != null) {
       if (cl.checked == 0) return null; // neutro
       if (cl.checked < cl.total) return _redTone; // parcial
       return _greenTone; // completo
+    }
+    final comp = _completion;
+    if (comp != null) {
+      if (!comp.touched) return null; // nunca preenchido → neutro
+      if (!comp.allDone) return _redTone; // começou e falta algo → vermelho
+      return _greenTone; // tudo preenchido → verde
     }
     return _checked ? _greenTone : null;
   }

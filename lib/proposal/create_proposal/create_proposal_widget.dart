@@ -4,6 +4,7 @@ import '/backend/schema/enums/enums.dart';
 import '/backend/schema/structs/index.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/percent_input_formatter.dart';
+import '/security/write_guard.dart';
 import '/flutter_flow/flutter_flow_drop_down.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -556,31 +557,40 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                                   cpf,
                                                                   typeDoc,
                                                                   stateRegistration) async {
-                                                                await CompanyTable()
-                                                                    .update(
-                                                                  data: {
-                                                                    'company_name':
-                                                                        companyName,
-                                                                    'cnpj':
-                                                                        companyCnpj,
-                                                                    'phone':
-                                                                        companyPhone,
-                                                                    'created_by':
-                                                                        currentUserUid,
-                                                                    'cpf': cpf,
-                                                                    'type_doc':
-                                                                        typeDoc
-                                                                            ?.toString(),
-                                                                    'state_registration':
-                                                                        stateRegistration,
-                                                                  },
-                                                                  matchingRows:
-                                                                      (rows) =>
-                                                                          rows.eqOrNull(
-                                                                    'id',
-                                                                    companyId,
+                                                                final okCompany =
+                                                                    await guardWrite(
+                                                                  context,
+                                                                  () => CompanyTable()
+                                                                      .update(
+                                                                    data: {
+                                                                      'company_name':
+                                                                          companyName,
+                                                                      'cnpj':
+                                                                          companyCnpj,
+                                                                      'phone':
+                                                                          companyPhone,
+                                                                      'created_by':
+                                                                          currentUserUid,
+                                                                      'cpf': cpf,
+                                                                      'type_doc':
+                                                                          typeDoc
+                                                                              ?.toString(),
+                                                                      'state_registration':
+                                                                          stateRegistration,
+                                                                    },
+                                                                    matchingRows:
+                                                                        (rows) =>
+                                                                            rows.eqOrNull(
+                                                                      'id',
+                                                                      companyId,
+                                                                    ),
+                                                                    returnRows:
+                                                                        true,
                                                                   ),
                                                                 );
+                                                                if (!okCompany) {
+                                                                  return;
+                                                                }
                                                                 ScaffoldMessenger.of(
                                                                         context)
                                                                     .showSnackBar(
@@ -1649,8 +1659,9 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                                   state,
                                                                   complement,
                                                                   addressId) async {
-                                                                await AddressTable()
-                                                                    .update(
+                                                                final rowsAddress =
+                                                                    await AddressTable()
+                                                                        .update(
                                                                   data: {
                                                                     'zipcode':
                                                                         zipcode,
@@ -1675,7 +1686,14 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                                     'id',
                                                                     addressId,
                                                                   ),
+                                                                  returnRows:
+                                                                      true,
                                                                 );
+                                                                if (!checkWrite(
+                                                                    context,
+                                                                    rowsAddress)) {
+                                                                  return;
+                                                                }
                                                                 ScaffoldMessenger.of(
                                                                         context)
                                                                     .showSnackBar(
@@ -2967,6 +2985,13 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                 if ((_model.getAircraftProposal
                                                         ?.succeeded ??
                                                     true)) {
+                                                  // Avião (re)selecionado: os
+                                                  // caches de série/opcionais
+                                                  // dependem dele.
+                                                  _model.optionalItemsByCategory
+                                                      .clear();
+                                                  _model.seriesItemsFuture =
+                                                      null;
                                                   FFAppState()
                                                           .asGetAircraftProposal =
                                                       GetAircraftDetailsForProposalStruct(
@@ -4421,6 +4446,111 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                       Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          // Itens de série do avião selecionado (vêm de fábrica;
+                          // exibição apenas — não entram em proposal_item).
+                          Container(
+                            width: MediaQuery.sizeOf(context).width * 1.0,
+                            decoration: BoxDecoration(
+                              color: FlutterFlowTheme.of(context)
+                                  .secondaryBackground,
+                              borderRadius: BorderRadius.circular(12.0),
+                            ),
+                            padding: EdgeInsetsDirectional.fromSTEB(
+                                16.0, 12.0, 16.0, 12.0),
+                            child: FutureBuilder<
+                                List<VwAircraftItemsByAircraftRow>>(
+                              future: _model.seriesItemsFuture ??=
+                                  VwAircraftItemsByAircraftTable().queryRows(
+                                queryFn: (q) => q
+                                    .eqOrNull(
+                                      'aircraft_id',
+                                      FFAppState().asGetAircraftProposal.id,
+                                    )
+                                    .eqOrNull('item_type', 'series')
+                                    .eqOrNull('active', true)
+                                    .eqOrNull('deleted', false)
+                                    .order('item_name', ascending: true),
+                              ),
+                              builder: (context, snapshot) {
+                                final seriesItems = snapshot.data;
+                                return Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Itens de série',
+                                      style: FlutterFlowTheme.of(context)
+                                          .titleSmall
+                                          .override(
+                                            font: GoogleFonts.roboto(),
+                                            letterSpacing: 0.0,
+                                          ),
+                                    ),
+                                    SizedBox(height: 8.0),
+                                    if (seriesItems == null)
+                                      Center(
+                                        child: SizedBox(
+                                          width: 24.0,
+                                          height: 24.0,
+                                          child: SpinKitFoldingCube(
+                                            color: Color(0xFFC2D51C),
+                                            size: 24.0,
+                                          ),
+                                        ),
+                                      )
+                                    else if (seriesItems.isEmpty)
+                                      Text(
+                                        'Nenhum item de série cadastrado para esta aeronave.',
+                                        style: FlutterFlowTheme.of(context)
+                                            .labelMedium
+                                            .override(
+                                              font: GoogleFonts.inter(),
+                                              letterSpacing: 0.0,
+                                            ),
+                                      )
+                                    else
+                                      ...seriesItems.map(
+                                        (serieItem) => Padding(
+                                          padding:
+                                              EdgeInsetsDirectional.fromSTEB(
+                                                  0.0, 2.0, 0.0, 2.0),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.check_circle_rounded,
+                                                color:
+                                                    FlutterFlowTheme.of(
+                                                            context)
+                                                        .primary,
+                                                size: 16.0,
+                                              ),
+                                              SizedBox(width: 8.0),
+                                              Expanded(
+                                                child: Text(
+                                                  serieItem.qty > 1
+                                                      ? '${serieItem.itemName} (x${serieItem.qty})'
+                                                      : serieItem.itemName,
+                                                  style: FlutterFlowTheme.of(
+                                                          context)
+                                                      .bodyMedium
+                                                      .override(
+                                                        font:
+                                                            GoogleFonts.inter(),
+                                                        letterSpacing: 0.0,
+                                                      ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
                           Container(
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             constraints: BoxConstraints(
@@ -4589,13 +4719,20 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                   .fromSTEB(
                                                       0.0, 12.0, 0.0, 12.0),
                                               child: FutureBuilder<
-                                                  List<AircraftItemsRow>>(
+                                                  List<
+                                                      VwAircraftItemsByAircraftRow>>(
                                                 future: _model
                                                         .optionalItemsByCategory[
                                                     lVCategoriesCategoryRow
-                                                        .id] ??= AircraftItemsTable()
+                                                        .id] ??= VwAircraftItemsByAircraftTable()
                                                     .queryRows(
                                                   queryFn: (q) => q
+                                                      .eqOrNull(
+                                                        'aircraft_id',
+                                                        FFAppState()
+                                                            .asGetAircraftProposal
+                                                            .id,
+                                                      )
                                                       .eqOrNull(
                                                         'category_id',
                                                         lVCategoriesCategoryRow
@@ -4632,7 +4769,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                       ),
                                                     );
                                                   }
-                                                  List<AircraftItemsRow>
+                                                  List<VwAircraftItemsByAircraftRow>
                                                       lVOptionalItemsAircraftItemsRowList =
                                                       snapshot.data!;
 

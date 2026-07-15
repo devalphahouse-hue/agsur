@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/security/write_guard.dart';
 import '/index.dart';
 import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
 import '/pages/shared/modal_create_client/modal_create_client_widget.dart';
@@ -232,17 +233,27 @@ class _ClientRow extends StatelessWidget {
             key: Key('cli_switch_${item.userId ?? index}'),
             initialValue: item.isActive ?? false,
             activeAction: () async {
-              await UsersTable().update(
-                data: {'is_active': true},
-                matchingRows: (rows) => rows.eqOrNull('id', item.userId),
+              final okActivate = await guardWrite(
+                context,
+                () => UsersTable().update(
+                  data: {'is_active': true},
+                  matchingRows: (rows) => rows.eqOrNull('id', item.userId),
+                  returnRows: true,
+                ),
               );
+              if (!okActivate) return;
               _toast(context, 'Cliente ativado');
             },
             disableAction: () async {
-              await UsersTable().update(
-                data: {'is_active': false},
-                matchingRows: (rows) => rows.eqOrNull('id', item.userId),
+              final okDisable = await guardWrite(
+                context,
+                () => UsersTable().update(
+                  data: {'is_active': false},
+                  matchingRows: (rows) => rows.eqOrNull('id', item.userId),
+                  returnRows: true,
+                ),
               );
+              if (!okDisable) return;
               _toast(context, 'Cliente desativado');
             },
           ),

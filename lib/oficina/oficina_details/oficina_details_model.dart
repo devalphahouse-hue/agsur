@@ -25,6 +25,7 @@ class OficinaDetailsModel extends FlutterFlowModel<OficinaDetailsWidget> {
   // State field(s) for TFPhoneOficina widget.
   FocusNode? tFPhoneOficinaFocusNode;
   TextEditingController? tFPhoneOficinaTextController;
+  late MaskTextInputFormatter tFPhoneOficinaMask;
   String? Function(BuildContext, String?)?
       tFPhoneOficinaTextControllerValidator;
   // State field(s) for TFEmailOficina widget.

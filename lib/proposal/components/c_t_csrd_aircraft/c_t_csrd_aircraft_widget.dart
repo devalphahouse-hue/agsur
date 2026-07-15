@@ -1,5 +1,6 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/supabase/supabase.dart';
+import '/security/write_guard.dart';
 import '/flutter_flow/flutter_flow_drop_down.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -766,7 +767,8 @@ class _CTCsrdAircraftWidgetState extends State<CTCsrdAircraftWidget> {
                           EdgeInsetsDirectional.fromSTEB(4.0, 16.0, 4.0, 16.0),
                       child: FFButtonWidget(
                         onPressed: () async {
-                          await ProposalFinancingTable().update(
+                          final rowsFinancing =
+                              await ProposalFinancingTable().update(
                             data: {
                               'term_length': valueOrDefault<int>(
                                 int.parse((_model.dPDLengthValue!)),
@@ -820,7 +822,9 @@ class _CTCsrdAircraftWidgetState extends State<CTCsrdAircraftWidget> {
                               'id',
                               widget!.proposalID,
                             ),
+                            returnRows: true,
                           );
+                          if (!checkWrite(context, rowsFinancing)) return;
                           await widget.refresh?.call();
                           Navigator.of(context, rootNavigator: true).pop();
 

@@ -60,6 +60,9 @@ class AccessControl {
   static const _aeronaves = {
     'RegistedAircraft', 'CreateAircraft', 'AircraftDetails',
     'AvailableAircrafts', 'CreateCategory',
+    // Telas de itens por categoria (série/opcionais) — acessadas a partir
+    // da tela Categorias desde 2026-07-14 (antes eram rotas órfãs).
+    'CreateItemsStandard', 'CreateItemsOptions',
   };
   static const _cartaServico = {'ServicesOffering'};
   static const _cotacao = {'PartQuote'};
@@ -103,5 +106,13 @@ class AccessControl {
   /// Só master e documentação podem editar/checar o rastreio. Vendedor
   /// visualiza (view-only); recepção nem vê a tela.
   static bool canEditTracking(PanelRole role) =>
+      role == PanelRole.adminMaster || role == PanelRole.adminDocumentacao;
+
+  /// Master e documentação abrem proposta/contrato em modo edição
+  /// (`typeAccess=edit`: campos editáveis + converter proposta em contrato).
+  /// Vendedor e recepção abrem em visualização. As listagens
+  /// (`proposals`/`contracts`) consultam isto ao navegar — não hardcode
+  /// perfil lá.
+  static bool canEditFunil(PanelRole role) =>
       role == PanelRole.adminMaster || role == PanelRole.adminDocumentacao;
 }

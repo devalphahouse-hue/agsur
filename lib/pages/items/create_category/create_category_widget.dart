@@ -1,12 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
+import '/flutter_flow/flutter_flow_drop_down.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/flutter_flow/form_field_controller.dart';
+import '/index.dart' show CreateItemsStandardWidget, CreateItemsOptionsWidget;
+import '/security/write_guard.dart';
 import 'create_category_model.dart';
 
 export 'create_category_model.dart';
@@ -23,7 +28,11 @@ class CreateCategoryWidget extends StatefulWidget {
 
 class _CreateCategoryWidgetState extends State<CreateCategoryWidget> {
   late CreateCategoryModel _model;
-  String _filter = 'all';
+
+  // Aba ativa (série/opcional): filtra a lista E define o tipo do que se
+  // cria — um controle só, para não parecer que o toggle do formulário é um
+  // filtro que não filtra (feedback do dono em 2026-07-14).
+  String get _tipo => _model.dpdTypeItemValue ?? 'series';
 
   @override
   void initState() {
@@ -42,33 +51,53 @@ class _CreateCategoryWidgetState extends State<CreateCategoryWidget> {
 
   void _refresh() => safeSetState(() => _model.requestCompleter = null);
 
-  Future<void> _create() async {
-    final name = _model.tFCategoryNameTextController?.text.trim() ?? '';
-    if (name.isEmpty || (_model.dpdTypeItemValue ?? '').isEmpty) {
+  /// Modal único de criação: categoria + itens + aeronaves numa tacada
+  /// (feedback do dono em 2026-07-14: "criar tudo e fazer tudo ali ao
+  /// adicionar", sem criar a categoria e depois caçar onde pôr os itens).
+  Future<void> _openCreateDialog() async {
+    final aircrafts = await AircraftsTable().queryRows(
+      queryFn: (q) => q
+          .eqOrNull('active', true)
+          .eqOrNull('deleted', false)
+          .order('aircraft_model', ascending: true),
+    );
+    if (!mounted) return;
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        elevation: 0,
+        insetPadding: EdgeInsets.zero,
+        backgroundColor: Colors.transparent,
+        alignment: AlignmentDirectional(0.0, 0.0)
+            .resolve(Directionality.of(context)),
+        child: _CreateCategoryDialog(tipo: _tipo, aircrafts: aircrafts),
+      ),
+    );
+    if (created == true && mounted) {
+      _refresh();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Preencha tipo e nome da categoria'),
-          backgroundColor: Color(0xFFFF5963),
+        SnackBar(
+          content: Text(
+            'Categoria e itens cadastrados',
+            style: GoogleFonts.inter(color: const Color(0xFF313131)),
+          ),
+          backgroundColor: const Color(0xFFC2D51C),
         ),
       );
-      return;
     }
-    await CategoryTable().insert({
-      'category_name': name,
-      'item_type': _model.dpdTypeItemValue,
-      'created_by': currentUserUid,
-    });
-    if (!mounted) return;
-    _model.tFCategoryNameTextController?.clear();
-    _refresh();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Categoria cadastrada',
-          style: GoogleFonts.inter(color: const Color(0xFF313131)),
-        ),
-        backgroundColor: const Color(0xFFC2D51C),
-      ),
+  }
+
+  /// Abre a tela de itens da categoria (série ou opcionais), com ela
+  /// pré-selecionada. Até 2026-07-14 essas telas eram rotas órfãs — nenhuma
+  /// navegação chegava nelas; o cadastro de itens ficava inacessível.
+  void _openItems(CategoryRow item) {
+    context.pushNamed(
+      item.itemType == 'optional'
+          ? CreateItemsOptionsWidget.routeName
+          : CreateItemsStandardWidget.routeName,
+      queryParameters: {
+        'categoryId': serializeParam(item.id, ParamType.String),
+      }.withoutNulls,
     );
   }
 
@@ -96,32 +125,32 @@ class _CreateCategoryWidgetState extends State<CreateCategoryWidget> {
       title: 'Categorias',
       description:
           'Agrupe itens de série e opcionais por categoria para usar nas propostas.',
-      search: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          _FilterChips(
-            label: 'Mostrar',
-            value: _filter,
-            options: const [
-              MapEntry('all', 'Todos'),
-              MapEntry('series', 'Série'),
-              MapEntry('optional', 'Opcionais'),
-            ],
-            onChanged: (v) => setState(() => _filter = v),
-          ),
-        ],
+      search: _TypeToggle(
+        value: _tipo,
+        onChanged: (v) => safeSetState(() => _model.dpdTypeItemValue = v),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _CreateForm(
-            controller: _model.tFCategoryNameTextController!,
-            type: _model.dpdTypeItemValue ?? 'series',
-            onTypeChanged: (v) =>
-                safeSetState(() => _model.dpdTypeItemValue = v),
-            onSubmit: _create,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _tipo == 'optional'
+                      ? 'Categorias de opcionais e seus itens.'
+                      : 'Categorias de itens de série e seus itens.',
+                  style: GoogleFonts.inter(
+                    fontSize: 12.5,
+                    color: const Color(0x99FFFFFF),
+                  ),
+                ),
+              ),
+              AppPrimaryButton(
+                label: 'Adicionar',
+                icon: Icons.add_rounded,
+                onPressed: _openCreateDialog,
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           FutureBuilder<List<CategoryRow>>(
@@ -145,16 +174,17 @@ class _CreateCategoryWidgetState extends State<CreateCategoryWidget> {
                 );
               }
               final all = snap.data!;
-              final list = _filter == 'all'
-                  ? all
-                  : all.where((c) => c.itemType == _filter).toList();
+              final list =
+                  all.where((c) => c.itemType == _tipo).toList();
               if (list.isEmpty) {
                 return AppCard(
                   child: AppEmptyState(
                     icon: Icons.category_outlined,
-                    title: 'Nenhuma categoria',
+                    title: _tipo == 'optional'
+                        ? 'Nenhuma categoria de opcionais'
+                        : 'Nenhuma categoria de série',
                     description:
-                        'Use o formulário acima para criar a primeira.',
+                        'Clique em Adicionar para criar a primeira.',
                     compact: true,
                   ),
                 );
@@ -167,80 +197,13 @@ class _CreateCategoryWidgetState extends State<CreateCategoryWidget> {
                       child: _CategoryRow(
                         item: list[i],
                         onDelete: () => _delete(list[i]),
+                        onOpenItems: () => _openItems(list[i]),
                       ).appStagger(i),
                     ),
                 ],
               );
             },
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CreateForm extends StatelessWidget {
-  const _CreateForm({
-    required this.controller,
-    required this.type,
-    required this.onTypeChanged,
-    required this.onSubmit,
-  });
-
-  final TextEditingController controller;
-  final String type;
-  final ValueChanged<String> onTypeChanged;
-  final VoidCallback onSubmit;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Tipo (chip toggle)
-          _TypeToggle(
-            value: type,
-            onChanged: onTypeChanged,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              style: GoogleFonts.roboto(color: Colors.white, fontSize: 13.5),
-              decoration: InputDecoration(
-                isDense: true,
-                hintText: 'Nome da categoria',
-                hintStyle: GoogleFonts.roboto(
-                  color: const Color(0x99FFFFFF),
-                  fontSize: 13.5,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 14),
-                filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.04),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide:
-                      const BorderSide(color: Color(0x22FFFFFF), width: 1.4),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide:
-                      const BorderSide(color: Color(0x22FFFFFF), width: 1.4),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                      color: Color(0xFFC2D51C), width: 1.4),
-                ),
-              ),
-              onSubmitted: (_) => onSubmit(),
-            ),
-          ),
-          const SizedBox(width: 12),
-          _SubmitBtn(onTap: onSubmit),
         ],
       ),
     );
@@ -264,8 +227,8 @@ class _TypeToggle extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _seg('series', 'Série'),
-          _seg('optional', 'Opcional'),
+          _seg('series', 'Itens de série'),
+          _seg('optional', 'Opcionais'),
         ],
       ),
     );
@@ -295,57 +258,72 @@ class _TypeToggle extends StatelessWidget {
   }
 }
 
-class _SubmitBtn extends StatefulWidget {
-  const _SubmitBtn({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  State<_SubmitBtn> createState() => _SubmitBtnState();
-}
-
-class _SubmitBtnState extends State<_SubmitBtn> {
-  bool _hover = false;
+class _CategoryRow extends StatelessWidget {
+  const _CategoryRow({
+    required this.item,
+    required this.onDelete,
+    required this.onOpenItems,
+  });
+  final CategoryRow item;
+  final VoidCallback onDelete;
+  final VoidCallback onOpenItems;
 
   @override
   Widget build(BuildContext context) {
+    final isOpcional = item.itemType == 'optional';
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFFC2D51C), Color(0xFFAEC117)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFC2D51C)
-                    .withValues(alpha: _hover ? 0.45 : 0.25),
-                blurRadius: _hover ? 18 : 10,
-                spreadRadius: -2,
-              ),
-            ],
-          ),
+        onTap: onOpenItems,
+        child: AppCard(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.add_rounded,
-                  size: 16, color: Color(0xFF313131)),
-              const SizedBox(width: 6),
-              Text(
-                'Adicionar',
-                style: GoogleFonts.inter(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF313131),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: isOpcional
+                      ? const Color(0x33F9CF58)
+                      : const Color(0x33C2D51C),
+                  borderRadius: BorderRadius.circular(9),
                 ),
+                child: Icon(
+                  isOpcional ? Icons.add_circle_outline : Icons.label_outline,
+                  size: 16,
+                  color: isOpcional
+                      ? const Color(0xFFF9CF58)
+                      : const Color(0xFFC2D51C),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  item.categoryName,
+                  style: GoogleFonts.inter(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              AppStatusBadge(
+                label: isOpcional ? 'Opcional' : 'Série',
+                tone: isOpcional ? AppStatusTone.warning : AppStatusTone.brand,
+                dense: true,
+              ),
+              const SizedBox(width: 8),
+              AppRowAction(
+                icon: Icons.inventory_2_outlined,
+                tooltip: 'Itens da categoria',
+                onPressed: onOpenItems,
+              ),
+              const SizedBox(width: 4),
+              AppRowAction(
+                icon: Icons.delete_outline_rounded,
+                tooltip: 'Excluir',
+                danger: true,
+                onPressed: onDelete,
               ),
             ],
           ),
@@ -355,118 +333,274 @@ class _SubmitBtnState extends State<_SubmitBtn> {
   }
 }
 
-class _CategoryRow extends StatelessWidget {
-  const _CategoryRow({required this.item, required this.onDelete});
-  final CategoryRow item;
-  final VoidCallback onDelete;
 
-  @override
-  Widget build(BuildContext context) {
-    final isOpcional = item.itemType == 'optional';
-    return AppCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: isOpcional
-                  ? const Color(0x33F9CF58)
-                  : const Color(0x33C2D51C),
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Icon(
-              isOpcional ? Icons.add_circle_outline : Icons.label_outline,
-              size: 16,
-              color: isOpcional
-                  ? const Color(0xFFF9CF58)
-                  : const Color(0xFFC2D51C),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              item.categoryName,
-              style: GoogleFonts.inter(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          AppStatusBadge(
-            label: isOpcional ? 'Opcional' : 'Série',
-            tone: isOpcional ? AppStatusTone.warning : AppStatusTone.brand,
-            dense: true,
-          ),
-          const SizedBox(width: 8),
-          AppRowAction(
-            icon: Icons.delete_outline_rounded,
-            tooltip: 'Excluir',
-            danger: true,
-            onPressed: onDelete,
-          ),
-        ],
-      ),
-    );
+/// Rascunho de um item dentro do modal de criação.
+class _ItemDraft {
+  final nome = TextEditingController();
+  final qtd = TextEditingController(text: '1');
+  final preco = TextEditingController();
+  void dispose() {
+    nome.dispose();
+    qtd.dispose();
+    preco.dispose();
   }
 }
 
-class _FilterChips extends StatelessWidget {
-  const _FilterChips({
-    required this.label,
-    required this.value,
-    required this.options,
-    required this.onChanged,
-  });
+/// Modal único: cria a categoria E os itens dela (com as aeronaves) de uma
+/// vez. As aeronaves selecionadas valem para todos os itens deste cadastro —
+/// depois cada item pode ser ajustado individualmente pela tela de itens.
+class _CreateCategoryDialog extends StatefulWidget {
+  const _CreateCategoryDialog({required this.tipo, required this.aircrafts});
 
-  final String label;
-  final String value;
-  final List<MapEntry<String, String>> options;
-  final ValueChanged<String> onChanged;
+  /// 'series' | 'optional' (vem da aba ativa).
+  final String tipo;
+  final List<AircraftsRow> aircrafts;
+
+  @override
+  State<_CreateCategoryDialog> createState() => _CreateCategoryDialogState();
+}
+
+class _CreateCategoryDialogState extends State<_CreateCategoryDialog> {
+  final _nomeController = TextEditingController();
+  final _aircraftsController = FormFieldController<List<String>?>(null);
+  List<String>? _selectedAircraftIds;
+  final List<_ItemDraft> _drafts = [_ItemDraft()];
+  bool _busy = false;
+
+  bool get _isOptional => widget.tipo == 'optional';
+
+  @override
+  void dispose() {
+    _nomeController.dispose();
+    for (final d in _drafts) {
+      d.dispose();
+    }
+    super.dispose();
+  }
+
+  double _parsePreco(String text) {
+    final t = text.trim().replaceAll(',', '.');
+    return double.tryParse(t) ?? 0.0;
+  }
+
+  Future<void> _save() async {
+    if (_busy) return;
+    final nome = _nomeController.text.trim();
+    if (nome.isEmpty) {
+      showWriteError(context, 'Informe o nome da categoria.');
+      return;
+    }
+    final preenchidos =
+        _drafts.where((d) => d.nome.text.trim().isNotEmpty).toList();
+    final aeronaves = _selectedAircraftIds?.toList() ?? [];
+    if (preenchidos.isNotEmpty && aeronaves.isEmpty) {
+      showWriteError(
+          context, 'Selecione ao menos uma aeronave para os itens.');
+      return;
+    }
+    for (final d in preenchidos) {
+      final qty = int.tryParse(d.qtd.text.trim());
+      if (qty == null || qty < 1) {
+        showWriteError(context,
+            'Quantidade inválida no item "${d.nome.text.trim()}" (mínimo 1).');
+        return;
+      }
+    }
+    setState(() => _busy = true);
+    try {
+      final categoria = await guardInsert(
+        context,
+        () => CategoryTable().insert({
+          'category_name': nome,
+          'item_type': widget.tipo,
+          'created_by': currentUserUid,
+        }),
+      );
+      if (categoria == null) return; // bloqueado — não fecha a modal
+      for (final d in preenchidos) {
+        final item = await guardInsert(
+          context,
+          () => AircraftItemsTable().insert({
+            'category_id': categoria.id,
+            'item_name': d.nome.text.trim(),
+            'qty': int.parse(d.qtd.text.trim()),
+            'price': _isOptional ? _parsePreco(d.preco.text) : 0.00,
+            'item_type': widget.tipo,
+            'created_by': currentUserUid,
+          }),
+        );
+        if (item == null) continue; // erro já exibido; segue os demais
+        for (final aircraftId in aeronaves) {
+          await guardInsert(
+            context,
+            () => AircraftItemLinksTable().insert({
+              'aircraft_item_id': item.id,
+              'aircraft_id': aircraftId,
+              'created_by': currentUserUid,
+            }),
+          );
+        }
+      }
+      if (mounted) Navigator.of(context).pop(true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0x14FFFFFF),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0x22FFFFFF)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+    return AppModal(
+      icon: Icons.add_rounded,
+      title: _isOptional
+          ? 'Nova categoria de opcionais'
+          : 'Nova categoria de itens de série',
+      description:
+          'Crie a categoria e já cadastre os itens dela, vinculados às aeronaves.',
+      maxWidth: 640,
+      footer: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
+          AppSecondaryButton(
+            label: 'Cancelar',
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+          const SizedBox(width: 10),
+          AppPrimaryButton(
+            label: 'Salvar tudo',
+            icon: Icons.check_rounded,
+            busy: _busy,
+            onPressed: _save,
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppFormField(
+            controller: _nomeController,
+            label: 'Nome da categoria',
+            placeholder: _isOptional
+                ? 'Ex.: DGPS - AGNAV'
+                : 'Ex.: Instrumentos de voo',
+            icon: Icons.category_outlined,
+            required: true,
+          ),
+          const SizedBox(height: 14),
           Text(
-            '$label:',
+            'Aeronaves dos itens *',
             style: GoogleFonts.inter(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
               color: const Color(0x99FFFFFF),
-              letterSpacing: 0.6,
             ),
           ),
-          const SizedBox(width: 8),
-          DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: value,
-              isDense: true,
-              dropdownColor: const Color(0xFF2A2A2A),
-              icon: const Icon(Icons.expand_more_rounded,
-                  color: Color(0xFFC2D51C), size: 18),
-              style: GoogleFonts.inter(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
+          const SizedBox(height: 6),
+          FlutterFlowDropDown<String>(
+            multiSelectController: _aircraftsController,
+            isMultiSelect: true,
+            onMultiSelectChanged: (values) =>
+                setState(() => _selectedAircraftIds = values),
+            options:
+                List<String>.from(widget.aircrafts.map((a) => a.id).toList()),
+            optionLabels: widget.aircrafts.map((a) => a.aircraftModel).toList(),
+            height: 48.0,
+            textStyle: GoogleFonts.inter(
+              fontSize: 13.5,
+              color: Colors.white,
+            ),
+            hintText: 'Selecione as aeronaves',
+            icon: const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: Color(0x73FFFFFF),
+              size: 24.0,
+            ),
+            fillColor: const Color(0xFF404040),
+            elevation: 2.0,
+            borderColor: const Color(0x73FFFFFF),
+            borderWidth: 1.0,
+            borderRadius: 8.0,
+            margin: const EdgeInsetsDirectional.fromSTEB(12.0, 0.0, 12.0, 0.0),
+            hidesUnderline: true,
+            isOverButton: false,
+            isSearchable: false,
+          ),
+          const SizedBox(height: 18),
+          Text(
+            _isOptional ? 'Itens opcionais' : 'Itens de série',
+            style: GoogleFonts.inter(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: const Color(0x99FFFFFF),
+            ),
+          ),
+          const SizedBox(height: 6),
+          for (int i = 0; i < _drafts.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: AppFormField(
+                      controller: _drafts[i].nome,
+                      label: i == 0 ? 'Nome do item' : 'Nome do item ${i + 1}',
+                      placeholder: 'Ex.: GPS AGNAV',
+                      icon: Icons.settings_suggest_rounded,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 92,
+                    child: AppFormField(
+                      controller: _drafts[i].qtd,
+                      label: 'Qtd',
+                      placeholder: '1',
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly
+                      ],
+                    ),
+                  ),
+                  if (_isOptional) ...[
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      width: 130,
+                      child: AppFormField(
+                        controller: _drafts[i].preco,
+                        label: 'Preço (US\$)',
+                        placeholder: '0.00',
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9.,]')),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (_drafts.length > 1) ...[
+                    const SizedBox(width: 6),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 30),
+                      child: AppRowAction(
+                        icon: Icons.close_rounded,
+                        tooltip: 'Remover este item',
+                        danger: true,
+                        onPressed: () => setState(() {
+                          _drafts.removeAt(i).dispose();
+                        }),
+                      ),
+                    ),
+                  ],
+                ],
               ),
-              items: [
-                for (final opt in options)
-                  DropdownMenuItem(value: opt.key, child: Text(opt.value)),
-              ],
-              onChanged: (v) {
-                if (v != null) onChanged(v);
-              },
+            ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: AppSecondaryButton(
+              label: 'Adicionar outro item',
+              icon: Icons.add_rounded,
+              onPressed: () => setState(() => _drafts.add(_ItemDraft())),
             ),
           ),
         ],

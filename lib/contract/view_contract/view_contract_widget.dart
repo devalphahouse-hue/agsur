@@ -4,6 +4,7 @@ import '/core_ui/core_ui.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/schema/structs/index.dart';
 import '/backend/supabase/supabase.dart';
+import '/security/write_guard.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -123,9 +124,19 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                 _model.selectedItemPrices.values.fold(0.0, (a, b) => a + b);
         // Sync fullprice in DB with actual base + selected optionals
         final correctFullprice = _model.baseAircraftPrice + _model.selectedItemPrices.values.fold(0.0, (a, b) => a + b);
-        await ProposalTable().update(
-          data: {'fullprice': correctFullprice},
-          matchingRows: (rows) => rows.eqOrNull('id', FFAppState().asGetProposalDetails.proposal.id),
+        // Sem early-return: este sync roda no load da página, não num botão.
+        // Abortar aqui deixaria a tela sem render (safeSetState + query do
+        // financiamento abaixo). E `silent: true` porque o usuário não clicou em
+        // nada — um bloqueio aqui vai pro Sentry, não vira alerta na cara dele.
+        await guardWrite(
+          context,
+          () => ProposalTable().update(
+            data: {'fullprice': correctFullprice},
+            matchingRows: (rows) => rows.eqOrNull('id', FFAppState().asGetProposalDetails.proposal.id),
+            returnRows: true,
+          ),
+          silent: true,
+          contexto: 'view_contract: sync de fullprice no load',
         );
         safeSetState(() {});
         _model.getProposalFinancial = await ProposalFinancingTable().queryRows(
@@ -173,6 +184,26 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
     _model.dispose();
 
     super.dispose();
+  }
+
+  /// Data do contrato legível (a RPC devolve o timestamp ISO cru).
+  String _formatContractDate(String? raw) {
+    final parsed = DateTime.tryParse(raw ?? '');
+    if (parsed == null) return '-';
+    return dateTimeFormat("dd/MM/yyyy 'às' HH:mm", parsed.toLocal());
+  }
+
+  /// Remonta o texto dos termos a partir do template + valores preenchidos
+  /// ("rótulo: valor" por linha). É o que vai para o PDF — os rótulos são
+  /// invioláveis por construção (o usuário só edita os valores).
+  String _composeTerms() {
+    final lines = _model.termsTemplate.split('\n');
+    return List.generate(lines.length, (i) {
+      final label = lines[i];
+      if (label.trim().isEmpty) return label;
+      final value = _model.termsFieldControllers[i]?.text.trim() ?? '';
+      return value.isEmpty ? label : '$label: $value';
+    }).join('\n');
   }
 
   @override
@@ -386,12 +417,11 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                           text: TextSpan(
                                             children: [
                                               TextSpan(
-                                                text: valueOrDefault<String>(
+                                                text: _formatContractDate(
                                                   FFAppState()
                                                       .asGetProposalDetails
                                                       .proposal
                                                       .createdAt,
-                                                  '-',
                                                 ),
                                                 style: FlutterFlowTheme.of(
                                                         context)
@@ -1380,25 +1410,39 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                                             cpf,
                                                             typeDoc,
                                                             stateRegistration) async {
-                                                          await CompanyTable()
-                                                              .update(
-                                                            data: {
-                                                              'company_name':
-                                                                  companyName,
-                                                              'cnpj':
-                                                                  companyCnpj,
-                                                              'phone':
-                                                                  companyPhone,
-                                                              'created_by':
-                                                                  currentUserUid,
-                                                            },
-                                                            matchingRows:
-                                                                (rows) => rows
-                                                                    .eqOrNull(
-                                                              'id',
-                                                              companyId,
+                                                          final okCompany =
+                                                              await guardWrite(
+                                                            context,
+                                                            () => CompanyTable()
+                                                                .update(
+                                                              data: {
+                                                                'company_name':
+                                                                    companyName,
+                                                                'cnpj':
+                                                                    companyCnpj,
+                                                                'phone':
+                                                                    companyPhone,
+                                                                'created_by':
+                                                                    currentUserUid,
+                                                                'cpf': cpf,
+                                                                'type_doc':
+                                                                    typeDoc
+                                                                        ?.toString(),
+                                                                'state_registration':
+                                                                    stateRegistration,
+                                                              },
+                                                              matchingRows:
+                                                                  (rows) => rows
+                                                                      .eqOrNull(
+                                                                'id',
+                                                                companyId,
+                                                              ),
+                                                              returnRows: true,
                                                             ),
                                                           );
+                                                          if (!okCompany) {
+                                                            return;
+                                                          }
                                                           ScaffoldMessenger.of(
                                                                   context)
                                                               .showSnackBar(
@@ -2283,29 +2327,39 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                                             state,
                                                             complement,
                                                             addressId) async {
-                                                          await AddressTable()
-                                                              .update(
-                                                            data: {
-                                                              'zipcode':
-                                                                  zipcode,
-                                                              'street': street,
-                                                              'number': number,
-                                                              'neighborhood':
-                                                                  neighborhood,
-                                                              'city': city,
-                                                              'state': state,
-                                                              'complement':
-                                                                  complement,
-                                                              'created_by':
-                                                                  currentUserUid,
-                                                            },
-                                                            matchingRows:
-                                                                (rows) => rows
-                                                                    .eqOrNull(
-                                                              'id',
-                                                              addressId,
+                                                          final okAddress =
+                                                              await guardWrite(
+                                                            context,
+                                                            () => AddressTable()
+                                                                .update(
+                                                              data: {
+                                                                'zipcode':
+                                                                    zipcode,
+                                                                'street':
+                                                                    street,
+                                                                'number':
+                                                                    number,
+                                                                'neighborhood':
+                                                                    neighborhood,
+                                                                'city': city,
+                                                                'state': state,
+                                                                'complement':
+                                                                    complement,
+                                                                'created_by':
+                                                                    currentUserUid,
+                                                              },
+                                                              matchingRows:
+                                                                  (rows) => rows
+                                                                      .eqOrNull(
+                                                                'id',
+                                                                addressId,
+                                                              ),
+                                                              returnRows: true,
                                                             ),
                                                           );
+                                                          if (!okAddress) {
+                                                            return;
+                                                          }
                                                           ScaffoldMessenger.of(
                                                                   context)
                                                               .showSnackBar(
@@ -4338,24 +4392,46 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                                                           try {
                                                                             final proposalItemId = _model.aircraftToProposalItemId[lVOptionalItemsAircraftItemsRow.id];
                                                                             if (proposalItemId != null && proposalItemId.isNotEmpty) {
-                                                                              await ProposalItemTable().delete(
-                                                                                matchingRows: (rows) => rows.eqOrNull('id', proposalItemId),
+                                                                              final okDeleteById = await guardWrite(
+                                                                                context,
+                                                                                () => ProposalItemTable().delete(
+                                                                                  matchingRows: (rows) => rows.eqOrNull('id', proposalItemId),
+                                                                                  returnRows: true,
+                                                                                ),
                                                                               );
+                                                                              if (!okDeleteById) {
+                                                                                return;
+                                                                              }
                                                                             } else {
-                                                                              await ProposalItemTable().delete(
-                                                                                matchingRows: (rows) => rows
-                                                                                    .eqOrNull('aircraft_item_id', lVOptionalItemsAircraftItemsRow.id)
-                                                                                    .eqOrNull('proposal_id', widget!.proposalId),
+                                                                              final okDeleteByItem = await guardWrite(
+                                                                                context,
+                                                                                () => ProposalItemTable().delete(
+                                                                                  matchingRows: (rows) => rows
+                                                                                      .eqOrNull('aircraft_item_id', lVOptionalItemsAircraftItemsRow.id)
+                                                                                      .eqOrNull('proposal_id', widget!.proposalId),
+                                                                                  returnRows: true,
+                                                                                ),
                                                                               );
+                                                                              if (!okDeleteByItem) {
+                                                                                return;
+                                                                              }
                                                                             }
                                                                             _model.removeFromListdIds(lVOptionalItemsAircraftItemsRow.id);
                                                                             _model.selectedItemPrices.remove(lVOptionalItemsAircraftItemsRow.id);
                                                                             _model.aircraftToProposalItemId.remove(lVOptionalItemsAircraftItemsRow.id);
                                                                             // Update fullprice in proposal table and refresh FFAppState
                                                                             final newFullprice = _model.baseAircraftPrice + _model.selectedItemPrices.values.fold(0.0, (a, b) => a + b);
-                                                                            await ProposalTable().update(
-                                                                              data: {'fullprice': newFullprice},
-                                                                              matchingRows: (rows) => rows.eqOrNull('id', widget!.proposalId),
+                                                                            // Sem early-return: o delete acima já persistiu e o estado
+                                                                            // local já mudou. Abortar aqui deixaria a lista sem refresh
+                                                                            // (item sumiu do banco mas seguiria na tela). O guard avisa
+                                                                            // se só o fullprice foi bloqueado.
+                                                                            await guardWrite(
+                                                                              context,
+                                                                              () => ProposalTable().update(
+                                                                                data: {'fullprice': newFullprice},
+                                                                                matchingRows: (rows) => rows.eqOrNull('id', widget!.proposalId),
+                                                                                returnRows: true,
+                                                                              ),
                                                                             );
                                                                             final refreshedDetails = await GetProposalDetailsCall.call(pProposalId: widget!.proposalId);
                                                                             if (refreshedDetails.succeeded) {
@@ -4423,9 +4499,15 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                                                               (lVOptionalItemsAircraftItemsRow.qty ?? 1).toDouble();
                                                                           // Update fullprice in proposal table and refresh FFAppState
                                                                           final newFullprice = _model.baseAircraftPrice + _model.selectedItemPrices.values.fold(0.0, (a, b) => a + b);
-                                                                          await ProposalTable().update(
-                                                                            data: {'fullprice': newFullprice},
-                                                                            matchingRows: (rows) => rows.eqOrNull('id', widget!.proposalId),
+                                                                          // Sem early-return: o insert acima já persistiu e o estado
+                                                                          // local já mudou. Abortar aqui deixaria a lista sem refresh.
+                                                                          await guardWrite(
+                                                                            context,
+                                                                            () => ProposalTable().update(
+                                                                              data: {'fullprice': newFullprice},
+                                                                              matchingRows: (rows) => rows.eqOrNull('id', widget!.proposalId),
+                                                                              returnRows: true,
+                                                                            ),
                                                                           );
                                                                           final refreshedDetails = await GetProposalDetailsCall.call(pProposalId: widget!.proposalId);
                                                                           if (refreshedDetails.succeeded) {
@@ -5380,176 +5462,19 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                               padding: EdgeInsetsDirectional
                                                   .fromSTEB(
                                                       0.0, 12.0, 0.0, 0.0),
-                                              child: TextFormField(
-                                                controller: _model
-                                                        .tFTermsTextController ??=
-                                                    TextEditingController(
-                                                  text:
+                                              child: Builder(
+                                                builder: (context) {
+                                                  _model.termsTemplate =
                                                       cLStructureTermsAndInstructionsContractTermsRow
-                                                          ?.terms,
-                                                ),
-                                                focusNode:
-                                                    _model.tFTermsFocusNode,
-                                                autofocus: false,
-                                                obscureText: false,
-                                                decoration: InputDecoration(
-                                                  isDense: false,
-                                                  labelStyle: FlutterFlowTheme
-                                                          .of(context)
-                                                      .labelMedium
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .labelMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .labelMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        color: FlutterFlowTheme
-                                                                .of(context)
-                                                            .secondaryBackground,
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .labelMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .labelMedium
-                                                                .fontStyle,
-                                                      ),
-                                                  hintText:
-                                                      'Termos do contrato',
-                                                  hintStyle: FlutterFlowTheme
-                                                          .of(context)
-                                                      .labelMedium
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .labelMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .labelMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        color: FlutterFlowTheme
-                                                                .of(context)
-                                                            .secondaryBackground,
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .labelMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .labelMedium
-                                                                .fontStyle,
-                                                      ),
-                                                  enabledBorder:
-                                                      OutlineInputBorder(
-                                                    borderSide: BorderSide(
-                                                      color: Color(0x72FFFFFF),
-                                                      width: 1.0,
-                                                    ),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8.0),
-                                                  ),
-                                                  focusedBorder:
-                                                      OutlineInputBorder(
-                                                    borderSide: BorderSide(
-                                                      color:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .primary,
-                                                      width: 1.0,
-                                                    ),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8.0),
-                                                  ),
-                                                  errorBorder:
-                                                      OutlineInputBorder(
-                                                    borderSide: BorderSide(
-                                                      color:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .error,
-                                                      width: 1.0,
-                                                    ),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8.0),
-                                                  ),
-                                                  focusedErrorBorder:
-                                                      OutlineInputBorder(
-                                                    borderSide: BorderSide(
-                                                      color:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .error,
-                                                      width: 1.0,
-                                                    ),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8.0),
-                                                  ),
-                                                  filled: true,
-                                                  fillColor: Color(0xFF313131),
-                                                ),
-                                                style:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .override(
-                                                          font:
-                                                              GoogleFonts.inter(
-                                                            fontWeight:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontWeight,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontStyle,
-                                                          ),
-                                                          color: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .secondaryBackground,
-                                                          letterSpacing: 0.0,
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                maxLines: null,
-                                                minLines: 20,
-                                                cursorColor:
-                                                    FlutterFlowTheme.of(context)
-                                                        .primaryText,
-                                                validator: _model
-                                                    .tFTermsTextControllerValidator
-                                                    .asValidator(context),
+                                                              ?.terms ??
+                                                          '';
+                                                  return _TermsFillIn(
+                                                    template:
+                                                        _model.termsTemplate,
+                                                    controllers: _model
+                                                        .termsFieldControllers,
+                                                  );
+                                                },
                                               ),
                                             ),
                                           ].divide(SizedBox(height: 16.0)),
@@ -5651,7 +5576,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                               containerProposalFinancingRow
                                                   ?.totalDeposit,
                                         ),
-                                        _model.tFTermsTextController.text,
+                                        _composeTerms(),
                                         _model.tFInstructionTextController.text,
                                       );
                                     },
@@ -5703,6 +5628,109 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                 );
               },
             ),
+    );
+  }
+}
+
+/// Termos de contrato com rótulos travados: cada linha do template
+/// (contract_terms.terms) vira "rótulo fixo + campo de valor". Pedido do
+/// dono (2026-07-15): impedir que os rótulos (* E-mail, * CPF...) sejam
+/// apagados ou alterados durante o preenchimento. Linhas em branco do
+/// template viram espaçamento; o texto final é remontado em _composeTerms().
+class _TermsFillIn extends StatelessWidget {
+  const _TermsFillIn({required this.template, required this.controllers});
+
+  final String template;
+  final Map<int, TextEditingController> controllers;
+
+  @override
+  Widget build(BuildContext context) {
+    if (template.trim().isEmpty) {
+      return Text(
+        'Nenhum termo cadastrado para este contrato.',
+        style: FlutterFlowTheme.of(context).labelMedium.override(
+              font: GoogleFonts.inter(),
+              color: const Color(0x99FFFFFF),
+              letterSpacing: 0.0,
+            ),
+      );
+    }
+    final lines = template.split('\n');
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: const Color(0xFF313131),
+        borderRadius: BorderRadius.circular(8.0),
+        border: Border.all(color: const Color(0x73FFFFFF), width: 1.0),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (int i = 0; i < lines.length; i++)
+            if (lines[i].trim().isEmpty)
+              const SizedBox(height: 12.0)
+            else
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      lines[i].trim(),
+                      style: FlutterFlowTheme.of(context).bodyMedium.override(
+                            font: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
+                            ),
+                            color: FlutterFlowTheme.of(context)
+                                .secondaryBackground,
+                            letterSpacing: 0.0,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const SizedBox(width: 12.0),
+                    Expanded(
+                      child: TextFormField(
+                        controller: controllers[i] ??= TextEditingController(),
+                        cursorColor:
+                            FlutterFlowTheme.of(context).primaryText,
+                        style: FlutterFlowTheme.of(context)
+                            .bodyMedium
+                            .override(
+                              font: GoogleFonts.inter(),
+                              color: FlutterFlowTheme.of(context)
+                                  .secondaryBackground,
+                              letterSpacing: 0.0,
+                            ),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          hintText: 'Preencher…',
+                          hintStyle: FlutterFlowTheme.of(context)
+                              .labelMedium
+                              .override(
+                                font: GoogleFonts.inter(),
+                                color: const Color(0x55FFFFFF),
+                                letterSpacing: 0.0,
+                              ),
+                          enabledBorder: const UnderlineInputBorder(
+                            borderSide:
+                                BorderSide(color: Color(0x33FFFFFF)),
+                          ),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(
+                              color: FlutterFlowTheme.of(context).primary,
+                            ),
+                          ),
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 6.0),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+        ],
+      ),
     );
   }
 }

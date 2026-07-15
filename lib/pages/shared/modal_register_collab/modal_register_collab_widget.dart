@@ -7,6 +7,7 @@ import '/backend/schema/enums/enums.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/security/credentials_email.dart';
 import '/security/password_utils.dart';
 import 'modal_register_collab_model.dart';
 
@@ -236,8 +237,15 @@ class _ModalRegisterCollabWidgetState
             '${_model.tFNameTextController!.text} ${_model.tFLastNameTextController!.text}'
                 .trim(),
       });
+      final emailSent = await sendCredentialsEmail(
+        email: _model.tFEmailTextController!.text,
+        password: _model.tFPasswordUserTextController!.text,
+        profileType: 'Colaborador',
+        name: _model.tFNameTextController!.text,
+      );
       await widget.databaseRefresh?.call();
       if (!mounted) return;
+      if (!emailSent) showCredentialsEmailWarning(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(

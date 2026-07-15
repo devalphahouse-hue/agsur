@@ -16,7 +16,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const PANEL_PROFILES = ["Admin Master", "Admin", "Vendedor", "Admin2"];
-const PANEL_URL = "https://painel-agsur.vercel.app";
+const PANEL_URL = "https://painel.agsurbrasil.app";
 const APP_STORE_URL =
   "https://apps.apple.com/us/app/aerotg-avia%C3%A7%C3%A3o/id6769067230";
 const PLAY_STORE_URL =

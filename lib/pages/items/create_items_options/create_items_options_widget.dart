@@ -5,6 +5,7 @@ import '/flutter_flow/flutter_flow_drop_down.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/form_field_controller.dart';
+import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
 import '/pages/shared/empty_all_lists/empty_all_lists_widget.dart';
 import '/security/write_guard.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
@@ -495,11 +496,9 @@ class _CreateItemsOptionsWidgetState extends State<CreateItemsOptionsWidget> {
                                                                 mainAxisSize:
                                                                     MainAxisSize
                                                                         .max,
-                                                                mainAxisAlignment:
-                                                                    MainAxisAlignment
-                                                                        .spaceBetween,
                                                                 children: [
-                                                                  Align(
+                                                                  Expanded(
+                                                                    child: Align(
                                                                     alignment:
                                                                         AlignmentDirectional(
                                                                             -1.0,
@@ -552,7 +551,10 @@ class _CreateItemsOptionsWidgetState extends State<CreateItemsOptionsWidget> {
                                                                       ),
                                                                     ),
                                                                   ),
-                                                                  Align(
+                                                                  ),
+                                                                  SizedBox(
+                                                                    width: 100.0,
+                                                                    child: Align(
                                                                     alignment:
                                                                         AlignmentDirectional(
                                                                             -1.0,
@@ -609,7 +611,10 @@ class _CreateItemsOptionsWidgetState extends State<CreateItemsOptionsWidget> {
                                                                       ),
                                                                     ),
                                                                   ),
-                                                                  Align(
+                                                                  ),
+                                                                  SizedBox(
+                                                                    width: 170.0,
+                                                                    child: Align(
                                                                     alignment:
                                                                         AlignmentDirectional(
                                                                             -1.0,
@@ -671,9 +676,10 @@ class _CreateItemsOptionsWidgetState extends State<CreateItemsOptionsWidget> {
                                                                       ),
                                                                     ),
                                                                   ),
+                                                                  ),
                                                                 ].divide(SizedBox(
                                                                     width:
-                                                                        36.0)),
+                                                                        16.0)),
                                                               ),
                                                             ),
                                                             Row(
@@ -771,20 +777,57 @@ class _CreateItemsOptionsWidgetState extends State<CreateItemsOptionsWidget> {
                                                                           .transparent,
                                                                   onTap:
                                                                       () async {
-                                                                    await AircraftItemsTable()
-                                                                        .delete(
-                                                                      matchingRows:
-                                                                          (rows) =>
-                                                                              rows.eqOrNull(
-                                                                        'id',
-                                                                        lVOptionalItemsAircraftItemsRow
-                                                                            .id,
+                                                                    await showDialog(
+                                                                      context:
+                                                                          context,
+                                                                      builder:
+                                                                          (dialogContext) =>
+                                                                              Dialog(
+                                                                        elevation:
+                                                                            0,
+                                                                        insetPadding:
+                                                                            EdgeInsets.zero,
+                                                                        backgroundColor:
+                                                                            Colors.transparent,
+                                                                        alignment:
+                                                                            Alignment.center,
+                                                                        child:
+                                                                            AlertDialogWidget(
+                                                                          title:
+                                                                              'Deseja excluir este item opcional?',
+                                                                          iconColor:
+                                                                              const Color(0xFFFF5963),
+                                                                          btnColor:
+                                                                              const Color(0xFFFF5963),
+                                                                          confirmBtnAction:
+                                                                              () async {
+                                                                            // Soft-delete: itens referenciados por
+                                                                            // propostas têm FK NO ACTION (hard-delete
+                                                                            // dispara 23503). Marcar deleted=true some
+                                                                            // da lista e preserva o histórico.
+                                                                            final ok =
+                                                                                await guardWrite(
+                                                                              context,
+                                                                              () => AircraftItemsTable().update(
+                                                                                data: {'deleted': true},
+                                                                                matchingRows: (rows) => rows.eqOrNull(
+                                                                                  'id',
+                                                                                  lVOptionalItemsAircraftItemsRow.id,
+                                                                                ),
+                                                                                returnRows: true,
+                                                                              ),
+                                                                            );
+                                                                            if (!ok) {
+                                                                              return; // bloqueado — mantém a modal
+                                                                            }
+                                                                            if (dialogContext.mounted) {
+                                                                              Navigator.of(dialogContext).pop();
+                                                                            }
+                                                                            safeSetState(() => _model.itemsByCategory.clear());
+                                                                          },
+                                                                        ),
                                                                       ),
                                                                     );
-                                                                    safeSetState(() =>
-                                                                        _model
-                                                                            .itemsByCategory
-                                                                            .clear());
                                                                   },
                                                                   child: Icon(
                                                                     Icons
@@ -853,6 +896,7 @@ class _EditOptionalItemDialog extends StatefulWidget {
 
 class _EditOptionalItemDialogState extends State<_EditOptionalItemDialog> {
   late final TextEditingController _titleController;
+  late final TextEditingController _qtyController;
   late final TextEditingController _priceController;
   final FocusNode _priceFocusNode = FocusNode();
   late final FormFieldController<List<String>?> _aircraftsController;
@@ -863,6 +907,8 @@ class _EditOptionalItemDialogState extends State<_EditOptionalItemDialog> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.item.itemName);
+    _qtyController =
+        TextEditingController(text: widget.item.qty.toString());
     _priceController = TextEditingController(
       text: valueOrDefault<String>(
         functions.formatarMoedaEmDolar(widget.item.price.toStringAsFixed(2)),
@@ -878,6 +924,7 @@ class _EditOptionalItemDialogState extends State<_EditOptionalItemDialog> {
   void dispose() {
     EasyDebounce.cancel('_editOptionalItemPrice');
     _titleController.dispose();
+    _qtyController.dispose();
     _priceController.dispose();
     _priceFocusNode.dispose();
     super.dispose();
@@ -895,6 +942,11 @@ class _EditOptionalItemDialogState extends State<_EditOptionalItemDialog> {
       showWriteError(context, 'Informe o preço do item.');
       return;
     }
+    final qty = int.tryParse(_qtyController.text.trim());
+    if (qty == null || qty < 1) {
+      showWriteError(context, 'Informe uma quantidade válida (mínimo 1).');
+      return;
+    }
     final selectedAircrafts = _selectedAircraftIds?.toList() ?? [];
     if (selectedAircrafts.isEmpty) {
       showWriteError(context, 'Selecione ao menos uma aeronave.');
@@ -907,6 +959,7 @@ class _EditOptionalItemDialogState extends State<_EditOptionalItemDialog> {
         () => AircraftItemsTable().update(
           data: {
             'item_name': _titleController.text.trim(),
+            'qty': qty,
             'price': valueOrDefault<double>(
               functions.textToNumeric(_priceController.text),
               0.0,
@@ -978,6 +1031,16 @@ class _EditOptionalItemDialogState extends State<_EditOptionalItemDialog> {
             placeholder: 'Nome do item',
             icon: Icons.settings_suggest_rounded,
             required: true,
+          ),
+          const SizedBox(height: 14),
+          AppFormField(
+            controller: _qtyController,
+            label: 'Quantidade',
+            placeholder: '1',
+            icon: Icons.numbers_rounded,
+            required: true,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           ),
           const SizedBox(height: 14),
           AppFormField(

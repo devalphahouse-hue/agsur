@@ -5,6 +5,7 @@ import '/flutter_flow/flutter_flow_drop_down.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/form_field_controller.dart';
+import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
 import '/security/write_guard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -706,22 +707,68 @@ class _CreateItemsStandardWidgetState extends State<CreateItemsStandardWidget> {
                                                       highlightColor:
                                                           Colors.transparent,
                                                       onTap: () async {
-                                                        await AircraftItemsTable()
-                                                            .delete(
-                                                          matchingRows:
-                                                              (rows) =>
-                                                                  rows.eqOrNull(
-                                                            'id',
-                                                            lVStructureDocumentsOwnerAircraftItemsRow
-                                                                .id,
+                                                        await showDialog(
+                                                          context: context,
+                                                          builder: (dialogContext) =>
+                                                              Dialog(
+                                                            elevation: 0,
+                                                            insetPadding:
+                                                                EdgeInsets.zero,
+                                                            backgroundColor:
+                                                                Colors.transparent,
+                                                            alignment:
+                                                                Alignment.center,
+                                                            child:
+                                                                AlertDialogWidget(
+                                                              title:
+                                                                  'Deseja excluir este item de série?',
+                                                              iconColor: const Color(
+                                                                  0xFFFF5963),
+                                                              btnColor: const Color(
+                                                                  0xFFFF5963),
+                                                              confirmBtnAction:
+                                                                  () async {
+                                                                // Soft-delete: itens usados em propostas têm
+                                                                // FK NO ACTION (hard-delete dispara 23503).
+                                                                // deleted=true some da lista e preserva o
+                                                                // histórico.
+                                                                final ok =
+                                                                    await guardWrite(
+                                                                  context,
+                                                                  () => AircraftItemsTable()
+                                                                      .update(
+                                                                    data: {
+                                                                      'deleted':
+                                                                          true
+                                                                    },
+                                                                    matchingRows:
+                                                                        (rows) =>
+                                                                            rows.eqOrNull(
+                                                                      'id',
+                                                                      lVStructureDocumentsOwnerAircraftItemsRow
+                                                                          .id,
+                                                                    ),
+                                                                    returnRows:
+                                                                        true,
+                                                                  ),
+                                                                );
+                                                                if (!ok) {
+                                                                  return; // bloqueado — mantém a modal
+                                                                }
+                                                                if (dialogContext
+                                                                    .mounted) {
+                                                                  Navigator.of(
+                                                                          dialogContext)
+                                                                      .pop();
+                                                                }
+                                                                _model.itemLinksFuture =
+                                                                    null;
+                                                                safeSetState(
+                                                                    () {});
+                                                              },
+                                                            ),
                                                           ),
                                                         );
-                                                        // FK com ON DELETE CASCADE
-                                                        // limpa os vínculos; aqui só
-                                                        // atualizamos a lista.
-                                                        _model.itemLinksFuture =
-                                                            null;
-                                                        safeSetState(() {});
                                                       },
                                                       child: Icon(
                                                         Icons.delete,

@@ -1,8 +1,11 @@
 import 'dart:async';
 
+import 'package:easy_debounce/easy_debounce.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '/flutter_flow/custom_functions.dart' as functions;
 
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/supabase/supabase.dart';
@@ -102,20 +105,38 @@ class _CreateCategoryWidgetState extends State<CreateCategoryWidget> {
   }
 
   Future<void> _delete(CategoryRow item) async {
-    await CategoryTable().delete(
-      matchingRows: (rows) => rows.eqOrNull('id', item.id),
+    // Carrega os itens (ainda ativos) da categoria para avisar no modal quais
+    // serão removidos junto.
+    final items = await AircraftItemsTable().queryRows(
+      queryFn: (q) => q
+          .eqOrNull('category_id', item.id)
+          .eqOrNull('deleted', false)
+          .order('item_name', ascending: true),
     );
     if (!mounted) return;
-    _refresh();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Categoria removida',
-          style: GoogleFonts.inter(color: const Color(0xFF313131)),
-        ),
-        backgroundColor: const Color(0xFFC2D51C),
+    final itemNames = items.map((e) => e.itemName).toList();
+    final done = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        elevation: 0,
+        insetPadding: EdgeInsets.zero,
+        backgroundColor: Colors.transparent,
+        alignment: Alignment.center,
+        child: _DeleteCategoryDialog(category: item, itemNames: itemNames),
       ),
     );
+    if (done == true && mounted) {
+      _refresh();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Categoria removida',
+            style: GoogleFonts.inter(color: const Color(0xFF313131)),
+          ),
+          backgroundColor: const Color(0xFFC2D51C),
+        ),
+      );
+    }
   }
 
   @override
@@ -157,8 +178,9 @@ class _CreateCategoryWidgetState extends State<CreateCategoryWidget> {
             future: (_model.requestCompleter ??=
                     Completer<List<CategoryRow>>()
                       ..complete(CategoryTable().queryRows(
-                        queryFn: (q) =>
-                            q.order('category_name', ascending: true),
+                        queryFn: (q) => q
+                            .eqOrNull('deleted', false)
+                            .order('category_name', ascending: true),
                       )))
                 .future,
             builder: (context, snap) {
@@ -339,10 +361,14 @@ class _ItemDraft {
   final nome = TextEditingController();
   final qtd = TextEditingController(text: '1');
   final preco = TextEditingController();
+  final precoFocus = FocusNode();
+  String get debounceKey => 'catPreco_${identityHashCode(this)}';
   void dispose() {
+    EasyDebounce.cancel(debounceKey);
     nome.dispose();
     qtd.dispose();
     preco.dispose();
+    precoFocus.dispose();
   }
 }
 
@@ -376,11 +402,6 @@ class _CreateCategoryDialogState extends State<_CreateCategoryDialog> {
       d.dispose();
     }
     super.dispose();
-  }
-
-  double _parsePreco(String text) {
-    final t = text.trim().replaceAll(',', '.');
-    return double.tryParse(t) ?? 0.0;
   }
 
   Future<void> _save() async {
@@ -424,7 +445,10 @@ class _CreateCategoryDialogState extends State<_CreateCategoryDialog> {
             'category_id': categoria.id,
             'item_name': d.nome.text.trim(),
             'qty': int.parse(d.qtd.text.trim()),
-            'price': _isOptional ? _parsePreco(d.preco.text) : 0.00,
+            'price': _isOptional
+                ? valueOrDefault<double>(
+                    functions.textToNumeric(d.preco.text), 0.0)
+                : 0.00,
             'item_type': widget.tipo,
             'created_by': currentUserUid,
           }),
@@ -565,16 +589,40 @@ class _CreateCategoryDialogState extends State<_CreateCategoryDialog> {
                   if (_isOptional) ...[
                     const SizedBox(width: 10),
                     SizedBox(
-                      width: 130,
+                      width: 150,
                       child: AppFormField(
                         controller: _drafts[i].preco,
+                        focusNode: _drafts[i].precoFocus,
                         label: 'Preço (US\$)',
-                        placeholder: '0.00',
+                        placeholder: '\$ 0.00',
+                        icon: Icons.attach_money_rounded,
                         keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                              RegExp(r'[0-9.,]')),
-                        ],
+                        onChanged: (_) {
+                          final draft = _drafts[i];
+                          EasyDebounce.debounce(
+                            draft.debounceKey,
+                            const Duration(milliseconds: 0),
+                            () {
+                              setState(() {
+                                draft.preco.text = valueOrDefault<String>(
+                                  functions.formatarMoedaEmDolar(
+                                    valueOrDefault<String>(
+                                        draft.preco.text, '0'),
+                                  ),
+                                  '\$ 0.00',
+                                );
+                                draft.precoFocus.requestFocus();
+                                WidgetsBinding.instance
+                                    .addPostFrameCallback((_) {
+                                  draft.preco.selection =
+                                      TextSelection.collapsed(
+                                    offset: draft.preco.text.length,
+                                  );
+                                });
+                              });
+                            },
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -605,6 +653,128 @@ class _CreateCategoryDialogState extends State<_CreateCategoryDialog> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Confirmação de exclusão de categoria. Lista os itens que serão removidos
+/// junto e, ao confirmar, faz soft-delete dos itens e da categoria.
+///
+/// Soft-delete (não hard-delete) porque `aircraft_items.category_id` é FK
+/// NO ACTION e NOT NULL — apagar de verdade travaria em itens já usados em
+/// propostas (23503) e corromperia o histórico. Com `deleted=true` tudo some
+/// do painel e das propostas novas, preservando as antigas; é reversível.
+class _DeleteCategoryDialog extends StatefulWidget {
+  const _DeleteCategoryDialog({required this.category, required this.itemNames});
+
+  final CategoryRow category;
+  final List<String> itemNames;
+
+  @override
+  State<_DeleteCategoryDialog> createState() => _DeleteCategoryDialogState();
+}
+
+class _DeleteCategoryDialogState extends State<_DeleteCategoryDialog> {
+  bool _busy = false;
+
+  Future<void> _confirm() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      // 1) Soft-delete dos itens da categoria (se houver).
+      if (widget.itemNames.isNotEmpty) {
+        final ok = await guardWrite(
+          context,
+          () => AircraftItemsTable().update(
+            data: {'deleted': true},
+            matchingRows: (rows) =>
+                rows.eqOrNull('category_id', widget.category.id),
+            returnRows: true,
+          ),
+        );
+        if (!ok) return; // bloqueado — mantém a modal
+      }
+      // 2) Soft-delete da categoria.
+      final okCat = await guardWrite(
+        context,
+        () => CategoryTable().update(
+          data: {'deleted': true},
+          matchingRows: (rows) => rows.eqOrNull('id', widget.category.id),
+          returnRows: true,
+        ),
+      );
+      if (!okCat) return;
+      if (mounted) Navigator.of(context).pop(true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final n = widget.itemNames.length;
+    return AppModal(
+      icon: Icons.warning_amber_rounded,
+      iconTone: AppModalTone.danger,
+      title: 'Excluir a categoria "${widget.category.categoryName}"?',
+      description: n == 0
+          ? 'A categoria será removida do painel.'
+          : 'Esta categoria tem $n ${n == 1 ? 'item' : 'itens'}. Ao excluir, '
+              'todos serão removidos junto (somem do painel e das propostas '
+              'novas; propostas já feitas são preservadas).',
+      maxWidth: 480,
+      footer: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          AppSecondaryButton(
+            label: 'Cancelar',
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+          const SizedBox(width: 10),
+          AppPrimaryButton(
+            label: n == 0 ? 'Excluir' : 'Excluir tudo',
+            icon: Icons.delete_outline_rounded,
+            busy: _busy,
+            onPressed: _confirm,
+          ),
+        ],
+      ),
+      child: n == 0
+          ? const SizedBox(height: 4)
+          : ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 220),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final name in widget.itemNames)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 3),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 7, right: 8),
+                              child: Icon(Icons.circle,
+                                  size: 5, color: Color(0x99FFFFFF)),
+                            ),
+                            Expanded(
+                              child: Text(
+                                name,
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: const Color(0xCCFFFFFF),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 }

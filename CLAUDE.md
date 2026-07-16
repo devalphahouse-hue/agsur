@@ -102,6 +102,28 @@ npx supabase db push             # aplicar
 (dry-run) e `rls-smoke.yml` (smoke daily anon). DDL fora do PR vira drift e
 o smoke detecta.
 
+**SQL ad-hoc (leitura e correção pontual de dados) sem Studio:** com o projeto
+linkado, `npx supabase db query --linked "<sql>"` (ou `-f arquivo.sql`) roda via
+Management API usando a auth já configurada da CLI — **não precisa colar token
+no chat** (o padrão recorrente de vazamento; ver `RUNBOOK.md`/memória). Roda como
+`postgres`, então **ignora RLS e as triggers de guarda** (session_user = postgres):
+ótimo para inspecionar/consertar, péssimo para testar autorização — para validar
+RLS/triggers use JWT real via PostgREST. Use para **DDL** só o fluxo de migration
+acima (via PR); `db query` é para leitura e limpeza de dado pontual. Regra de
+ouro: SELECT de conferência antes de todo UPDATE/DELETE, e prefira soft-delete.
+
+**Soft-delete x o que a tela filtra (aprendido em limpezas de dado de teste):**
+esconder um registro da UI depende do filtro da view, que varia:
+- **Contratos/Propostas** (`vw_contract_data`) filtra `active=true AND
+  is_deleted=false AND is_contract=...` → basta `update proposal set
+  is_deleted=true` (reversível) para sumir da lista.
+- **Rastreio** (`vw_all_tracking`) **NÃO filtra** `deleted`/`is_deleted` — mostra
+  toda linha de `tracking`. Esconder um rastreio exige **apagar** as linhas de
+  `tracking` (+ `tracking_details`) daquele `user_aircraft` (as 21 etapas são
+  regeneráveis pelo template). Marcar `user_aircraft.deleted=true` não adianta.
+- **Usuário do app** nunca por UPDATE/DELETE direto: sempre a RPC
+  `admin_delete_app_user` (soft-delete + ban + libera e-mail).
+
 ## Arquitetura
 
 ### Backend Supabase

@@ -174,9 +174,15 @@ sessão de app cliente leva 403. Secret `RESEND_API_KEY` via
 A conversão proposta→contrato **não usa mais** `resetPasswordForEmail` (o
 e-mail nativo do Supabase, limitado a 2/hora, ficou só para "esqueci a senha").
 
-**E-mail editável no funil (2026-07-17).** Decisão de UX do cliente: **UMA
+**E-mail editável no funil (2026-07-17/18).** Decisão de UX do cliente: **UMA
 forma de editar por tela** — sem lápis avulso ao lado do texto; o e-mail vive
-dentro do formulário/modal que a tela já tem:
+dentro do formulário/modal que a tela já tem.
+
+> **Status (2026-07-18):** código em produção (commits `f3439d2` + `38b12cd`,
+> deploy via CI verde). ⚠️ **As migrations `20260717120000` e `20260717130000`
+> ainda NÃO foram aplicadas** (`npx supabase db push` pendente; o dry-run do
+> CI passou) — até lá, troca de e-mail pós-contrato e "Reenviar senha"
+> respondem com o erro amigável de RPC inexistente. Todo o resto já funciona.
 
 - **Proposta (antes da conversão):** as modais de empresa
   (`modal_register_company`/`modal_edit_company`) ganharam o campo "E-mail do
@@ -212,7 +218,17 @@ dentro do formulário/modal que a tela já tem:
   o e-mail de credenciais da criação não chegou.
 - **Guarda em `view_edit_lead`:** se o lead já tem cliente vinculado, o save
   NÃO altera o e-mail (aviso manda usar o cadastro do cliente) — evita o
-  desync silencioso com o auth.
+  desync silencioso com o auth. O campo de e-mail do lead é digitável direto
+  (era `readOnly` com fill claro `0x72FFFFFF` + texto `primaryText` preto —
+  nesta tela cinza claro = travado; ao destravar um campo, troque fill para o
+  padrão e texto para `secondaryBackground`).
+- **Dados cadastrais do cliente (2026-07-18, `view_edit_client`):** Nome,
+  Sobrenome, CPF e Empresa também editáveis para `canEditFunil` (cinza
+  travado para os demais — fill/cor condicionais no padrão do e-mail). O
+  "Atualizar dados" grava no lead E espelha em `users`
+  (name/lastname/cpf/fullname/phone) para listas e PDFs continuarem
+  consistentes. Cada campo lê o SEU controller (city/state já leram
+  Empresa/Cargo por engano — cuidado ao mexer).
 
 - `lib/backend/supabase/supabase.dart` — `SupaFlow` com URL/anon key embarcadas
   como fallback. Em build de produção, valores são sobrescritos via

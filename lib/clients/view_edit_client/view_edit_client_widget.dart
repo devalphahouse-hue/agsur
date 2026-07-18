@@ -1372,7 +1372,15 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                         focusNode: _model
                                                             .tFNameLeadFocusNode,
                                                         autofocus: true,
-                                                        readOnly: true,
+                                                        // Editável para quem
+                                                        // edita o funil; cinza
+                                                        // travado para os
+                                                        // demais (padrão do
+                                                        // e-mail desta tela).
+                                                        readOnly: !AccessControl
+                                                            .canEditFunil(
+                                                                AccessControl
+                                                                    .current),
                                                         obscureText: false,
                                                         decoration:
                                                             InputDecoration(
@@ -1493,8 +1501,13 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                                         8.0),
                                                           ),
                                                           filled: true,
-                                                          fillColor:
-                                                              Color(0x72FFFFFF),
+                                                          fillColor: AccessControl
+                                                                  .canEditFunil(
+                                                                      AccessControl
+                                                                          .current)
+                                                              ? null
+                                                              : Color(
+                                                                  0x72FFFFFF),
                                                         ),
                                                         style:
                                                             FlutterFlowTheme.of(
@@ -1513,9 +1526,15 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                                         .bodyMedium
                                                                         .fontStyle,
                                                                   ),
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .primaryText,
+                                                                  color: AccessControl
+                                                                          .canEditFunil(
+                                                                              AccessControl.current)
+                                                                      ? FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .secondaryBackground
+                                                                      : FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .primaryText,
                                                                   letterSpacing:
                                                                       0.0,
                                                                   fontWeight: FlutterFlowTheme.of(
@@ -1604,7 +1623,15 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                         focusNode: _model
                                                             .tFLastnameLeadFocusNode,
                                                         autofocus: true,
-                                                        readOnly: true,
+                                                        // Editável para quem
+                                                        // edita o funil; cinza
+                                                        // travado para os
+                                                        // demais (padrão do
+                                                        // e-mail desta tela).
+                                                        readOnly: !AccessControl
+                                                            .canEditFunil(
+                                                                AccessControl
+                                                                    .current),
                                                         obscureText: false,
                                                         decoration:
                                                             InputDecoration(
@@ -1725,8 +1752,13 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                                         8.0),
                                                           ),
                                                           filled: true,
-                                                          fillColor:
-                                                              Color(0x72FFFFFF),
+                                                          fillColor: AccessControl
+                                                                  .canEditFunil(
+                                                                      AccessControl
+                                                                          .current)
+                                                              ? null
+                                                              : Color(
+                                                                  0x72FFFFFF),
                                                         ),
                                                         style:
                                                             FlutterFlowTheme.of(
@@ -1745,9 +1777,15 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                                         .bodyMedium
                                                                         .fontStyle,
                                                                   ),
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .primaryText,
+                                                                  color: AccessControl
+                                                                          .canEditFunil(
+                                                                              AccessControl.current)
+                                                                      ? FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .secondaryBackground
+                                                                      : FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .primaryText,
                                                                   letterSpacing:
                                                                       0.0,
                                                                   fontWeight: FlutterFlowTheme.of(
@@ -1833,7 +1871,15 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                         focusNode: _model
                                                             .tFCpfLeadFocusNode,
                                                         autofocus: true,
-                                                        readOnly: true,
+                                                        // Editável para quem
+                                                        // edita o funil; cinza
+                                                        // travado para os
+                                                        // demais (padrão do
+                                                        // e-mail desta tela).
+                                                        readOnly: !AccessControl
+                                                            .canEditFunil(
+                                                                AccessControl
+                                                                    .current),
                                                         obscureText: false,
                                                         decoration:
                                                             InputDecoration(
@@ -1954,8 +2000,13 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                                         8.0),
                                                           ),
                                                           filled: true,
-                                                          fillColor:
-                                                              Color(0x72FFFFFF),
+                                                          fillColor: AccessControl
+                                                                  .canEditFunil(
+                                                                      AccessControl
+                                                                          .current)
+                                                              ? null
+                                                              : Color(
+                                                                  0x72FFFFFF),
                                                         ),
                                                         style:
                                                             FlutterFlowTheme.of(
@@ -1974,9 +2025,15 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                                         .bodyMedium
                                                                         .fontStyle,
                                                                   ),
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .primaryText,
+                                                                  color: AccessControl
+                                                                          .canEditFunil(
+                                                                              AccessControl.current)
+                                                                      ? FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .secondaryBackground
+                                                                      : FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .primaryText,
                                                                   letterSpacing:
                                                                       0.0,
                                                                   fontWeight: FlutterFlowTheme.of(
@@ -2328,7 +2385,15 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                         focusNode: _model
                                                             .tFEmpresaLeadFocusNode,
                                                         autofocus: true,
-                                                        readOnly: true,
+                                                        // Editável para quem
+                                                        // edita o funil; cinza
+                                                        // travado para os
+                                                        // demais (padrão do
+                                                        // e-mail desta tela).
+                                                        readOnly: !AccessControl
+                                                            .canEditFunil(
+                                                                AccessControl
+                                                                    .current),
                                                         obscureText: false,
                                                         decoration:
                                                             InputDecoration(
@@ -2449,8 +2514,13 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                                         8.0),
                                                           ),
                                                           filled: true,
-                                                          fillColor:
-                                                              Color(0x72FFFFFF),
+                                                          fillColor: AccessControl
+                                                                  .canEditFunil(
+                                                                      AccessControl
+                                                                          .current)
+                                                              ? null
+                                                              : Color(
+                                                                  0x72FFFFFF),
                                                         ),
                                                         style:
                                                             FlutterFlowTheme.of(
@@ -2469,9 +2539,15 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                                         .bodyMedium
                                                                         .fontStyle,
                                                                   ),
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .primaryText,
+                                                                  color: AccessControl
+                                                                          .canEditFunil(
+                                                                              AccessControl.current)
+                                                                      ? FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .secondaryBackground
+                                                                      : FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .primaryText,
                                                                   letterSpacing:
                                                                       0.0,
                                                                   fontWeight: FlutterFlowTheme.of(
@@ -3446,23 +3522,30 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                 final okLead = await guardWrite(
                                                   context,
                                                   () => LeadsTable().update(
+                                                    // Cada campo lê o SEU
+                                                    // controller (city/state já
+                                                    // leram Empresa/Cargo por
+                                                    // engano — não repetir). O
+                                                    // e-mail é persistido pela
+                                                    // RPC
+                                                    // (_saveClientEmailIfChanged),
+                                                    // por isso não entra aqui.
                                                     data: {
+                                                      'name': _model
+                                                          .tFNameLeadTextController
+                                                          .text,
+                                                      'last_name': _model
+                                                          .tFLastnameLeadTextController
+                                                          .text,
+                                                      'cpf': _model
+                                                          .tFCpfLeadTextController
+                                                          .text,
+                                                      'company_name': _model
+                                                          .tFEmpresaLeadTextController
+                                                          .text,
                                                       'phone': _model
                                                           .tFPhoneLeadTextController
                                                           .text,
-                                                      // city/state liam os
-                                                      // controllers de Empresa e
-                                                      // Cargo (bug desde o commit
-                                                      // inicial): salvar aqui
-                                                      // sobrescrevia a cidade com
-                                                      // o nome da empresa e a UF
-                                                      // com o cargo. Nome/CPF/
-                                                      // Empresa são readOnly
-                                                      // nesta tela e o e-mail é
-                                                      // persistido pela RPC
-                                                      // (_saveClientEmailIfChanged),
-                                                      // por isso não entram
-                                                      // neste update.
                                                       'city': _model
                                                           .tFCityLeadTextController
                                                           .text,
@@ -3486,7 +3569,23 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                     await guardWrite(
                                                   context,
                                                   () => UsersTable().update(
+                                                    // Espelha no cadastro do
+                                                    // cliente (users) o que o
+                                                    // painel mostra em listas e
+                                                    // PDFs.
                                                     data: {
+                                                      'name': _model
+                                                          .tFNameLeadTextController
+                                                          .text,
+                                                      'lastname': _model
+                                                          .tFLastnameLeadTextController
+                                                          .text,
+                                                      'cpf': _model
+                                                          .tFCpfLeadTextController
+                                                          .text,
+                                                      'fullname':
+                                                          '${_model.tFNameLeadTextController.text} ${_model.tFLastnameLeadTextController.text}'
+                                                              .trim(),
                                                       'phone': _model
                                                           .tFPhoneLeadTextController
                                                           .text,

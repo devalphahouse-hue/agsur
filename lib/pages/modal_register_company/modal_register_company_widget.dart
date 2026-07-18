@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 
+import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/pages/shared/edit_email_dialog/edit_email_dialog.dart';
 import 'modal_register_company_model.dart';
 
 export 'modal_register_company_model.dart';
@@ -13,6 +16,7 @@ class ModalRegisterCompanyWidget extends StatefulWidget {
     super.key,
     required this.leadId,
     required this.btnActions,
+    this.onSaveEmail,
   });
 
   final String? leadId;
@@ -26,6 +30,11 @@ class ModalRegisterCompanyWidget extends StatefulWidget {
     String? stateRegistration,
   )? btnActions;
 
+  /// E-mail do lead exibido e editável na própria modal (pré-preenchido a
+  /// partir do cadastro do lead). Se alterado, roda ANTES do [btnActions];
+  /// retornar false mantém a modal aberta.
+  final Future<bool> Function(String newEmail)? onSaveEmail;
+
   @override
   State<ModalRegisterCompanyWidget> createState() =>
       _ModalRegisterCompanyWidgetState();
@@ -35,6 +44,8 @@ class _ModalRegisterCompanyWidgetState
     extends State<ModalRegisterCompanyWidget> {
   late ModalRegisterCompanyModel _model;
   bool _busy = false;
+  TextEditingController? _emailController;
+  String _emailOriginal = '';
 
   @override
   void initState() {
@@ -55,10 +66,54 @@ class _ModalRegisterCompanyWidgetState
     _model.tFCpfCompanyMask = MaskTextInputFormatter(mask: '###.###.###-##');
     _model.tFIncricCompanyTextController ??= TextEditingController();
     _model.tFIncricCompanyFocusNode ??= FocusNode();
+    if (widget.onSaveEmail != null) {
+      _emailController = TextEditingController();
+    }
+
+    // Pré-preenche com o que o lead já informou no cadastro (empresa,
+    // telefone, CPF, e-mail) — evita redigitar dados que o funil já tem. Os
+    // campos continuam editáveis; quem preencher por cima prevalece.
+    SchedulerBinding.instance.addPostFrameCallback((_) async {
+      final leadId = widget.leadId ?? '';
+      if (leadId.isEmpty) return;
+      final rows = await LeadsTable().queryRows(
+        queryFn: (q) => q.eqOrNull('id', leadId),
+      );
+      if (!mounted) return;
+      final lead = rows.firstOrNull;
+      if (lead == null) return;
+      if (_model.tFCompanyNameTextController!.text.isEmpty &&
+          (lead.companyName ?? '').isNotEmpty) {
+        _model.tFCompanyNameTextController!.text = lead.companyName!;
+      }
+      if (_model.tFPhoneCompanyTextController!.text.isEmpty &&
+          lead.phone.isNotEmpty) {
+        _applyMaskedText(_model.tFPhoneCompanyTextController!,
+            _model.tFPhoneCompanyMask, lead.phone);
+      }
+      if (_model.tFCpfCompanyTextController!.text.isEmpty &&
+          lead.cpf.isNotEmpty) {
+        _applyMaskedText(_model.tFCpfCompanyTextController!,
+            _model.tFCpfCompanyMask, lead.cpf);
+      }
+      if (_emailController != null && _emailController!.text.isEmpty) {
+        _emailOriginal = lead.email.trim();
+        _emailController!.text = _emailOriginal;
+      }
+      setState(() {});
+    });
+  }
+
+  void _applyMaskedText(TextEditingController c, MaskTextInputFormatter mask,
+      String raw) {
+    final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
+    c.text = mask.maskText(digits);
+    mask.updateMask(newValue: TextEditingValue(text: c.text));
   }
 
   @override
   void dispose() {
+    _emailController?.dispose();
     _model.maybeDispose();
     super.dispose();
   }
@@ -69,6 +124,15 @@ class _ModalRegisterCompanyWidgetState
         !_model.formKey.currentState!.validate()) return;
     setState(() => _busy = true);
     try {
+      // E-mail primeiro: se a persistência falhar, a modal fica aberta e a
+      // empresa não é cadastrada pela metade.
+      if (widget.onSaveEmail != null && _emailController != null) {
+        final newEmail = _emailController!.text.trim().toLowerCase();
+        if (newEmail != _emailOriginal.toLowerCase()) {
+          final okEmail = await widget.onSaveEmail!(newEmail);
+          if (!okEmail) return;
+        }
+      }
       await widget.btnActions?.call(
         _model.tFCompanyNameTextController!.text,
         _model.tFCnpjCompanyTextController!.text,
@@ -188,6 +252,25 @@ class _ModalRegisterCompanyWidgetState
               placeholder: 'Opcional',
               icon: Icons.confirmation_number_outlined,
             ),
+            if (widget.onSaveEmail != null) ...[
+              const SizedBox(height: 14),
+              AppFormField(
+                controller: _emailController,
+                label: 'E-mail do cliente',
+                placeholder: 'email@exemplo.com',
+                icon: Icons.mail_outline_rounded,
+                required: true,
+                keyboardType: TextInputType.emailAddress,
+                validator: (v) {
+                  final email = (v ?? '').trim();
+                  if (email.isEmpty) return 'Informe o e-mail.';
+                  if (!isValidEmailFormat(email)) {
+                    return 'Informe um e-mail válido.';
+                  }
+                  return null;
+                },
+              ),
+            ],
           ],
         ),
       ),

@@ -174,6 +174,46 @@ sessão de app cliente leva 403. Secret `RESEND_API_KEY` via
 A conversão proposta→contrato **não usa mais** `resetPasswordForEmail` (o
 e-mail nativo do Supabase, limitado a 2/hora, ficou só para "esqueci a senha").
 
+**E-mail editável no funil (2026-07-17).** Decisão de UX do cliente: **UMA
+forma de editar por tela** — sem lápis avulso ao lado do texto; o e-mail vive
+dentro do formulário/modal que a tela já tem:
+
+- **Proposta (antes da conversão):** as modais de empresa
+  (`modal_register_company`/`modal_edit_company`) ganharam o campo "E-mail do
+  cliente" via params opcionais `emailInitial`/`onSaveEmail` (o campo só
+  aparece quando `onSaveEmail` é passado). Em `create_proposal`/
+  `view_edit_proposal`, o handler grava `leads.email` (guardWrite) e sincroniza
+  `FFAppState` (`asGetLeadProposal` + `asGetProposalDetails`). O e-mail é salvo
+  ANTES do btnActions — falhou, a modal fica aberta. O cadastro de empresa
+  também nasce pré-preenchido com empresa/telefone/CPF/e-mail do lead.
+- **Na conversão (`view_edit_proposal`):** o botão "Converter em contrato" abre
+  primeiro "Confirmar e-mail do cliente" (diálogo compartilhado
+  `lib/pages/shared/edit_email_dialog/edit_email_dialog.dart`, pré-preenchido e
+  editável); o e-mail confirmado alimenta lookup, signup, insert e
+  `sendCredentialsEmail`. **Cliente já existente = reuso:** o lookup é
+  case-insensitive (`ilike` + `is_deleted=false`), `createUserPublic` é zerado
+  a cada conversão (senão um resíduo do model roubava o `user_Id` do
+  contrato), e se o signup recusar por conta já existente (422 ou 200
+  "ofuscado"), re-busca o users e segue com o cliente existente — contrato
+  novo para o mesmo cliente, sem abortar e sem duplicar.
+- **Depois da conversão:** o e-mail é o login do app E a chave de RLS
+  (`leads.email = auth_user_email()`), então a troca passa pela RPC
+  **`admin_update_client_email`** (migration `20260717120000` — troca
+  `public.users` + `auth.users` + `auth.identities` + `leads` na MESMA
+  transação e revoga as sessões; Admin Master ou Admin documentação). Entradas:
+  a modal "Editar empresa" do `view_contract` (campo de e-mail com handler via
+  RPC) e o campo E-mail de `view_edit_client` (editável para
+  `AccessControl.canEditFunil`, persistido pelo "Atualizar dados" via
+  `_saveClientEmailIfChanged` antes dos demais updates).
+- **Reenviar senha (`view_edit_client`):** botão ao lado de "Atualizar dados"
+  chama a RPC **`admin_reset_client_password`** (migration `20260717130000` —
+  gera senha hex forte server-side, grava hash bcrypt em `auth.users`, revoga
+  sessões e devolve a senha) e reenvia via `sendCredentialsEmail`. Para quando
+  o e-mail de credenciais da criação não chegou.
+- **Guarda em `view_edit_lead`:** se o lead já tem cliente vinculado, o save
+  NÃO altera o e-mail (aviso manda usar o cadastro do cliente) — evita o
+  desync silencioso com o auth.
+
 - `lib/backend/supabase/supabase.dart` — `SupaFlow` com URL/anon key embarcadas
   como fallback. Em build de produção, valores são sobrescritos via
   `--dart-define`. Anon key é pública por design Supabase; segurança real

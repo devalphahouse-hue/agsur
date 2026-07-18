@@ -7,6 +7,7 @@ import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/pages/shared/edit_email_dialog/edit_email_dialog.dart';
 import 'modal_edit_company_model.dart';
 
 export 'modal_edit_company_model.dart';
@@ -16,6 +17,8 @@ class ModalEditCompanyWidget extends StatefulWidget {
     super.key,
     required this.companyId,
     required this.btnActions,
+    this.emailInitial,
+    this.onSaveEmail,
   });
 
   final String? companyId;
@@ -29,6 +32,14 @@ class ModalEditCompanyWidget extends StatefulWidget {
     String? stateRegistration,
   )? btnActions;
 
+  /// E-mail do lead/cliente exibido e editável na própria modal.
+  /// Quando [onSaveEmail] é fornecido, o campo aparece pré-preenchido com
+  /// [emailInitial]; se alterado, [onSaveEmail] roda ANTES do [btnActions]
+  /// (retornar false mantém a modal aberta — o erro é sinalizado por quem
+  /// persiste: guardWrite/RPC/snackbar).
+  final String? emailInitial;
+  final Future<bool> Function(String newEmail)? onSaveEmail;
+
   @override
   State<ModalEditCompanyWidget> createState() => _ModalEditCompanyWidgetState();
 }
@@ -37,11 +48,16 @@ class _ModalEditCompanyWidgetState extends State<ModalEditCompanyWidget> {
   late ModalEditCompanyModel _model;
   bool _busy = false;
   bool _loading = true;
+  TextEditingController? _emailController;
 
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => ModalEditCompanyModel());
+    if (widget.onSaveEmail != null) {
+      _emailController =
+          TextEditingController(text: (widget.emailInitial ?? '').trim());
+    }
     _model.tFCompanyNameTextController ??= TextEditingController();
     _model.tFCompanyNameFocusNode ??= FocusNode();
     _model.tFPhoneCompanyTextController ??= TextEditingController();
@@ -89,6 +105,7 @@ class _ModalEditCompanyWidgetState extends State<ModalEditCompanyWidget> {
 
   @override
   void dispose() {
+    _emailController?.dispose();
     _model.maybeDispose();
     super.dispose();
   }
@@ -99,6 +116,16 @@ class _ModalEditCompanyWidgetState extends State<ModalEditCompanyWidget> {
         !_model.formKey.currentState!.validate()) return;
     setState(() => _busy = true);
     try {
+      // E-mail primeiro: se a persistência dele falhar (RLS/RPC), a modal
+      // fica aberta e nada da empresa é salvo pela metade.
+      if (widget.onSaveEmail != null && _emailController != null) {
+        final newEmail = _emailController!.text.trim().toLowerCase();
+        final oldEmail = (widget.emailInitial ?? '').trim().toLowerCase();
+        if (newEmail != oldEmail) {
+          final okEmail = await widget.onSaveEmail!(newEmail);
+          if (!okEmail) return;
+        }
+      }
       await widget.btnActions?.call(
         _model.tFCompanyNameTextController!.text,
         _model.tFCnpjCompanyTextController!.text,
@@ -225,6 +252,25 @@ class _ModalEditCompanyWidgetState extends State<ModalEditCompanyWidget> {
                     placeholder: 'Opcional',
                     icon: Icons.confirmation_number_outlined,
                   ),
+                  if (widget.onSaveEmail != null) ...[
+                    const SizedBox(height: 14),
+                    AppFormField(
+                      controller: _emailController,
+                      label: 'E-mail do cliente',
+                      placeholder: 'email@exemplo.com',
+                      icon: Icons.mail_outline_rounded,
+                      required: true,
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (v) {
+                        final email = (v ?? '').trim();
+                        if (email.isEmpty) return 'Informe o e-mail.';
+                        if (!isValidEmailFormat(email)) {
+                          return 'Informe um e-mail válido.';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),

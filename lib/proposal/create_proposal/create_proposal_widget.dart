@@ -550,6 +550,53 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                                       .asGetLeadProposal
                                                                       .company
                                                                       .id,
+                                                              emailInitial:
+                                                                  FFAppState()
+                                                                      .asGetLeadProposal
+                                                                      .lead
+                                                                      .email,
+                                                              onSaveEmail:
+                                                                  (newEmail) async {
+                                                                final leadId =
+                                                                    FFAppState()
+                                                                        .asGetLeadProposal
+                                                                        .lead
+                                                                        .id;
+                                                                if (leadId
+                                                                    .isEmpty) {
+                                                                  return false;
+                                                                }
+                                                                final okEmail =
+                                                                    await guardWrite(
+                                                                  context,
+                                                                  () => LeadsTable()
+                                                                      .update(
+                                                                    data: {
+                                                                      'email':
+                                                                          newEmail,
+                                                                    },
+                                                                    matchingRows:
+                                                                        (rows) =>
+                                                                            rows.eqOrNull(
+                                                                      'id',
+                                                                      leadId,
+                                                                    ),
+                                                                    returnRows:
+                                                                        true,
+                                                                  ),
+                                                                );
+                                                                if (okEmail) {
+                                                                  FFAppState()
+                                                                      .updateAsGetLeadProposalStruct(
+                                                                    (e) => e
+                                                                      ..lead.email =
+                                                                          newEmail,
+                                                                  );
+                                                                  safeSetState(
+                                                                      () {});
+                                                                }
+                                                                return okEmail;
+                                                              },
                                                               btnActions: (companyName,
                                                                   companyCnpj,
                                                                   companyPhone,
@@ -727,6 +774,48 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                                 ),
                                                                 r'''$.id''',
                                                               ).toString(),
+                                                              onSaveEmail:
+                                                                  (newEmail) async {
+                                                                final leadId =
+                                                                    FFAppState()
+                                                                        .asGetLeadProposal
+                                                                        .lead
+                                                                        .id;
+                                                                if (leadId
+                                                                    .isEmpty) {
+                                                                  return false;
+                                                                }
+                                                                final okEmail =
+                                                                    await guardWrite(
+                                                                  context,
+                                                                  () => LeadsTable()
+                                                                      .update(
+                                                                    data: {
+                                                                      'email':
+                                                                          newEmail,
+                                                                    },
+                                                                    matchingRows:
+                                                                        (rows) =>
+                                                                            rows.eqOrNull(
+                                                                      'id',
+                                                                      leadId,
+                                                                    ),
+                                                                    returnRows:
+                                                                        true,
+                                                                  ),
+                                                                );
+                                                                if (okEmail) {
+                                                                  FFAppState()
+                                                                      .updateAsGetLeadProposalStruct(
+                                                                    (e) => e
+                                                                      ..lead.email =
+                                                                          newEmail,
+                                                                  );
+                                                                  safeSetState(
+                                                                      () {});
+                                                                }
+                                                                return okEmail;
+                                                              },
                                                               btnActions: (companyName,
                                                                   companyCnpj,
                                                                   companyPhone,

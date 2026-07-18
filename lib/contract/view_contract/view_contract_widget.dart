@@ -1403,6 +1403,98 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                                             .asGetProposalDetails
                                                             .proposalCompany
                                                             .id,
+                                                        emailInitial:
+                                                            FFAppState()
+                                                                .asGetProposalDetails
+                                                                .proposalLead
+                                                                .email,
+                                                        onSaveEmail:
+                                                            (newEmail) async {
+                                                          // Pós-conversão o
+                                                          // e-mail é o LOGIN do
+                                                          // cliente no app —
+                                                          // troca atômica via
+                                                          // RPC (auth + users +
+                                                          // leads).
+                                                          final contractRows =
+                                                              await ContractTable()
+                                                                  .queryRows(
+                                                            queryFn: (q) =>
+                                                                q.eqOrNull(
+                                                              'proposal_id',
+                                                              widget!
+                                                                  .proposalId,
+                                                            ),
+                                                          );
+                                                          final clientUserId =
+                                                              contractRows
+                                                                  .firstOrNull
+                                                                  ?.userId;
+                                                          if (clientUserId ==
+                                                                  null ||
+                                                              clientUserId
+                                                                  .isEmpty) {
+                                                            if (context
+                                                                .mounted) {
+                                                              ScaffoldMessenger.of(
+                                                                      context)
+                                                                  .showSnackBar(
+                                                                SnackBar(
+                                                                  content: Text(
+                                                                      'Cliente do contrato não encontrado.'),
+                                                                  backgroundColor:
+                                                                      FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .error,
+                                                                ),
+                                                              );
+                                                            }
+                                                            return false;
+                                                          }
+                                                          try {
+                                                            await SupaFlow
+                                                                .client
+                                                                .rpc(
+                                                              'admin_update_client_email',
+                                                              params: {
+                                                                'p_user_id':
+                                                                    clientUserId,
+                                                                'p_new_email':
+                                                                    newEmail,
+                                                              },
+                                                            );
+                                                          } catch (e) {
+                                                            if (context
+                                                                .mounted) {
+                                                              final msg = e
+                                                                      is PostgrestException
+                                                                  ? e.message
+                                                                  : 'Não foi possível trocar o e-mail. Tente novamente.';
+                                                              ScaffoldMessenger.of(
+                                                                      context)
+                                                                  .showSnackBar(
+                                                                SnackBar(
+                                                                  content:
+                                                                      Text(msg),
+                                                                  backgroundColor:
+                                                                      FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .error,
+                                                                ),
+                                                              );
+                                                            }
+                                                            return false;
+                                                          }
+                                                          FFAppState()
+                                                              .updateAsGetProposalDetailsStruct(
+                                                            (e) => e
+                                                              ..proposalLead
+                                                                      .email =
+                                                                  newEmail,
+                                                          );
+                                                          safeSetState(() {});
+                                                          return true;
+                                                        },
                                                         btnActions: (companyName,
                                                             companyCnpj,
                                                             companyPhone,

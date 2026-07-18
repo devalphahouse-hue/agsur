@@ -1,11 +1,15 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/api_requests/api_calls.dart';
 import '/backend/supabase/supabase.dart';
+import '/security/access_control.dart';
+import '/security/credentials_email.dart';
 import '/security/write_guard.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
+import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
+import '/pages/shared/edit_email_dialog/edit_email_dialog.dart';
 import '/pages/shared/empty_list/empty_list_widget.dart';
 import '/pages/shared/modal_register_note/modal_register_note_widget.dart';
 import '/index.dart';
@@ -78,6 +82,120 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
     _model.dispose();
 
     super.dispose();
+  }
+
+  /// users row do cliente vinculado a este lead (RPCs de e-mail/senha).
+  Future<UsersRow?> _clientUser() async {
+    final users = await UsersTable().queryRows(
+      queryFn: (q) => q
+          .eqOrNull('lead_id', widget!.leadId)
+          .eqOrNull('is_deleted', false),
+    );
+    return users.firstOrNull;
+  }
+
+  void _showError(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: FlutterFlowTheme.of(context).error,
+      ),
+    );
+  }
+
+  /// Se o e-mail digitado difere do atual do cliente, troca o login via RPC
+  /// atômica (auth + users + leads; revoga a sessão do cliente). Retorna
+  /// false (com aviso) quando a troca falha — o save deve abortar.
+  Future<bool> _saveClientEmailIfChanged() async {
+    final typed =
+        (_model.tFEmailLeadTextController?.text ?? '').trim().toLowerCase();
+    if (typed.isEmpty) return true;
+    final client = await _clientUser();
+    if (client == null) return true; // sem cliente vinculado — nada a trocar
+    if (typed == client.email.trim().toLowerCase()) return true;
+    if (!isValidEmailFormat(typed)) {
+      _showError('Informe um e-mail válido.');
+      return false;
+    }
+    try {
+      await SupaFlow.client.rpc(
+        'admin_update_client_email',
+        params: {
+          'p_user_id': client.id,
+          'p_new_email': typed,
+        },
+      );
+      return true;
+    } catch (e) {
+      _showError(e is PostgrestException
+          ? e.message
+          : 'Não foi possível trocar o e-mail. Tente novamente.');
+      return false;
+    }
+  }
+
+  /// Gera uma senha nova (server-side, RPC) e reenvia o e-mail de
+  /// credenciais — para quando a senha não chegou ao cliente na criação.
+  Future<void> _resendPassword() async {
+    final client = await _clientUser();
+    if (client == null) {
+      _showError('Cliente não encontrado para este lead.');
+      return;
+    }
+    if (!mounted) return;
+    await showDialog(
+      barrierColor: Color(0x9A000000),
+      context: context,
+      builder: (dialogContext) => Dialog(
+        elevation: 0,
+        insetPadding: EdgeInsets.zero,
+        backgroundColor: Colors.transparent,
+        alignment: Alignment.center,
+        child: AlertDialogWidget(
+          title: 'Gerar nova senha e enviar para ${client.email}?',
+          iconColor: FlutterFlowTheme.of(context).primary,
+          btnColor: FlutterFlowTheme.of(context).primary,
+          confirmBtnAction: () async {
+            Navigator.of(dialogContext).pop();
+            try {
+              final newPassword = (await SupaFlow.client.rpc(
+                'admin_reset_client_password',
+                params: {'p_user_id': client.id},
+              ))
+                  .toString();
+              final emailSent = await sendCredentialsEmail(
+                email: client.email,
+                password: newPassword,
+                profileType: 'Cliente',
+                name: client.name,
+              );
+              if (!mounted) return;
+              if (emailSent) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Nova senha enviada para ${client.email}.',
+                      style: TextStyle(
+                        color: FlutterFlowTheme.of(context).primaryText,
+                      ),
+                    ),
+                    backgroundColor: FlutterFlowTheme.of(context).primary,
+                    duration: Duration(milliseconds: 4000),
+                  ),
+                );
+              } else {
+                showCredentialsEmailWarning(context);
+              }
+            } catch (e) {
+              _showError(e is PostgrestException
+                  ? e.message
+                  : 'Não foi possível gerar a nova senha. Tente novamente.');
+            }
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -1958,7 +2076,16 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                         focusNode: _model
                                                             .tFEmailLeadFocusNode,
                                                         autofocus: true,
-                                                        readOnly: true,
+                                                        // E-mail é o login do
+                                                        // cliente no app: só
+                                                        // quem edita o funil
+                                                        // altera (persistido
+                                                        // via RPC no botão
+                                                        // "Atualizar dados").
+                                                        readOnly: !AccessControl
+                                                            .canEditFunil(
+                                                                AccessControl
+                                                                    .current),
                                                         obscureText: false,
                                                         decoration:
                                                             InputDecoration(
@@ -2079,8 +2206,17 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                                         8.0),
                                                           ),
                                                           filled: true,
-                                                          fillColor:
-                                                              Color(0x72FFFFFF),
+                                                          // Cinza = travado;
+                                                          // padrão quando o
+                                                          // papel pode editar
+                                                          // o e-mail (login).
+                                                          fillColor: AccessControl
+                                                                  .canEditFunil(
+                                                                      AccessControl
+                                                                          .current)
+                                                              ? null
+                                                              : Color(
+                                                                  0x72FFFFFF),
                                                         ),
                                                         style:
                                                             FlutterFlowTheme.of(
@@ -2099,9 +2235,15 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                                         .bodyMedium
                                                                         .fontStyle,
                                                                   ),
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .primaryText,
+                                                                  color: AccessControl
+                                                                          .canEditFunil(
+                                                                              AccessControl.current)
+                                                                      ? FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .secondaryBackground
+                                                                      : FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .primaryText,
                                                                   letterSpacing:
                                                                       0.0,
                                                                   fontWeight: FlutterFlowTheme.of(
@@ -3283,8 +3425,24 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                             padding:
                                                 EdgeInsetsDirectional.fromSTEB(
                                                     0.0, 16.0, 0.0, 0.0),
-                                            child: FFButtonWidget(
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                AppSecondaryButton(
+                                                  label: 'Reenviar senha',
+                                                  icon: Icons.lock_reset_rounded,
+                                                  onPressed: _resendPassword,
+                                                ),
+                                                const SizedBox(width: 10),
+                                                FFButtonWidget(
                                               onPressed: () async {
+                                                // E-mail primeiro (RPC troca o
+                                                // login no auth + users +
+                                                // leads); falhou, aborta sem
+                                                // salvar pela metade.
+                                                final okEmail =
+                                                    await _saveClientEmailIfChanged();
+                                                if (!okEmail) return;
                                                 final okLead = await guardWrite(
                                                   context,
                                                   () => LeadsTable().update(
@@ -3299,9 +3457,12 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                       // sobrescrevia a cidade com
                                                       // o nome da empresa e a UF
                                                       // com o cargo. Nome/CPF/
-                                                      // e-mail/Empresa são
-                                                      // readOnly nesta tela, por
-                                                      // isso não entram no update.
+                                                      // Empresa são readOnly
+                                                      // nesta tela e o e-mail é
+                                                      // persistido pela RPC
+                                                      // (_saveClientEmailIfChanged),
+                                                      // por isso não entram
+                                                      // neste update.
                                                       'city': _model
                                                           .tFCityLeadTextController
                                                           .text,
@@ -3408,6 +3569,8 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                 borderRadius:
                                                     BorderRadius.circular(12.0),
                                               ),
+                                            ),
+                                              ],
                                             ),
                                           ),
                                         ),

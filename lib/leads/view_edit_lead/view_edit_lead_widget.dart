@@ -6,6 +6,7 @@ import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
+import '/pages/shared/edit_email_dialog/edit_email_dialog.dart';
 import '/pages/shared/empty_list/empty_list_widget.dart';
 import '/pages/shared/modal_register_note/modal_register_note_widget.dart';
 import '/index.dart';
@@ -2048,7 +2049,15 @@ class _ViewEditLeadWidgetState extends State<ViewEditLeadWidget> {
                                                         focusNode: _model
                                                             .tFEmailLeadFocusNode,
                                                         autofocus: true,
-                                                        readOnly: true,
+                                                        // Lead ainda não
+                                                        // convertido: e-mail
+                                                        // edita direto e salva
+                                                        // no "Atualizar dados"
+                                                        // (lead já convertido é
+                                                        // barrado lá, com aviso
+                                                        // para usar o cadastro
+                                                        // do cliente).
+                                                        readOnly: false,
                                                         obscureText: false,
                                                         decoration:
                                                             InputDecoration(
@@ -2169,8 +2178,6 @@ class _ViewEditLeadWidgetState extends State<ViewEditLeadWidget> {
                                                                         8.0),
                                                           ),
                                                           filled: true,
-                                                          fillColor:
-                                                              Color(0x72FFFFFF),
                                                         ),
                                                         style:
                                                             FlutterFlowTheme.of(
@@ -2191,7 +2198,7 @@ class _ViewEditLeadWidgetState extends State<ViewEditLeadWidget> {
                                                                   ),
                                                                   color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .primaryText,
+                                                                      .secondaryBackground,
                                                                   letterSpacing:
                                                                       0.0,
                                                                   fontWeight: FlutterFlowTheme.of(
@@ -3372,6 +3379,77 @@ class _ViewEditLeadWidgetState extends State<ViewEditLeadWidget> {
                                                     0.0, 16.0, 0.0, 0.0),
                                             child: FFButtonWidget(
                                               onPressed: () async {
+                                                // E-mail de lead JÁ convertido é
+                                                // o login do cliente no app e a
+                                                // chave de RLS dele — não pode
+                                                // divergir de users/auth. Se há
+                                                // cliente vinculado, a troca é
+                                                // pela tela do cliente (RPC
+                                                // admin_update_client_email).
+                                                var emailToSave = _model
+                                                    .tFEmailLeadTextController
+                                                    .text
+                                                    .trim();
+                                                if (!isValidEmailFormat(
+                                                    emailToSave)) {
+                                                  ScaffoldMessenger.of(context)
+                                                      .showSnackBar(
+                                                    SnackBar(
+                                                      content: Text(
+                                                          'Informe um e-mail válido.'),
+                                                      backgroundColor:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .error,
+                                                    ),
+                                                  );
+                                                  return;
+                                                }
+                                                final linkedClients =
+                                                    await UsersTable()
+                                                        .queryRows(
+                                                  queryFn: (q) => q
+                                                      .eqOrNull('lead_id',
+                                                          widget!.leadId)
+                                                      .eqOrNull(
+                                                          'is_deleted', false),
+                                                );
+                                                if (linkedClients.isNotEmpty) {
+                                                  final leadRow =
+                                                      (await LeadsTable()
+                                                              .queryRows(
+                                                    queryFn: (q) => q.eqOrNull(
+                                                        'id', widget!.leadId),
+                                                  ))
+                                                          .firstOrNull;
+                                                  final oldEmail =
+                                                      leadRow?.email ?? '';
+                                                  if (emailToSave
+                                                          .trim()
+                                                          .toLowerCase() !=
+                                                      oldEmail
+                                                          .trim()
+                                                          .toLowerCase()) {
+                                                    emailToSave = oldEmail;
+                                                    if (context.mounted) {
+                                                      ScaffoldMessenger.of(
+                                                              context)
+                                                          .showSnackBar(
+                                                        SnackBar(
+                                                          content: Text(
+                                                              'Este lead já é cliente: o e-mail é o login dele no app. Troque pelo cadastro do cliente (os demais campos foram salvos).'),
+                                                          backgroundColor:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .error,
+                                                          duration: Duration(
+                                                              milliseconds:
+                                                                  6000),
+                                                        ),
+                                                      );
+                                                    }
+                                                  }
+                                                }
                                                 final okEditLead =
                                                     await guardWrite(
                                                   context,
@@ -3380,9 +3458,7 @@ class _ViewEditLeadWidgetState extends State<ViewEditLeadWidget> {
                                                       'cpf': _model
                                                           .tFCpfLeadTextController
                                                           .text,
-                                                      'email': _model
-                                                          .tFEmailLeadTextController
-                                                          .text,
+                                                      'email': emailToSave,
                                                       'phone': _model
                                                           .tFPhoneLeadTextController
                                                           .text,

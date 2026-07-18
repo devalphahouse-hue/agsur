@@ -12,6 +12,7 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/pages/modal_edit_company/modal_edit_company_widget.dart';
 import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
+import '/pages/shared/edit_email_dialog/edit_email_dialog.dart';
 import '/pages/shared/empty_all_lists/empty_all_lists_widget.dart';
 import '/pages/shared/empty_list/empty_list_widget.dart';
 import '/pages/shared/modal_edit_address/modal_edit_address_widget.dart';
@@ -1177,6 +1178,63 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                           .asGetProposalDetails
                                                           .proposalCompany
                                                           .id,
+                                                      emailInitial: FFAppState()
+                                                          .asGetProposalDetails
+                                                          .proposalLead
+                                                          .email,
+                                                      onSaveEmail:
+                                                          (newEmail) async {
+                                                        final leadId =
+                                                            FFAppState()
+                                                                .asGetProposalDetails
+                                                                .proposalLead
+                                                                .id;
+                                                        if (!RegExp(
+                                                                r'^[0-9a-fA-F-]{36}$')
+                                                            .hasMatch(leadId)) {
+                                                          return false;
+                                                        }
+                                                        final okEmail =
+                                                            await guardWrite(
+                                                          context,
+                                                          () => LeadsTable()
+                                                              .update(
+                                                            data: {
+                                                              'email': newEmail,
+                                                            },
+                                                            matchingRows:
+                                                                (rows) => rows
+                                                                    .eqOrNull(
+                                                              'id',
+                                                              leadId,
+                                                            ),
+                                                            returnRows: true,
+                                                          ),
+                                                        );
+                                                        if (okEmail) {
+                                                          FFAppState()
+                                                              .updateAsGetProposalDetailsStruct(
+                                                            (e) => e
+                                                              ..proposalLead
+                                                                      .email =
+                                                                  newEmail,
+                                                          );
+                                                          if (FFAppState()
+                                                                  .asGetLeadProposal
+                                                                  .lead
+                                                                  .id ==
+                                                              leadId) {
+                                                            FFAppState()
+                                                                .updateAsGetLeadProposalStruct(
+                                                              (e) => e
+                                                                ..lead.email =
+                                                                    newEmail,
+                                                            );
+                                                          }
+                                                          safeSetState(() {});
+                                                        }
+                                                        return okEmail;
+                                                      },
                                                       btnActions: (companyName,
                                                           companyCnpj,
                                                           companyPhone,
@@ -5408,6 +5466,66 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                   child: Builder(
                                     builder: (context) => FFButtonWidget(
                                       onPressed: () async {
+                                        // O acesso do cliente no app (auth +
+                                        // credenciais por e-mail) é criado com
+                                        // o e-mail do lead — confirmar/corrigir
+                                        // ANTES de converter.
+                                        final leadIdForEmail = FFAppState()
+                                            .asGetProposalDetails
+                                            .proposalLead
+                                            .id;
+                                        final confirmedEmail =
+                                            await showEditEmailDialog(
+                                          context,
+                                          initialEmail: FFAppState()
+                                              .asGetProposalDetails
+                                              .proposalLead
+                                              .email,
+                                          title: 'Confirmar e-mail do cliente',
+                                          description:
+                                              'O acesso do cliente no app será criado com este e-mail e as credenciais serão enviadas para ele. Corrija antes de converter, se necessário.',
+                                          saveLabel: 'Confirmar',
+                                          onSave: (email) async {
+                                            if (!RegExp(r'^[0-9a-fA-F-]{36}$')
+                                                .hasMatch(leadIdForEmail)) {
+                                              return false;
+                                            }
+                                            final ok = await guardWrite(
+                                              context,
+                                              () => LeadsTable().update(
+                                                data: {'email': email},
+                                                matchingRows: (rows) =>
+                                                    rows.eqOrNull(
+                                                  'id',
+                                                  leadIdForEmail,
+                                                ),
+                                                returnRows: true,
+                                              ),
+                                            );
+                                            if (ok) {
+                                              FFAppState()
+                                                  .updateAsGetProposalDetailsStruct(
+                                                (e) => e
+                                                  ..proposalLead.email = email,
+                                              );
+                                              if (FFAppState()
+                                                      .asGetLeadProposal
+                                                      .lead
+                                                      .id ==
+                                                  leadIdForEmail) {
+                                                FFAppState()
+                                                    .updateAsGetLeadProposalStruct(
+                                                  (e) => e..lead.email = email,
+                                                );
+                                              }
+                                              safeSetState(() {});
+                                            }
+                                            return ok;
+                                          },
+                                        );
+                                        if (confirmedEmail == null) {
+                                          return;
+                                        }
                                         await showDialog(
                                           barrierColor: Color(0x9A000000),
                                           context: context,
@@ -5441,17 +5559,31 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                           context)
                                                       .primary,
                                                   confirmBtnAction: () async {
+                                                    // Zera resíduo de conversão
+                                                    // anterior no model — senão
+                                                    // um createUserPublic velho
+                                                    // teria precedência sobre o
+                                                    // cliente reusado no insert
+                                                    // do contrato.
+                                                    _model.createUserPublic =
+                                                        null;
+                                                    // Cliente JÁ existente
+                                                    // (mesmo e-mail, qualquer
+                                                    // caixa) = contrato novo
+                                                    // para o mesmo cliente —
+                                                    // não cria acesso de novo.
                                                     _model.userExist =
                                                         await UsersTable()
                                                             .queryRows(
-                                                      queryFn: (q) =>
-                                                          q.eqOrNull(
-                                                        'email',
-                                                        FFAppState()
-                                                            .asGetLeadProposal
-                                                            .lead
-                                                            .email,
-                                                      ),
+                                                      queryFn: (q) => q
+                                                          .ilike(
+                                                            'email',
+                                                            confirmedEmail,
+                                                          )
+                                                          .eqOrNull(
+                                                            'is_deleted',
+                                                            false,
+                                                          ),
                                                     );
                                                     if (!(_model.userExist !=
                                                             null &&
@@ -5474,26 +5606,56 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                       _model.createUserAuth =
                                                           await CreateAccountAnotherUserCall
                                                               .call(
-                                                        email: FFAppState()
-                                                            .asGetProposalDetails
-                                                            .proposalLead
-                                                            .email,
+                                                        email: confirmedEmail,
                                                         password: clientPassword,
                                                       );
 
                                                       final novoUserId = getJsonField(
                                                           (_model.createUserAuth?.jsonBody ?? ''),
                                                           r'''$.user.id''');
+                                                      var reusedExisting =
+                                                          false;
                                                       if (novoUserId == null) {
-                                                        ScaffoldMessenger.of(context).showSnackBar(
-                                                          SnackBar(
-                                                            content: Text(
-                                                                'Nao foi possivel criar o acesso do cliente. Verifique o e-mail do lead e tente novamente.'),
-                                                            backgroundColor: FlutterFlowTheme.of(context).error,
-                                                          ),
+                                                        // Signup recusou — o
+                                                        // caso típico é conta
+                                                        // de auth JÁ existente
+                                                        // (422 ou o 200
+                                                        // "ofuscado" com
+                                                        // identities vazio).
+                                                        // Se o cadastro do
+                                                        // painel existir, é o
+                                                        // MESMO cliente: reusa
+                                                        // e segue com o
+                                                        // contrato novo.
+                                                        _model.userExist =
+                                                            await UsersTable()
+                                                                .queryRows(
+                                                          queryFn: (q) => q
+                                                              .ilike(
+                                                                'email',
+                                                                confirmedEmail,
+                                                              )
+                                                              .eqOrNull(
+                                                                'is_deleted',
+                                                                false,
+                                                              ),
                                                         );
-                                                        return;
+                                                        if (!(_model.userExist !=
+                                                                null &&
+                                                            (_model.userExist)!
+                                                                .isNotEmpty)) {
+                                                          ScaffoldMessenger.of(context).showSnackBar(
+                                                            SnackBar(
+                                                              content: Text(
+                                                                  'Nao foi possivel criar o acesso do cliente. Verifique o e-mail do lead e tente novamente.'),
+                                                              backgroundColor: FlutterFlowTheme.of(context).error,
+                                                            ),
+                                                          );
+                                                          return;
+                                                        }
+                                                        reusedExisting = true;
                                                       }
+                                                      if (!reusedExisting) {
                                                       _model.createUserPublic =
                                                           await UsersTable()
                                                               .insert({
@@ -5505,10 +5667,8 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                         ).toString(),
                                                         'name': _model.getLead
                                                             ?.firstOrNull?.name,
-                                                        'email': FFAppState()
-                                                            .asGetProposalDetails
-                                                            .proposalLead
-                                                            .email,
+                                                        'email':
+                                                            confirmedEmail,
                                                         'profile_photo_url':
                                                             'https://bkzybtmxxzpxtztesdye.supabase.co/storage/v1/object/public/AGSur//user_icon%20(1).png',
                                                         'phone': FFAppState()
@@ -5539,13 +5699,14 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                       // e-mail de boas-vindas com as credenciais do cliente novo
                                                       // (via Edge Function send-credentials-email / Resend)
                                                       final emailSent = await sendCredentialsEmail(
-                                                        email: FFAppState().asGetProposalDetails.proposalLead.email,
+                                                        email: confirmedEmail,
                                                         password: clientPassword,
                                                         profileType: 'Cliente',
                                                         name: _model.getLead?.firstOrNull?.name,
                                                       );
                                                       if (!emailSent && context.mounted) {
                                                         showCredentialsEmailWarning(context);
+                                                      }
                                                       }
                                                     }
                                                     final createdContract =

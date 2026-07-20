@@ -1,5 +1,6 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/api_requests/api_calls.dart';
+import '/backend/lead_conversion.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/schema/structs/index.dart';
 import '/backend/supabase/supabase.dart';
@@ -5846,6 +5847,14 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                     if (!okIsContract) {
                                                       return;
                                                     }
+                                                    // O lead virou cliente:
+                                                    // invalida o cache que a
+                                                    // lista de Leads e o
+                                                    // seletor de proposta usam
+                                                    // para classificar, senão
+                                                    // ele segue aparecendo
+                                                    // como lead em aberto.
+                                                    LeadConversion.invalidate();
                                                     // Contrato/dados já gravados
                                                     // acima; navega direto para
                                                     // a lista de contratos (sem

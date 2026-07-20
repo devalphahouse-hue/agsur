@@ -1,5 +1,6 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/api_requests/api_calls.dart';
+import '/backend/lead_conversion.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/schema/structs/index.dart';
 import '/backend/supabase/supabase.dart';
@@ -43,6 +44,36 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
   late CreateProposalModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
+
+  /// Leads que já viraram cliente. Preenchido por [_fetchLeadOptions] antes do
+  /// builder rodar, e usado só para rotular/ordenar o dropdown.
+  Set<String> _convertedLeadIds = {};
+
+  /// O seletor lista leads em aberto E clientes. Cliente continua sendo uma
+  /// linha de `leads` por baixo (é a chave de auth do app), então uma proposta
+  /// de recompra é só uma proposta nova com o MESMO lead_id — a conversão
+  /// reaproveita o cliente existente em vez de criar acesso duplicado.
+  Future<List<LeadsRow>> _fetchLeadOptions() async {
+    final leads = await LeadsTable().queryRows(
+      queryFn: (q) => q.eqOrNull('active', true).eqOrNull('is_deleted', false),
+    );
+    _convertedLeadIds = await LeadConversion.convertedLeadIds();
+    // Leads em aberto primeiro (é o caso comum), clientes depois.
+    leads.sort((a, b) {
+      final ac = _convertedLeadIds.contains(a.id) ? 1 : 0;
+      final bc = _convertedLeadIds.contains(b.id) ? 1 : 0;
+      if (ac != bc) return ac - bc;
+      return (a.fullname ?? '').toLowerCase().compareTo(
+            (b.fullname ?? '').toLowerCase(),
+          );
+    });
+    return leads;
+  }
+
+  String _leadOptionLabel(LeadsRow e) {
+    final name = valueOrDefault<String>(e.fullname, 'Nome completo');
+    return _convertedLeadIds.contains(e.id) ? '$name · Cliente' : '$name · Lead';
+  }
 
   @override
   void initState() {
@@ -119,17 +150,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                       padding: EdgeInsetsDirectional.fromSTEB(
                           16.0, 12.0, 16.0, 16.0),
                       child: FutureBuilder<List<LeadsRow>>(
-                        future: LeadsTable().queryRows(
-                          queryFn: (q) => q
-                              .eqOrNull(
-                                'active',
-                                true,
-                              )
-                              .eqOrNull(
-                                'is_deleted',
-                                false,
-                              ),
-                        ),
+                        future: _fetchLeadOptions(),
                         builder: (context, snapshot) {
                           // Customize what your widget looks like when it's loading.
                           if (!snapshot.hasData) {
@@ -206,10 +227,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                               .map((e) => e.id)
                                               .toList()),
                                       optionLabels: cTCsrdAircraftLeadsRowList
-                                          .map((e) => valueOrDefault<String>(
-                                                e.fullname,
-                                                'Nome completo',
-                                              ))
+                                          .map(_leadOptionLabel)
                                           .toList(),
                                       onChanged: (val) => safeSetState(
                                           () => _model.dpdLeadValue = val),
@@ -287,7 +305,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                     .bodyMedium
                                                     .fontStyle,
                                           ),
-                                      hintText: 'Selecione o lead',
+                                      hintText: 'Selecione o lead ou cliente',
                                       searchHintText: 'Digite o nome aqui...',
                                       icon: Icon(
                                         Icons.keyboard_arrow_down_rounded,
@@ -6295,6 +6313,41 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                                 context)
                                                             .primary,
                                                     confirmBtnAction: () async {
+                                                      // Valida ANTES de
+                                                      // inserir. Sem isso o
+                                                      // insert da proposta já
+                                                      // tinha rodado quando o
+                                                      // `int.parse(dPDLengthValue!)`
+                                                      // do financiamento
+                                                      // estourava — cada
+                                                      // tentativa deixava uma
+                                                      // proposta órfã no banco
+                                                      // (17 acumuladas até
+                                                      // 2026-07-20) e o
+                                                      // diálogo travava sem
+                                                      // explicação nenhuma.
+                                                      final prazo = _model
+                                                          .dPDLengthValue;
+                                                      if (prazo == null ||
+                                                          int.tryParse(prazo) ==
+                                                              null) {
+                                                        Navigator.of(
+                                                                dialogContext)
+                                                            .pop();
+                                                        ScaffoldMessenger.of(
+                                                                context)
+                                                            .showSnackBar(
+                                                          SnackBar(
+                                                            content: Text(
+                                                                'Selecione o prazo de financiamento antes de criar a proposta.'),
+                                                            backgroundColor:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .error,
+                                                          ),
+                                                        );
+                                                        return;
+                                                      }
                                                       _model.getRates =
                                                           await FinancingRatesTable()
                                                               .queryRows(
@@ -6364,8 +6417,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                               .insert({
                                                         'term_length':
                                                             valueOrDefault<int>(
-                                                          int.parse((_model
-                                                              .dPDLengthValue!)),
+                                                          int.tryParse(prazo),
                                                           0,
                                                         ),
                                                         'credit_date':

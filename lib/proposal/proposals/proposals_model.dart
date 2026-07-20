@@ -1,3 +1,4 @@
+import '/backend/paged_query.dart';
 import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/pages/shared/menu/menu_widget.dart';
@@ -11,7 +12,7 @@ class ProposalsModel extends FlutterFlowModel<ProposalsWidget> {
 
   // Stores action output result for [Backend Call - Query Rows] action in Proposals widget.
   List<UsersRow>? user;
-  Completer<List<VwProposalDataRow>>? requestCompleter;
+  Completer<PagedResult<VwProposalDataRow>>? requestCompleter;
   // Model for menu component.
   late MenuModel menuModel;
 

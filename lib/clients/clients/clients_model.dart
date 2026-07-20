@@ -1,3 +1,4 @@
+import '/backend/paged_query.dart';
 import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/pages/shared/menu/menu_widget.dart';
@@ -14,7 +15,7 @@ class ClientsModel extends FlutterFlowModel<ClientsWidget> {
   FocusNode? textFieldFocusNode;
   TextEditingController? textController;
   String? Function(BuildContext, String?)? textControllerValidator;
-  Completer<List<VwGetClientsRow>>? requestCompleter;
+  Completer<PagedResult<VwGetClientsRow>>? requestCompleter;
   // Models for switch_component dynamic component.
   late FlutterFlowDynamicModels<SwitchComponentModel> switchComponentModels;
   // Stores action output result for [Backend Call - Update Row(s)] action in Container widget.

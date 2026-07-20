@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '/backend/paged_query.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -32,6 +33,73 @@ class _ClientsWidgetState extends State<ClientsWidget> {
   late ClientsModel _model;
   final scaffoldKey = GlobalKey<ScaffoldState>();
   String _query = '';
+  Set<String> _selected = {};
+  int _page = 1;
+  int _perPage = kDefaultPerPage;
+
+  void _toast(BuildContext context, String msg, {bool warn = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          msg,
+          style: GoogleFonts.inter(color: const Color(0xFF313131)),
+        ),
+        backgroundColor:
+            warn ? const Color(0xFFF9CF58) : const Color(0xFFC2D51C),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  /// Exclusão em lote de clientes. Vai pela RPC `admin_delete_app_user` (uma
+  /// por vez), nunca por UPDATE direto: é ela que faz soft-delete + ban +
+  /// libera o e-mail para recadastro. A RPC exige Admin Master e LANÇA para os
+  /// demais, então cada chamada é isolada e o resultado é contado.
+  Future<void> _confirmDeleteSelected(List<VwGetClientsRow> all) async {
+    final alvos = all.where((c) => _selected.contains(c.userId ?? '')).toList();
+    if (alvos.isEmpty) return;
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        elevation: 0,
+        insetPadding: EdgeInsets.zero,
+        backgroundColor: Colors.transparent,
+        alignment: Alignment.center,
+        child: AlertDialogWidget(
+          title: alvos.length == 1
+              ? 'Deseja excluir 1 cliente?'
+              : 'Deseja excluir ${alvos.length} clientes?',
+          iconColor: const Color(0xFFFF5963),
+          btnColor: const Color(0xFFFF5963),
+          confirmBtnAction: () async {
+            var ok = 0;
+            for (final c in alvos) {
+              try {
+                await SupaFlow.client.rpc(
+                  'admin_delete_app_user',
+                  params: {'p_user_id': c.userId},
+                );
+                ok++;
+              } catch (_) {
+                // segue para os demais; o total honesto vai na mensagem
+              }
+            }
+            if (!mounted) return;
+            Navigator.of(dialogContext).pop();
+            _refresh();
+            final falhou = alvos.length - ok;
+            _toast(
+              context,
+              falhou == 0
+                  ? '$ok ${ok == 1 ? 'cliente excluído' : 'clientes excluídos'}'
+                  : '$ok excluído(s), $falhou sem permissão',
+              warn: falhou > 0,
+            );
+          },
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -48,8 +116,39 @@ class _ClientsWidgetState extends State<ClientsWidget> {
   }
 
   void _refresh() {
-    safeSetState(() => _model.requestCompleter = null);
+    safeSetState(() {
+      _model.requestCompleter = null;
+      _selected = {};
+    });
   }
+
+  void _goToPage(int p) => safeSetState(() {
+        _page = p;
+        _selected = {};
+        _model.requestCompleter = null;
+      });
+
+  void _setPerPage(int n) => safeSetState(() {
+        _perPage = n;
+        _page = 1;
+        _selected = {};
+        _model.requestCompleter = null;
+      });
+
+  Future<PagedResult<VwGetClientsRow>> _fetchPage() => queryPage(
+        table: VwGetClientsTable(),
+        page: _page,
+        perPage: _perPage,
+        queryFn: (q) {
+          final f = _query.trim().isEmpty
+              ? q
+              : q.or(orIlike(
+                  const ['client_fullname', 'company_name'],
+                  _query,
+                ));
+          return f.order('created_at');
+        },
+      );
 
   Future<void> _openCreate() async {
     await showDialog(
@@ -127,18 +226,18 @@ class _ClientsWidgetState extends State<ClientsWidget> {
         value: _query,
         placeholder: 'Buscar por nome do cliente...',
         onChanged: (v) {
-          setState(() => _query = v);
+          setState(() {
+            _query = v;
+            _page = 1;
+          });
           _model.textController?.text = v;
           _refresh();
         },
       ),
-      body: FutureBuilder<List<VwGetClientsRow>>(
-        future: (_model.requestCompleter ??= Completer<List<VwGetClientsRow>>()
-              ..complete(VwGetClientsTable().queryRows(
-                queryFn: (q) => q
-                    .ilike('client_fullname', '%$_query%')
-                    .order('created_at'),
-              )))
+      body: FutureBuilder<PagedResult<VwGetClientsRow>>(
+        future: (_model.requestCompleter ??=
+                Completer<PagedResult<VwGetClientsRow>>()
+                  ..complete(_fetchPage()))
             .future,
         builder: (context, snap) {
           if (!snap.hasData) {
@@ -152,7 +251,8 @@ class _ClientsWidgetState extends State<ClientsWidget> {
               ),
             );
           }
-          final list = snap.data!;
+          final paged = snap.data!;
+          final list = paged.items;
           if (list.isEmpty) {
             return AppCard(
               child: AppEmptyState(
@@ -166,117 +266,126 @@ class _ClientsWidgetState extends State<ClientsWidget> {
               ),
             );
           }
+          // O switch de ativo/inativo precisa do índice para achar o seu model
+          // em switchComponentModels — a célula só recebe o item, então o
+          // índice vem daqui.
+          final indexById = <String, int>{
+            for (int i = 0; i < list.length; i++) (list[i].userId ?? '$i'): i,
+          };
+
           return Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              for (int i = 0; i < list.length; i++)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _ClientRow(
-                    item: list[i],
-                    model: _model,
-                    index: i,
-                    onTap: () => context.pushNamed(
-                      ViewEditClientWidget.routeName,
-                      queryParameters: {
-                        'leadId':
-                            serializeParam(list[i].leadId, ParamType.String),
-                        'typeAccess': serializeParam('view', ParamType.String),
-                        'fullname': serializeParam(
-                            list[i].clientFullname, ParamType.String),
-                      }.withoutNulls,
-                    ),
-                    onDelete: () => _confirmDelete(list[i]),
-                  ).appStagger(i),
+              AppDataTable<VwGetClientsRow>(
+            items: list,
+            rowId: (c) => c.userId ?? '',
+            selectedIds: _selected,
+            onSelectionChanged: (ids) => safeSetState(() => _selected = ids),
+            onBulkAction: (_) => _confirmDeleteSelected(list),
+            bulkActionLabel: 'Excluir selecionados',
+            onRowTap: (c) => context.pushNamed(
+              ViewEditClientWidget.routeName,
+              queryParameters: {
+                'leadId': serializeParam(c.leadId, ParamType.String),
+                'typeAccess': serializeParam('view', ParamType.String),
+                'fullname':
+                    serializeParam(c.clientFullname, ParamType.String),
+              }.withoutNulls,
+            ),
+            columns: [
+              AppDataColumn(
+                label: 'Nome',
+                flex: 3,
+                cell: (c) => AppCellText(
+                  c.clientFullname ?? 'Cliente sem nome',
+                  bold: true,
                 ),
+              ),
+              AppDataColumn(
+                label: 'Empresa',
+                flex: 3,
+                cell: (c) => AppCellText(
+                  (c.companyName ?? '').isNotEmpty ? c.companyName! : '—',
+                  muted: true,
+                ),
+              ),
+              AppDataColumn(
+                label: 'Cargo',
+                flex: 2,
+                cell: (c) => AppCellText(
+                  (c.jobTitle ?? '').isNotEmpty ? c.jobTitle! : '—',
+                  muted: true,
+                ),
+              ),
+              AppDataColumn(
+                label: 'Ativo',
+                width: 88,
+                cell: (c) {
+                  final i = indexById[c.userId ?? ''] ?? 0;
+                  return wrapWithModel(
+                    model: _model.switchComponentModels.getModel(
+                      c.userId ?? '$i',
+                      i,
+                    ),
+                    updateCallback: () {},
+                    child: SwitchComponentWidget(
+                      key: Key('cli_switch_${c.userId ?? i}'),
+                      initialValue: c.isActive ?? false,
+                      activeAction: () async {
+                        final ok = await guardWrite(
+                          context,
+                          () => UsersTable().update(
+                            data: {'is_active': true},
+                            matchingRows: (rows) =>
+                                rows.eqOrNull('id', c.userId),
+                            returnRows: true,
+                          ),
+                        );
+                        if (!ok) return;
+                        _toast(context, 'Cliente ativado');
+                      },
+                      disableAction: () async {
+                        final ok = await guardWrite(
+                          context,
+                          () => UsersTable().update(
+                            data: {'is_active': false},
+                            matchingRows: (rows) =>
+                                rows.eqOrNull('id', c.userId),
+                            returnRows: true,
+                          ),
+                        );
+                        if (!ok) return;
+                        _toast(context, 'Cliente desativado');
+                      },
+                    ),
+                  );
+                },
+              ),
+              // Sem selo Ativo/Inativo ao lado: ele repetia exatamente o que o
+              // switch já mostra. Diferente do par Valor/Status (duas
+              // informações distintas), aqui o controle JÁ comunica o estado —
+              // então some o selo em vez de empilhar os dois.
+              AppDataColumn(
+                label: 'Ações',
+                width: 64,
+                align: Alignment.centerRight,
+                cell: (c) => AppRowAction(
+                  icon: Icons.delete_outline_rounded,
+                  tooltip: 'Excluir',
+                  danger: true,
+                  onPressed: () => _confirmDelete(c),
+                ),
+              ),
+            ],
+              ),
+              AppPagination(
+                result: paged,
+                onPageChanged: _goToPage,
+                onPerPageChanged: _setPerPage,
+              ),
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-class _ClientRow extends StatelessWidget {
-  const _ClientRow({
-    required this.item,
-    required this.model,
-    required this.index,
-    required this.onTap,
-    required this.onDelete,
-  });
-
-  final VwGetClientsRow item;
-  final ClientsModel model;
-  final int index;
-  final VoidCallback onTap;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppPersonCard(
-      name: item.clientFullname ?? 'Cliente sem nome',
-      subtitle: item.jobTitle,
-      isActive: item.isActive ?? false,
-      onTap: onTap,
-      metas: [
-        if ((item.companyName ?? '').isNotEmpty)
-          AppPersonMeta(Icons.business_outlined, item.companyName!),
-      ],
-      trailing: [
-        wrapWithModel(
-          model: model.switchComponentModels.getModel(
-            item.userId ?? '$index',
-            index,
-          ),
-          updateCallback: () {},
-          child: SwitchComponentWidget(
-            key: Key('cli_switch_${item.userId ?? index}'),
-            initialValue: item.isActive ?? false,
-            activeAction: () async {
-              final okActivate = await guardWrite(
-                context,
-                () => UsersTable().update(
-                  data: {'is_active': true},
-                  matchingRows: (rows) => rows.eqOrNull('id', item.userId),
-                  returnRows: true,
-                ),
-              );
-              if (!okActivate) return;
-              _toast(context, 'Cliente ativado');
-            },
-            disableAction: () async {
-              final okDisable = await guardWrite(
-                context,
-                () => UsersTable().update(
-                  data: {'is_active': false},
-                  matchingRows: (rows) => rows.eqOrNull('id', item.userId),
-                  returnRows: true,
-                ),
-              );
-              if (!okDisable) return;
-              _toast(context, 'Cliente desativado');
-            },
-          ),
-        ),
-        AppRowAction(
-          icon: Icons.delete_outline_rounded,
-          tooltip: 'Excluir',
-          danger: true,
-          onPressed: onDelete,
-        ),
-      ],
-    );
-  }
-
-  void _toast(BuildContext context, String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          msg,
-          style: GoogleFonts.inter(color: const Color(0xFF313131)),
-        ),
-        backgroundColor: const Color(0xFFC2D51C),
-        duration: const Duration(seconds: 2),
       ),
     );
   }

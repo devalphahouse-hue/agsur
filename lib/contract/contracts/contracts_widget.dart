@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:google_fonts/google_fonts.dart';
+
+import '/backend/paged_query.dart';
 
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/supabase/supabase.dart';
@@ -27,6 +28,33 @@ class _ContractsWidgetState extends State<ContractsWidget> {
   final scaffoldKey = GlobalKey<ScaffoldState>();
   String _query = '';
   bool _disposed = false;
+  int _page = 1;
+  int _perPage = kDefaultPerPage;
+
+  void _goToPage(int p) => safeSetState(() => _page = p);
+  void _setPerPage(int n) => safeSetState(() {
+        _perPage = n;
+        _page = 1;
+      });
+
+  /// `is_contract=true` também vai para o servidor: filtrar em Dart depois de
+  /// paginar devolveria páginas curtas e um total errado (a view traz
+  /// propostas e contratos na mesma consulta).
+  Future<PagedResult<VwContractDataRow>> _fetchPage() => queryPage(
+        table: VwContractDataTable(),
+        page: _page,
+        perPage: _perPage,
+        queryFn: (q) {
+          var f = q.eq('is_contract', true);
+          if (_query.trim().isNotEmpty) {
+            f = f.or(orIlike(
+              const ['company_name', 'id_ref', 'aircraft_model'],
+              _query,
+            ));
+          }
+          return f.order('created_at');
+        },
+      );
 
   @override
   void initState() {
@@ -59,6 +87,14 @@ class _ContractsWidgetState extends State<ContractsWidget> {
   bool get _canEdit => AccessControl.canEditFunil(
       AccessControl.roleOf(_model.user?.firstOrNull));
 
+  String _money(num? v) {
+    if (v == null) return r'$ 0';
+    return formatNumber(v,
+        formatType: FormatType.decimal,
+        decimalType: DecimalType.periodDecimal,
+        currency: r'$ ');
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppListScaffold(
@@ -69,12 +105,13 @@ class _ContractsWidgetState extends State<ContractsWidget> {
       search: AppSearchInput(
         value: _query,
         placeholder: 'Buscar por empresa, ID ou aeronave...',
-        onChanged: (v) => setState(() => _query = v),
+        onChanged: (v) => setState(() {
+          _query = v;
+          _page = 1;
+        }),
       ),
-      body: FutureBuilder<List<VwContractDataRow>>(
-        future: VwContractDataTable().queryRows(
-          queryFn: (q) => q.order('created_at'),
-        ),
+      body: FutureBuilder<PagedResult<VwContractDataRow>>(
+        future: _fetchPage(),
         builder: (context, snap) {
           if (!snap.hasData) {
             return Column(
@@ -87,15 +124,8 @@ class _ContractsWidgetState extends State<ContractsWidget> {
               ),
             );
           }
-          final all = snap.data!.where((c) => c.isContract == true).toList();
-          final list = _query.isEmpty
-              ? all
-              : all.where((c) {
-                  final q = _query.toLowerCase();
-                  return (c.companyName ?? '').toLowerCase().contains(q) ||
-                      (c.idRef ?? '').toLowerCase().contains(q) ||
-                      (c.aircraftModel ?? '').toLowerCase().contains(q);
-                }).toList();
+          final paged = snap.data!;
+          final list = paged.items;
           if (list.isEmpty) {
             return AppCard(
               child: AppEmptyState(
@@ -109,26 +139,93 @@ class _ContractsWidgetState extends State<ContractsWidget> {
               ),
             );
           }
+          // Sem seleção/exclusão aqui de propósito: contrato é venda fechada e
+          // hoje a tela não tem exclusão nenhuma. "Excluir contrato" seria, na
+          // prática, marcar is_deleted na PROPOSTA (a contract não tem a
+          // coluna) — o que também some com o histórico da proposta. Só
+          // adicionar mediante decisão explícita.
           return Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              for (int i = 0; i < list.length; i++)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _ContractRow(
-                    item: list[i],
-                    onTap: () => context.pushNamed(
-                      ViewContractWidget.routeName,
-                      queryParameters: {
-                        'proposalId':
-                            serializeParam(list[i].id, ParamType.String),
-                        'typeAccess': serializeParam(
-                            _canEdit ? 'edit' : 'view', ParamType.String),
-                        'companyName': serializeParam(
-                            list[i].companyName, ParamType.String),
-                      }.withoutNulls,
-                    ),
-                  ).appStagger(i),
+              AppDataTable<VwContractDataRow>(
+            items: list,
+            rowId: (c) => c.id ?? '',
+            onRowTap: (c) => context.pushNamed(
+              ViewContractWidget.routeName,
+              queryParameters: {
+                'proposalId': serializeParam(c.id, ParamType.String),
+                'typeAccess': serializeParam(
+                    _canEdit ? 'edit' : 'view', ParamType.String),
+                'companyName':
+                    serializeParam(c.companyName, ParamType.String),
+              }.withoutNulls,
+            ),
+            columns: [
+              AppDataColumn(
+                label: 'ID',
+                width: 96,
+                cell: (c) => AppCellText('#${c.idRef ?? '0000000'}', bold: true),
+              ),
+              AppDataColumn(
+                label: 'Aeronave',
+                flex: 3,
+                cell: (c) => AppCellText(
+                  c.aircraftModel ?? 'Modelo não informado',
+                  muted: true,
                 ),
+              ),
+              AppDataColumn(
+                label: 'Empresa',
+                flex: 3,
+                cell: (c) => AppCellText(
+                  (c.companyName ?? '').isNotEmpty ? c.companyName! : '—',
+                  muted: true,
+                ),
+              ),
+              AppDataColumn(
+                label: 'Vendedor',
+                flex: 2,
+                cell: (c) => AppCellText(
+                  (c.createdByName ?? '').isNotEmpty ? c.createdByName! : '—',
+                  muted: true,
+                ),
+              ),
+              AppDataColumn(
+                label: 'Data',
+                width: 100,
+                cell: (c) => AppCellText(
+                  c.createdAt != null
+                      ? dateTimeFormat('d/M/y', c.createdAt)
+                      : '—',
+                  muted: true,
+                ),
+              ),
+              AppDataColumn(
+                label: 'Valor/Status',
+                width: 150,
+                align: Alignment.centerRight,
+                cell: (c) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const AppStatusBadge(
+                      label: 'Contrato',
+                      icon: Icons.verified_outlined,
+                      tone: AppStatusTone.success,
+                      dense: true,
+                    ),
+                    const SizedBox(height: 5),
+                    AppCellText(_money(c.fullprice), bold: true),
+                  ],
+                ),
+              ),
+            ],
+              ),
+              AppPagination(
+                result: paged,
+                onPageChanged: _goToPage,
+                onPerPageChanged: _setPerPage,
+              ),
             ],
           );
         },
@@ -137,164 +234,3 @@ class _ContractsWidgetState extends State<ContractsWidget> {
   }
 }
 
-class _ContractRow extends StatelessWidget {
-  const _ContractRow({required this.item, required this.onTap});
-  final VwContractDataRow item;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      onTap: onTap,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFC2D51C), Color(0xFF8FA113)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(11),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFC2D51C).withValues(alpha: 0.25),
-                  blurRadius: 12,
-                  spreadRadius: -2,
-                ),
-              ],
-            ),
-            child: const Icon(Icons.description_outlined,
-                color: Color(0xFF313131), size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'ID #${item.idRef ?? '0000000'}',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      width: 4,
-                      height: 4,
-                      decoration: const BoxDecoration(
-                        color: Color(0x55FFFFFF),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        item.aircraftModel ?? 'Modelo não informado',
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(
-                          fontSize: 12.5,
-                          color: const Color(0xCCFFFFFF),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                LayoutBuilder(
-                  builder: (context, c) => Wrap(
-                    spacing: 14,
-                    runSpacing: 4,
-                    children: [
-                      if ((item.companyName ?? '').isNotEmpty)
-                        _Meta(Icons.business_outlined, item.companyName!,
-                            maxWidth: c.maxWidth),
-                      if ((item.createdByName ?? '').isNotEmpty)
-                        _Meta(Icons.person_outline_rounded, item.createdByName!,
-                            maxWidth: c.maxWidth),
-                      if (item.createdAt != null)
-                        _Meta(Icons.calendar_today_outlined,
-                            dateTimeFormat('d/M/y', item.createdAt),
-                            maxWidth: c.maxWidth),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _money(item.fullprice),
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 4),
-              const AppStatusBadge(
-                label: 'Contrato',
-                icon: Icons.verified_outlined,
-                tone: AppStatusTone.success,
-                dense: true,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _money(num? v) {
-    if (v == null) return r'$ 0';
-    return formatNumber(v,
-        formatType: FormatType.decimal,
-        decimalType: DecimalType.periodDecimal,
-        currency: r'$ ');
-  }
-}
-
-class _Meta extends StatelessWidget {
-  const _Meta(this.icon, this.text, {this.maxWidth = double.infinity});
-  final IconData icon;
-  final String text;
-  final double maxWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: maxWidth),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: const Color(0x99FFFFFF)),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              text,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.roboto(
-                fontSize: 11.5,
-                color: const Color(0x99FFFFFF),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

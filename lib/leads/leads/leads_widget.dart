@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '/backend/lead_conversion.dart';
+import '/backend/paged_query.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -28,6 +30,25 @@ class _LeadsWidgetState extends State<LeadsWidget> {
   late LeadsModel _model;
   final scaffoldKey = GlobalKey<ScaffoldState>();
   String _query = '';
+  Set<String> _selected = {};
+  int _page = 1;
+  int _perPage = kDefaultPerPage;
+
+  /// Troca de página/tamanho recarrega do servidor. A seleção é limpa junto:
+  /// ela guarda ids da página anterior, e a barra de lote passaria a contar
+  /// itens que não estão mais na tela.
+  void _goToPage(int p) => safeSetState(() {
+        _page = p;
+        _selected = {};
+        _model.requestCompleter = null;
+      });
+
+  void _setPerPage(int n) => safeSetState(() {
+        _perPage = n;
+        _page = 1;
+        _selected = {};
+        _model.requestCompleter = null;
+      });
 
   @override
   void initState() {
@@ -43,7 +64,66 @@ class _LeadsWidgetState extends State<LeadsWidget> {
     super.dispose();
   }
 
-  void _refresh() => safeSetState(() => _model.requestCompleter = null);
+  void _refresh() => safeSetState(() {
+        _model.requestCompleter = null;
+        _selected = {};
+      });
+
+  /// Exclusão em lote. Cada linha passa pelo mesmo guardWrite da exclusão
+  /// individual — a RLS barra em silêncio, então sem o guard o painel diria
+  /// "excluídos" sem ter gravado nada.
+  Future<void> _confirmDeleteSelected(List<LeadsRow> all) async {
+    final alvos = all.where((l) => _selected.contains(l.id)).toList();
+    if (alvos.isEmpty) return;
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        elevation: 0,
+        insetPadding: EdgeInsets.zero,
+        backgroundColor: Colors.transparent,
+        alignment: Alignment.center,
+        child: AlertDialogWidget(
+          title: alvos.length == 1
+              ? 'Deseja excluir 1 lead?'
+              : 'Deseja excluir ${alvos.length} leads?',
+          iconColor: const Color(0xFFFF5963),
+          btnColor: const Color(0xFFFF5963),
+          confirmBtnAction: () async {
+            var ok = 0;
+            for (final lead in alvos) {
+              final r = await guardWrite(
+                context,
+                () => LeadsTable().update(
+                  data: {'is_deleted': true},
+                  matchingRows: (rows) => rows.eqOrNull('id', lead.id),
+                  returnRows: true,
+                ),
+                silent: true,
+              );
+              if (r) ok++;
+            }
+            if (!mounted) return;
+            Navigator.of(dialogContext).pop();
+            _refresh();
+            final falhou = alvos.length - ok;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  falhou == 0
+                      ? '$ok ${ok == 1 ? 'lead excluído' : 'leads excluídos'}'
+                      : '$ok excluído(s), $falhou sem permissão',
+                  style: GoogleFonts.inter(color: const Color(0xFF313131)),
+                ),
+                backgroundColor: falhou == 0
+                    ? const Color(0xFFC2D51C)
+                    : const Color(0xFFF9CF58),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
 
   Future<void> _openCreate() async {
     await showDialog(
@@ -89,6 +169,35 @@ class _LeadsWidgetState extends State<LeadsWidget> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Leads ainda em aberto — quem já virou cliente sai da lista (o registro do
+  /// lead continua intacto; ele é a chave de auth do cliente no app e o que
+  /// liga uma recompra à mesma conta). Ver [LeadConversion].
+  ///
+  /// Busca E exclusão de convertidos vão no `queryFn`, não em Dart depois:
+  /// com paginação no servidor, filtrar a página já recebida devolveria
+  /// páginas curtas (pedir 25 e mostrar 18) e um total mentiroso.
+  Future<PagedResult<LeadsRow>> _fetchOpenLeads() async {
+    final converted = await LeadConversion.convertedLeadIds();
+    return queryPage<LeadsRow>(
+      table: LeadsTable(),
+      page: _page,
+      perPage: _perPage,
+      queryFn: (q) {
+        var f = q.eqOrNull('is_deleted', false);
+        if (_query.trim().isNotEmpty) {
+          f = f.or(orIlike(
+            const ['fullname', 'email', 'company_name'],
+            _query,
+          ));
+        }
+        if (converted.isNotEmpty) {
+          f = f.not('id', 'in', '(${converted.join(',')})');
+        }
+        return f.order('created_at');
+      },
     );
   }
 
@@ -144,7 +253,7 @@ class _LeadsWidgetState extends State<LeadsWidget> {
       eyebrow: 'Funil de vendas',
       title: 'Leads',
       description:
-          'Prospects iniciais. Quando qualificados, viram propostas e seguem o funil.',
+          'Prospects em aberto. Viram proposta e, quando o contrato fecha, passam para Clientes e saem desta lista.',
       actions: [
         _PrimaryAction(
           icon: Icons.person_add_alt_rounded,
@@ -154,21 +263,22 @@ class _LeadsWidgetState extends State<LeadsWidget> {
       ],
       search: AppSearchInput(
         value: _query,
-        placeholder: 'Buscar por nome do lead...',
+        placeholder: 'Buscar por nome, e-mail ou empresa...',
         onChanged: (v) {
-          setState(() => _query = v);
+          // Buscar volta para a página 1: manter a página 5 com um filtro
+          // novo daria tela vazia sem explicação.
+          setState(() {
+            _query = v;
+            _page = 1;
+            _selected = {};
+          });
           _model.textController?.text = v;
           _refresh();
         },
       ),
-      body: FutureBuilder<List<LeadsRow>>(
-        future: (_model.requestCompleter ??= Completer<List<LeadsRow>>()
-              ..complete(LeadsTable().queryRows(
-                queryFn: (q) => q
-                    .eqOrNull('is_deleted', false)
-                    .ilike('fullname', '%$_query%')
-                    .order('created_at'),
-              )))
+      body: FutureBuilder<PagedResult<LeadsRow>>(
+        future: (_model.requestCompleter ??=
+                Completer<PagedResult<LeadsRow>>()..complete(_fetchOpenLeads()))
             .future,
         builder: (context, snap) {
           if (!snap.hasData) {
@@ -182,7 +292,8 @@ class _LeadsWidgetState extends State<LeadsWidget> {
               ),
             );
           }
-          final list = snap.data!;
+          final paged = snap.data!;
+          final list = paged.items;
           if (list.isEmpty) {
             return AppCard(
               child: AppEmptyState(
@@ -197,77 +308,85 @@ class _LeadsWidgetState extends State<LeadsWidget> {
             );
           }
           return Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              for (int i = 0; i < list.length; i++)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _LeadRow(
-                    item: list[i],
-                    onTap: () => context.pushNamed(
-                      ViewEditLeadWidget.routeName,
-                      queryParameters: {
-                        'leadId':
-                            serializeParam(list[i].id, ParamType.String),
-                        'typeAccess': serializeParam('view', ParamType.String),
-                        'fullname':
-                            serializeParam(list[i].fullname, ParamType.String),
-                      }.withoutNulls,
-                    ),
-                    onDelete: () => _confirmDelete(list[i]),
-                  ).appStagger(i),
+              AppDataTable<LeadsRow>(
+            items: list,
+            rowId: (l) => l.id,
+            selectedIds: _selected,
+            onSelectionChanged: (ids) => safeSetState(() => _selected = ids),
+            onBulkAction: (_) => _confirmDeleteSelected(list),
+            bulkActionLabel: 'Excluir selecionados',
+            onRowTap: (l) => context.pushNamed(
+              ViewEditLeadWidget.routeName,
+              queryParameters: {
+                'leadId': serializeParam(l.id, ParamType.String),
+                'typeAccess': serializeParam('view', ParamType.String),
+                'fullname': serializeParam(l.fullname, ParamType.String),
+              }.withoutNulls,
+            ),
+            columns: [
+              AppDataColumn(
+                label: 'Nome',
+                flex: 3,
+                cell: (l) => AppCellText(
+                  l.fullname ?? '${l.name} ${l.lastName}'.trim(),
+                  bold: true,
                 ),
+              ),
+              AppDataColumn(
+                label: 'Empresa',
+                flex: 3,
+                cell: (l) => AppCellText(
+                  (l.companyName ?? '').isNotEmpty ? l.companyName! : '—',
+                  muted: true,
+                ),
+              ),
+              AppDataColumn(
+                label: 'Contato',
+                flex: 3,
+                cell: (l) => AppCellText(
+                  l.phone.isNotEmpty
+                      ? l.phone
+                      : (l.email.isNotEmpty ? l.email : '—'),
+                  muted: true,
+                ),
+              ),
+              AppDataColumn(
+                label: 'Cidade',
+                flex: 2,
+                cell: (l) => AppCellText(
+                  l.city.isNotEmpty
+                      ? '${l.city}${l.state.isNotEmpty ? '/${l.state}' : ''}'
+                      : '—',
+                  muted: true,
+                ),
+              ),
+              // Sem coluna "Status": desde que os convertidos saem da lista,
+              // toda linha aqui é "Lead" — um selo constante só consome
+              // largura sem informar nada.
+              AppDataColumn(
+                label: 'Ações',
+                width: 64,
+                align: Alignment.centerRight,
+                cell: (l) => AppRowAction(
+                  icon: Icons.delete_outline_rounded,
+                  tooltip: 'Excluir',
+                  danger: true,
+                  onPressed: () => _confirmDelete(l),
+                ),
+              ),
+            ],
+              ),
+              AppPagination(
+                result: paged,
+                onPageChanged: _goToPage,
+                onPerPageChanged: _setPerPage,
+              ),
             ],
           );
         },
       ),
-    );
-  }
-}
-
-class _LeadRow extends StatelessWidget {
-  const _LeadRow({
-    required this.item,
-    required this.onTap,
-    required this.onDelete,
-  });
-
-  final LeadsRow item;
-  final VoidCallback onTap;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppPersonCard(
-      name: item.fullname ?? '${item.name} ${item.lastName}'.trim(),
-      subtitle: (item.jobTitle ?? '').isNotEmpty
-          ? item.jobTitle
-          : item.email,
-      avatarIcon: Icons.person_search_rounded,
-      isActive: !item.isDeleted,
-      onTap: onTap,
-      metas: [
-        if ((item.companyName ?? '').isNotEmpty)
-          AppPersonMeta(Icons.business_outlined, item.companyName!),
-        if (item.phone.isNotEmpty)
-          AppPersonMeta(Icons.phone_outlined, item.phone),
-        if (item.city.isNotEmpty)
-          AppPersonMeta(Icons.location_on_outlined,
-              '${item.city}${item.state.isNotEmpty ? '/${item.state}' : ''}'),
-      ],
-      trailing: [
-        const AppStatusBadge(
-          label: 'Lead',
-          icon: Icons.bolt_outlined,
-          tone: AppStatusTone.warning,
-          dense: true,
-        ),
-        AppRowAction(
-          icon: Icons.delete_outline_rounded,
-          tooltip: 'Excluir',
-          danger: true,
-          onPressed: onDelete,
-        ),
-      ],
     );
   }
 }

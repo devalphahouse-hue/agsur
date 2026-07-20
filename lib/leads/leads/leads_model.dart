@@ -1,3 +1,4 @@
+import '/backend/paged_query.dart';
 import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/pages/shared/menu/menu_widget.dart';
@@ -14,7 +15,8 @@ class LeadsModel extends FlutterFlowModel<LeadsWidget> {
   FocusNode? textFieldFocusNode;
   TextEditingController? textController;
   String? Function(BuildContext, String?)? textControllerValidator;
-  Completer<List<LeadsRow>>? requestCompleter;
+  /// Página corrente vinda do backend (range + count=exact).
+  Completer<PagedResult<LeadsRow>>? requestCompleter;
   // Stores action output result for [Backend Call - Insert Row] action in BTNAddLead widget.
   LeadsRow? insertLead;
   // Models for switch_component dynamic component.

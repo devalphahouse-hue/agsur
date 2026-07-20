@@ -5,11 +5,14 @@ import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '/auth/supabase_auth/auth_util.dart';
+import '/backend/paged_query.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/security/access_control.dart';
+import '/security/write_guard.dart';
 import '/index.dart';
+import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
 import 'proposals_model.dart';
 
 export 'proposals_model.dart';
@@ -29,6 +32,7 @@ class _ProposalsWidgetState extends State<ProposalsWidget> {
   final scaffoldKey = GlobalKey<ScaffoldState>();
   String _query = '';
   bool _disposed = false;
+  Set<String> _selected = {};
 
   @override
   void initState() {
@@ -58,10 +62,161 @@ class _ProposalsWidgetState extends State<ProposalsWidget> {
     super.dispose();
   }
 
-  void _refresh() => safeSetState(() => _model.requestCompleter = null);
+  int _page = 1;
+  int _perPage = kDefaultPerPage;
+
+  void _refresh() => safeSetState(() {
+        _model.requestCompleter = null;
+        _selected = {};
+      });
+
+  void _goToPage(int p) => safeSetState(() {
+        _page = p;
+        _selected = {};
+        _model.requestCompleter = null;
+      });
+
+  void _setPerPage(int n) => safeSetState(() {
+        _perPage = n;
+        _page = 1;
+        _selected = {};
+        _model.requestCompleter = null;
+      });
+
+  /// Busca no servidor: com paginação, filtrar em Dart só filtraria a página
+  /// corrente — o termo "não acharia" propostas duas páginas adiante.
+  Future<PagedResult<VwProposalDataRow>> _fetchPage() => queryPage(
+        table: VwProposalDataTable(),
+        page: _page,
+        perPage: _perPage,
+        queryFn: (q) {
+          final f = _query.trim().isEmpty
+              ? q
+              : q.or(orIlike(
+                  const [
+                    'company_name',
+                    'id_ref',
+                    'aircraft_model',
+                    'lead_fullname',
+                  ],
+                  _query,
+                ));
+          return f.order('created_at');
+        },
+      );
+
+  Future<void> _confirmDeleteSelected(List<VwProposalDataRow> all) async {
+    final alvos = all.where((p) => _selected.contains(p.id)).toList();
+    if (alvos.isEmpty) return;
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        elevation: 0,
+        insetPadding: EdgeInsets.zero,
+        backgroundColor: Colors.transparent,
+        alignment: Alignment.center,
+        child: AlertDialogWidget(
+          title: alvos.length == 1
+              ? 'Deseja excluir 1 proposta?'
+              : 'Deseja excluir ${alvos.length} propostas?',
+          iconColor: const Color(0xFFFF5963),
+          btnColor: const Color(0xFFFF5963),
+          confirmBtnAction: () async {
+            var ok = 0;
+            for (final p in alvos) {
+              final r = await guardWrite(
+                context,
+                () => ProposalTable().update(
+                  data: {'is_deleted': true},
+                  matchingRows: (rows) => rows.eqOrNull('id', p.id),
+                  returnRows: true,
+                ),
+                silent: true,
+              );
+              if (r) ok++;
+            }
+            if (!mounted) return;
+            Navigator.of(dialogContext).pop();
+            _refresh();
+            final falhou = alvos.length - ok;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  falhou == 0
+                      ? '$ok ${ok == 1 ? 'proposta excluída' : 'propostas excluídas'}'
+                      : '$ok excluída(s), $falhou sem permissão',
+                  style: GoogleFonts.inter(color: const Color(0xFF313131)),
+                ),
+                backgroundColor: falhou == 0
+                    ? const Color(0xFFC2D51C)
+                    : const Color(0xFFF9CF58),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
 
   bool get _canEdit => AccessControl.canEditFunil(
       AccessControl.roleOf(_model.user?.firstOrNull));
+
+  String _money(num? v) {
+    if (v == null) return r'$ 0';
+    return formatNumber(v,
+        formatType: FormatType.decimal,
+        decimalType: DecimalType.periodDecimal,
+        currency: r'$ ');
+  }
+
+  Future<void> _confirmDelete(VwProposalDataRow item) async {
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        elevation: 0,
+        insetPadding: EdgeInsets.zero,
+        backgroundColor: Colors.transparent,
+        alignment: Alignment.center,
+        child: GestureDetector(
+          onTap: () {
+            FocusScope.of(dialogContext).unfocus();
+            FocusManager.instance.primaryFocus?.unfocus();
+          },
+          child: AlertDialogWidget(
+            title: 'Deseja excluir a proposta #${item.idRef ?? '0000000'}?',
+            iconColor: const Color(0xFFFF5963),
+            btnColor: const Color(0xFFFF5963),
+            confirmBtnAction: () async {
+              // Soft-delete: a vw_contract_data/vw_proposal_data filtram por
+              // is_deleted, então a proposta some da listagem sem perder o
+              // histórico (reversível com is_deleted=false).
+              final okDelete = await guardWrite(
+                context,
+                () => ProposalTable().update(
+                  data: {'is_deleted': true},
+                  matchingRows: (rows) => rows.eqOrNull('id', item.id),
+                  returnRows: true,
+                ),
+              );
+              if (!okDelete) return;
+              if (!mounted) return;
+              Navigator.of(dialogContext).pop();
+              _refresh();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Proposta excluída',
+                    style: GoogleFonts.inter(color: const Color(0xFF313131)),
+                  ),
+                  backgroundColor: const Color(0xFFC2D51C),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -79,15 +234,20 @@ class _ProposalsWidgetState extends State<ProposalsWidget> {
       ],
       search: AppSearchInput(
         value: _query,
-        placeholder: 'Buscar por empresa, ID ou aeronave...',
-        onChanged: (v) => setState(() => _query = v),
+        placeholder: 'Buscar por empresa, ID, aeronave ou lead...',
+        onChanged: (v) {
+          setState(() {
+            _query = v;
+            _page = 1;
+            _selected = {};
+          });
+          _refresh();
+        },
       ),
-      body: FutureBuilder<List<VwProposalDataRow>>(
+      body: FutureBuilder<PagedResult<VwProposalDataRow>>(
         future: (_model.requestCompleter ??=
-                Completer<List<VwProposalDataRow>>()
-                  ..complete(VwProposalDataTable().queryRows(
-                    queryFn: (q) => q.order('created_at'),
-                  )))
+                Completer<PagedResult<VwProposalDataRow>>()
+                  ..complete(_fetchPage()))
             .future,
         builder: (context, snap) {
           if (!snap.hasData) {
@@ -101,16 +261,8 @@ class _ProposalsWidgetState extends State<ProposalsWidget> {
               ),
             );
           }
-          final all = snap.data!;
-          final list = _query.isEmpty
-              ? all
-              : all.where((p) {
-                  final q = _query.toLowerCase();
-                  return (p.companyName ?? '').toLowerCase().contains(q) ||
-                      (p.idRef ?? '').toLowerCase().contains(q) ||
-                      (p.aircraftModel ?? '').toLowerCase().contains(q) ||
-                      (p.leadFullname ?? '').toLowerCase().contains(q);
-                }).toList();
+          final paged = snap.data!;
+          final list = paged.items;
           if (list.isEmpty) {
             return AppCard(
               child: AppEmptyState(
@@ -124,28 +276,112 @@ class _ProposalsWidgetState extends State<ProposalsWidget> {
               ),
             );
           }
+          // Proposta já convertida não é excluível por aqui (nem em lote): a
+          // vw_contract_data filtra pelo is_deleted DA PROPOSTA, então
+          // excluí-la derrubaria o contrato junto, silenciosamente.
+          bool podeExcluir(VwProposalDataRow p) =>
+              _canEdit && !(p.isContract ?? false);
+
           return Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              for (int i = 0; i < list.length; i++)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _ProposalRow(
-                    item: list[i],
-                    onTap: () => context.pushNamed(
-                      ViewEditProposalWidget.routeName,
-                      queryParameters: {
-                        'proposalId':
-                            serializeParam(list[i].id, ParamType.String),
-                        'typeAccess': serializeParam(
-                            _canEdit ? 'edit' : 'view', ParamType.String),
-                        'companyName': serializeParam(
-                            list[i].companyName, ParamType.String),
-                        'sellerName': serializeParam(
-                            list[i].createdByName, ParamType.String),
-                      }.withoutNulls,
-                    ),
-                  ).appStagger(i),
+              AppDataTable<VwProposalDataRow>(
+            items: list,
+            // `id` da view é nullable no schema gerado; na prática nunca vem
+            // nulo (é a PK da proposal), mas o fallback evita crash.
+            rowId: (p) => p.id ?? '',
+            selectedIds: _canEdit ? _selected : null,
+            onSelectionChanged:
+                _canEdit ? (ids) => safeSetState(() => _selected = ids) : null,
+            onBulkAction: (_) => _confirmDeleteSelected(list),
+            bulkActionLabel: 'Excluir selecionadas',
+            isSelectable: podeExcluir,
+            onRowTap: (p) => context.pushNamed(
+              ViewEditProposalWidget.routeName,
+              queryParameters: {
+                'proposalId': serializeParam(p.id, ParamType.String),
+                'typeAccess': serializeParam(
+                    _canEdit ? 'edit' : 'view', ParamType.String),
+                'companyName':
+                    serializeParam(p.companyName, ParamType.String),
+                'sellerName':
+                    serializeParam(p.createdByName, ParamType.String),
+              }.withoutNulls,
+            ),
+            columns: [
+              AppDataColumn(
+                label: 'ID',
+                width: 96,
+                cell: (p) => AppCellText('#${p.idRef ?? '0000000'}', bold: true),
+              ),
+              AppDataColumn(
+                label: 'Aeronave',
+                flex: 3,
+                cell: (p) => AppCellText(
+                  p.aircraftModel ?? 'Modelo não informado',
+                  muted: true,
                 ),
+              ),
+              AppDataColumn(
+                label: 'Empresa',
+                flex: 3,
+                cell: (p) => AppCellText(
+                  (p.companyName ?? '').isNotEmpty ? p.companyName! : '—',
+                  muted: true,
+                ),
+              ),
+              AppDataColumn(
+                label: 'Vendedor',
+                flex: 2,
+                cell: (p) => AppCellText(
+                  (p.createdByName ?? '').isNotEmpty ? p.createdByName! : '—',
+                  muted: true,
+                ),
+              ),
+              AppDataColumn(
+                label: 'Valor/Status',
+                width: 150,
+                align: Alignment.centerRight,
+                cell: (p) {
+                  final c = p.isContract ?? false;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppStatusBadge(
+                        label: c ? 'Contrato' : 'Proposta',
+                        icon: c
+                            ? Icons.verified_outlined
+                            : Icons.edit_note_rounded,
+                        tone: c ? AppStatusTone.success : AppStatusTone.brand,
+                        dense: true,
+                      ),
+                      const SizedBox(height: 5),
+                      AppCellText(_money(p.fullprice), bold: true),
+                    ],
+                  );
+                },
+              ),
+              AppDataColumn(
+                label: 'Ações',
+                width: 64,
+                align: Alignment.centerRight,
+                cell: (p) => podeExcluir(p)
+                    ? AppRowAction(
+                        icon: Icons.delete_outline_rounded,
+                        tooltip: 'Excluir',
+                        danger: true,
+                        onPressed: () => _confirmDelete(p),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
+              ),
+              AppPagination(
+                result: paged,
+                onPageChanged: _goToPage,
+                onPerPageChanged: _setPerPage,
+              ),
             ],
           );
         },
@@ -154,152 +390,6 @@ class _ProposalsWidgetState extends State<ProposalsWidget> {
   }
 }
 
-class _ProposalRow extends StatelessWidget {
-  const _ProposalRow({required this.item, required this.onTap});
-  final VwProposalDataRow item;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final isContract = item.isContract ?? false;
-    return AppCard(
-      onTap: onTap,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0x33C2D51C),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: const Icon(Icons.flight_outlined,
-                color: Color(0xFFC2D51C), size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'ID #${item.idRef ?? '0000000'}',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _Dot(),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        item.aircraftModel ?? 'Modelo não informado',
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(
-                          fontSize: 12.5,
-                          color: const Color(0xCCFFFFFF),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 14,
-                  runSpacing: 4,
-                  children: [
-                    if ((item.companyName ?? '').isNotEmpty)
-                      _Meta(Icons.business_outlined, item.companyName!),
-                    if ((item.leadFullname ?? '').isNotEmpty)
-                      _Meta(Icons.person_search_rounded, item.leadFullname!),
-                    if ((item.createdByName ?? '').isNotEmpty)
-                      _Meta(Icons.person_outline_rounded, item.createdByName!),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _money(item.fullprice),
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 4),
-              AppStatusBadge(
-                label: isContract ? 'Contrato' : 'Proposta',
-                icon: isContract
-                    ? Icons.verified_outlined
-                    : Icons.edit_note_rounded,
-                tone: isContract ? AppStatusTone.success : AppStatusTone.brand,
-                dense: true,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _money(num? v) {
-    if (v == null) return r'$ 0';
-    return formatNumber(v,
-        formatType: FormatType.decimal,
-        decimalType: DecimalType.periodDecimal,
-        currency: r'$ ');
-  }
-}
-
-class _Dot extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 4,
-      height: 4,
-      decoration: const BoxDecoration(
-        color: Color(0x55FFFFFF),
-        shape: BoxShape.circle,
-      ),
-    );
-  }
-}
-
-class _Meta extends StatelessWidget {
-  const _Meta(this.icon, this.text);
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 12, color: const Color(0x99FFFFFF)),
-        const SizedBox(width: 4),
-        Text(
-          text,
-          style: GoogleFonts.roboto(
-            fontSize: 11.5,
-            color: const Color(0x99FFFFFF),
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 class _PrimaryAction extends StatefulWidget {
   const _PrimaryAction({

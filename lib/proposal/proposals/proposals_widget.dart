@@ -5,6 +5,9 @@ import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '/auth/supabase_auth/auth_util.dart';
+import '/backend/cascade_delete.dart';
+import '/security/action_feedback.dart';
+import '/pages/shared/confirm_delete_dialog/confirm_delete_dialog.dart';
 import '/backend/paged_query.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
@@ -169,53 +172,45 @@ class _ProposalsWidgetState extends State<ProposalsWidget> {
         currency: r'$ ');
   }
 
+  /// Exclusão de proposta com preview de impacto. Se ela já virou contrato, a
+  /// modal avisa que o contrato e a esteira vão junto — a `vw_contract_data`
+  /// filtra pelo `is_deleted` DA PROPOSTA, então não há como separar os dois.
   Future<void> _confirmDelete(VwProposalDataRow item) async {
-    await showDialog(
-      context: context,
-      builder: (dialogContext) => Dialog(
-        elevation: 0,
-        insetPadding: EdgeInsets.zero,
-        backgroundColor: Colors.transparent,
-        alignment: Alignment.center,
-        child: GestureDetector(
-          onTap: () {
-            FocusScope.of(dialogContext).unfocus();
-            FocusManager.instance.primaryFocus?.unfocus();
-          },
-          child: AlertDialogWidget(
-            title: 'Deseja excluir a proposta #${item.idRef ?? '0000000'}?',
-            iconColor: const Color(0xFFFF5963),
-            btnColor: const Color(0xFFFF5963),
-            confirmBtnAction: () async {
-              // Soft-delete: a vw_contract_data/vw_proposal_data filtram por
-              // is_deleted, então a proposta some da listagem sem perder o
-              // histórico (reversível com is_deleted=false).
-              final okDelete = await guardWrite(
-                context,
-                () => ProposalTable().update(
-                  data: {'is_deleted': true},
-                  matchingRows: (rows) => rows.eqOrNull('id', item.id),
-                  returnRows: true,
-                ),
-              );
-              if (!okDelete) return;
-              if (!mounted) return;
-              Navigator.of(dialogContext).pop();
-              _refresh();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Proposta excluída',
-                    style: GoogleFonts.inter(color: const Color(0xFF313131)),
-                  ),
-                  backgroundColor: const Color(0xFFC2D51C),
-                ),
-              );
-            },
-          ),
-        ),
-      ),
+    final ref = '#${item.idRef ?? '0000000'}';
+    final id = item.id ?? '';
+    if (id.isEmpty) return;
+
+    final impacto = await runActionWithResult<DeletionImpact>(
+      context,
+      contexto: 'propostas.preverExclusao',
+      failure: 'Não foi possível verificar o que está vinculado a esta proposta.',
+      action: () => previewProposalDeletion(id),
     );
+    if (impacto == null || !mounted) return;
+
+    final ehContrato = item.isContract ?? false;
+    final confirmou = await confirmDeleteWithImpact(
+      context,
+      titulo: ehContrato
+          ? 'Excluir o contrato $ref?'
+          : 'Excluir a proposta $ref?',
+      impacto: impacto,
+      principal: ehContrato
+          ? 'O contrato $ref (e a proposta que o originou)'
+          : 'A proposta $ref',
+    );
+    if (!confirmou || !mounted) return;
+
+    final ok = await runAction(
+      context,
+      contexto: 'propostas.excluir',
+      success: ehContrato ? 'Contrato excluído' : 'Proposta excluída',
+      failure: ehContrato
+          ? 'Não foi possível excluir o contrato.'
+          : 'Não foi possível excluir a proposta.',
+      action: () => executeCascadeDelete(impacto),
+    );
+    if (ok) _refresh();
   }
 
   @override
@@ -276,11 +271,11 @@ class _ProposalsWidgetState extends State<ProposalsWidget> {
               ),
             );
           }
-          // Proposta já convertida não é excluível por aqui (nem em lote): a
-          // vw_contract_data filtra pelo is_deleted DA PROPOSTA, então
-          // excluí-la derrubaria o contrato junto, silenciosamente.
-          bool podeExcluir(VwProposalDataRow p) =>
-              _canEdit && !(p.isContract ?? false);
+          // Proposta convertida agora PODE ser excluída — o que faltava era o
+          // usuário saber o que isso derruba. A modal de impacto avisa que o
+          // contrato e a esteira vão junto (a vw_contract_data filtra pelo
+          // is_deleted DA PROPOSTA), então já não é destruição às cegas.
+          bool podeExcluir(VwProposalDataRow p) => _canEdit;
 
           return Column(
             mainAxisSize: MainAxisSize.min,

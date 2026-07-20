@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '/backend/cascade_delete.dart';
+import '/security/action_feedback.dart';
+import '/pages/shared/confirm_delete_dialog/confirm_delete_dialog.dart';
 import '/backend/lead_conversion.dart';
 import '/backend/paged_query.dart';
 import '/backend/supabase/supabase.dart';
@@ -201,50 +204,45 @@ class _LeadsWidgetState extends State<LeadsWidget> {
     );
   }
 
+  /// Exclusão de lead em cascata: leva propostas, contratos e a esteira junto.
+  /// A modal mostra o que será afetado ANTES de confirmar — excluir um lead
+  /// com contrato nunca atinge só o lead.
   Future<void> _confirmDelete(LeadsRow item) async {
-    await showDialog(
-      context: context,
-      builder: (dialogContext) => Dialog(
-        elevation: 0,
-        insetPadding: EdgeInsets.zero,
-        backgroundColor: Colors.transparent,
-        alignment: Alignment.center,
-        child: GestureDetector(
-          onTap: () {
-            FocusScope.of(dialogContext).unfocus();
-            FocusManager.instance.primaryFocus?.unfocus();
-          },
-          child: AlertDialogWidget(
-            title: 'Deseja excluir este lead?',
-            iconColor: const Color(0xFFFF5963),
-            btnColor: const Color(0xFFFF5963),
-            confirmBtnAction: () async {
-              final okDeleteLead = await guardWrite(
-                context,
-                () => LeadsTable().update(
-                  data: {'is_deleted': true},
-                  matchingRows: (rows) => rows.eqOrNull('id', item.id),
-                  returnRows: true,
-                ),
-              );
-              if (!okDeleteLead) return;
-              if (!mounted) return;
-              Navigator.of(dialogContext).pop();
-              _refresh();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Lead excluído',
-                    style: GoogleFonts.inter(color: const Color(0xFF313131)),
-                  ),
-                  backgroundColor: const Color(0xFFC2D51C),
-                ),
-              );
-            },
-          ),
-        ),
-      ),
+    final nome = item.fullname ?? '${item.name} ${item.lastName}'.trim();
+
+    final impacto = await runActionWithResult<DeletionImpact>(
+      context,
+      contexto: 'leads.preverExclusao',
+      failure: 'Não foi possível verificar o que está vinculado a este lead.',
+      action: () => previewLeadDeletion(item.id),
     );
+    if (impacto == null || !mounted) return;
+
+    final confirmou = await confirmDeleteWithImpact(
+      context,
+      titulo: 'Excluir o lead "$nome"?',
+      impacto: impacto,
+      principal: 'O lead "$nome"',
+    );
+    if (!confirmou || !mounted) return;
+
+    final ok = await runAction(
+      context,
+      contexto: 'leads.excluir',
+      success: _mensagemSucesso(impacto, 'Lead excluído'),
+      failure: 'Não foi possível excluir o lead.',
+      action: () => executeCascadeDelete(impacto, leadId: item.id),
+    );
+    if (ok) _refresh();
+  }
+
+  String _mensagemSucesso(DeletionImpact i, String base) {
+    if (!i.temAlgoAlemDoPrincipal) return base;
+    final extras = <String>[
+      if (i.propostas > 0) '${i.propostas} proposta(s)',
+      if (i.contratos > 0) '${i.contratos} contrato(s)',
+    ];
+    return '$base com ${extras.join(' e ')}';
   }
 
   @override

@@ -251,6 +251,13 @@ class _ModalEditCompanyWidgetState extends State<ModalEditCompanyWidget> {
                     label: 'Inscrição estadual',
                     placeholder: 'Opcional',
                     icon: Icons.confirmation_number_outlined,
+                    keyboardType: TextInputType.number,
+                    // IE não tem formato único (varia por UF: RJ 8, SP 12,
+                    // MG 13...) e esta modal não tem UF — só dígitos.
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(14),
+                    ],
                   ),
                   if (widget.onSaveEmail != null) ...[
                     const SizedBox(height: 14),

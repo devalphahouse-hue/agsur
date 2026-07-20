@@ -4,6 +4,7 @@ import '/backend/lead_conversion.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/schema/structs/index.dart';
 import '/backend/supabase/supabase.dart';
+import '/security/action_feedback.dart';
 import '/security/credentials_email.dart';
 import '/security/password_utils.dart';
 import '/security/write_guard.dart';
@@ -27,6 +28,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:provider/provider.dart';
 import '/core_ui/core_ui.dart';
 import 'view_edit_proposal_model.dart';
@@ -5560,6 +5562,12 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                           context)
                                                       .primary,
                                                   confirmBtnAction: () async {
+                                                    // A conversão são 7 escritas encadeadas (users, leads,
+                                                    // contract, user_aircraft, sales, financial e 21 linhas de
+                                                    // tracking). Sem try/catch, uma falha no meio deixava o
+                                                    // diálogo aberto E o banco com contrato parcial — o usuário
+                                                    // não sabia se converteu, clicava de novo e duplicava.
+                                                    try {
                                                     // Zera resíduo de conversão
                                                     // anterior no model — senão
                                                     // um createUserPublic velho
@@ -5881,6 +5889,20 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                         ),
                                                       },
                                                     );
+                                                    } catch (e, st) {
+                                                      await Sentry.captureException(e, stackTrace: st,
+                                                          withScope: (s) => s.setTag('acao', 'proposta.converter'));
+                                                      if (!context.mounted) return;
+                                                      if (Navigator.of(dialogContext).canPop()) {
+                                                        Navigator.of(dialogContext).pop();
+                                                      }
+                                                      showWriteError(
+                                                        context,
+                                                        mensagemDeErro(e,
+                                                            fallback: 'A conversão não foi concluída. '
+                                                                'Confira a lista de contratos antes de tentar de novo.'),
+                                                      );
+                                                    }
                                                   },
                                                 ),
                                               ),

@@ -5,6 +5,7 @@ import '/backend/schema/enums/enums.dart';
 import '/backend/schema/structs/index.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/percent_input_formatter.dart';
+import '/security/action_feedback.dart';
 import '/security/write_guard.dart';
 import '/flutter_flow/flutter_flow_drop_down.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
@@ -25,6 +26,7 @@ import 'package:easy_debounce/easy_debounce.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:provider/provider.dart';
 import '/core_ui/core_ui.dart';
 import 'create_proposal_model.dart';
@@ -6348,6 +6350,10 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                         );
                                                         return;
                                                       }
+                                                      // Os inserts abaixo (proposta, financiamento e itens) rodavam
+                                                      // crus: falha em qualquer um travava o diálogo e podia deixar
+                                                      // a proposta gravada sem financiamento.
+                                                      try {
                                                       _model.getRates =
                                                           await FinancingRatesTable()
                                                               .queryRows(
@@ -6559,6 +6565,18 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                       context.pushNamed(
                                                           ProposalsWidget
                                                               .routeName);
+                                                      } catch (e, st) {
+                                                        await Sentry.captureException(e, stackTrace: st,
+                                                            withScope: (s) => s.setTag('acao', 'proposta.criar'));
+                                                        if (!context.mounted) return;
+                                                        Navigator.of(dialogContext).maybePop();
+                                                        showWriteError(
+                                                          context,
+                                                          mensagemDeErro(e,
+                                                              fallback: 'Não foi possível criar a proposta. '
+                                                                  'Nenhuma cobrança foi feita — tente novamente.'),
+                                                        );
+                                                      }
                                                     },
                                                   ),
                                                 ),

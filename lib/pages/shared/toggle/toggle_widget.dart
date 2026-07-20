@@ -1,4 +1,5 @@
 import '/backend/supabase/supabase.dart';
+import '/security/write_guard.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import 'package:flutter/material.dart';
@@ -51,15 +52,27 @@ class _ToggleWidgetState extends State<ToggleWidget> {
       onChanged: (newValue) async {
         safeSetState(() => _model.switchValue = newValue!);
         if (newValue!) {
-          await UsersTable().update(
-            data: {
-              'is_active': false,
-            },
-            matchingRows: (rows) => rows.eqOrNull(
-              'id',
-              widget!.parameter2,
+          // O switch já virou na tela antes da escrita. Se a RLS bloquear
+          // (2xx com 0 linhas), reverte o visual — senão a UI mostra um
+          // estado que o banco não tem.
+          final ok = await guardWrite(
+            context,
+            () => UsersTable().update(
+              data: {
+                'is_active': false,
+              },
+              matchingRows: (rows) => rows.eqOrNull(
+                'id',
+                widget!.parameter2,
+              ),
+              returnRows: true,
             ),
           );
+          if (!ok) {
+            safeSetState(() => _model.switchValue = !newValue);
+            return;
+          }
+          if (!context.mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
@@ -73,15 +86,27 @@ class _ToggleWidgetState extends State<ToggleWidget> {
             ),
           );
         } else {
-          await UsersTable().update(
-            data: {
-              'is_active': true,
-            },
-            matchingRows: (rows) => rows.eqOrNull(
-              'id',
-              widget!.parameter2,
+          // O switch já virou na tela antes da escrita. Se a RLS bloquear
+          // (2xx com 0 linhas), reverte o visual — senão a UI mostra um
+          // estado que o banco não tem.
+          final ok = await guardWrite(
+            context,
+            () => UsersTable().update(
+              data: {
+                'is_active': true,
+              },
+              matchingRows: (rows) => rows.eqOrNull(
+                'id',
+                widget!.parameter2,
+              ),
+              returnRows: true,
             ),
           );
+          if (!ok) {
+            safeSetState(() => _model.switchValue = !newValue);
+            return;
+          }
+          if (!context.mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(

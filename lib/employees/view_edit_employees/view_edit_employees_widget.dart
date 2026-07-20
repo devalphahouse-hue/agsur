@@ -1,4 +1,5 @@
 import '/backend/supabase/supabase.dart';
+import '/security/write_guard.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -1895,7 +1896,9 @@ class _ViewEditEmployeesWidgetState extends State<ViewEditEmployeesWidget> {
                                                     0.0, 16.0, 0.0, 0.0),
                                             child: FFButtonWidget(
                                               onPressed: () async {
-                                                await UsersTable().update(
+                                                // guardWrite + returnRows: sem isso a RLS bloqueava em silêncio e a
+                                                // tela mostrava "atualizado com sucesso" sem ter gravado nada.
+                                                final okUpd = await guardWrite(context, () => UsersTable().update(
                                                   data: {
                                                     'name': _model
                                                         .tFNameTextController
@@ -1914,7 +1917,9 @@ class _ViewEditEmployeesWidgetState extends State<ViewEditEmployeesWidget> {
                                                     'id',
                                                     widget!.employeId,
                                                   ),
-                                                );
+                                                  returnRows: true,
+                                                ));
+                                                if (!okUpd) return;
                                                 ScaffoldMessenger.of(context)
                                                     .showSnackBar(
                                                   SnackBar(

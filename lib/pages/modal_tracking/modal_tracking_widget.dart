@@ -1,4 +1,6 @@
 import '/backend/supabase/supabase.dart';
+import '/security/action_feedback.dart';
+import '/security/write_guard.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -9,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'modal_tracking_model.dart';
 export 'modal_tracking_model.dart';
 
@@ -3809,23 +3812,46 @@ class _ModalTrackingWidgetState extends State<ModalTrackingWidget>
     );
   }
 
-  Future<void> _saveTrackingDetails(Map<String, dynamic> data) async {
+  /// Grava os campos de uma etapa da esteira. Devolve `true` só se persistiu.
+  ///
+  /// **Era o ponto mais silencioso do painel:** o catch fazia `debugPrint` e
+  /// nada mais. O usuário preenchia a etapa, fechava a modal e o dado não
+  /// existia — sem mensagem na tela e sem evento no Sentry. Pior: o UPDATE não
+  /// passava `returnRows`, então um bloqueio de RLS (que devolve 2xx com 0
+  /// linhas) também passava por sucesso.
+  Future<bool> _saveTrackingDetails(Map<String, dynamic> data) async {
     try {
       if (_model.existingDetailsId != null) {
-        await TrackingDetailsTable().update(
+        final rows = await TrackingDetailsTable().update(
           data: data,
           matchingRows: (q) => q.eq('id', _model.existingDetailsId!),
+          returnRows: true,
         );
+        if (!mounted) return false;
+        if (!checkWrite(context, rows)) return false;
       } else {
-        if (widget.idTracking == null) return;
+        if (widget.idTracking == null) return false;
         final inserted = await TrackingDetailsTable().insert({
           'tracking_id': widget!.idTracking,
           ...data,
         });
         _model.existingDetailsId = inserted.id;
       }
-    } catch (e) {
-      debugPrint('Erro ao salvar tracking details: $e');
+      return true;
+    } catch (e, st) {
+      await Sentry.captureException(
+        e,
+        stackTrace: st,
+        withScope: (scope) => scope.setTag('acao', 'tracking.salvarEtapa'),
+      );
+      if (mounted) {
+        showWriteError(
+          context,
+          mensagemDeErro(e,
+              fallback: 'Não foi possível salvar esta etapa. Tente novamente.'),
+        );
+      }
+      return false;
     }
   }
 

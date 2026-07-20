@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 
 import '/backend/api_requests/api_calls.dart';
 import '/backend/schema/enums/enums.dart';
+import '/security/action_feedback.dart';
+import '/security/write_guard.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -133,23 +136,32 @@ class _ModalRegisterSellerWidgetState
         );
         return;
       }
-      _model.createUserSeller = await UsersTable().insert({
-        'id': CreateAccountAnotherUserCall.userID(
-          _model.createAuthUserSeller?.jsonBody ?? '',
-        ),
-        'name': _model.tFNameTextController!.text,
-        'email': CreateAccountAnotherUserCall.emailUser(
-          _model.createAuthUserSeller?.jsonBody ?? '',
-        ),
-        'phone': _model.tFPhoneTextController!.text,
-        'profile_type': ProfileType.Vendedor.name,
-        'cpf': _model.tFCpfTextController!.text,
-        'status': UserStatus.approved.name,
-        'lastname': _model.tFLastNameTextController!.text,
-        'fullname':
-            '${_model.tFNameTextController!.text} ${_model.tFLastNameTextController!.text}'
-                .trim(),
-      });
+      // A conta de auth JÁ existe neste ponto. Se o insert em `users` falhar
+      // (RLS, e-mail duplicado, rede), sem rollback fica uma conta órfã: ela
+      // ocupa o e-mail para sempre e nenhuma tela mostra o usuário. Foi
+      // exatamente isso que travou a conversão proposta→contrato em 18/06.
+      try {
+        _model.createUserSeller = await UsersTable().insert({
+          'id': CreateAccountAnotherUserCall.userID(
+            _model.createAuthUserSeller?.jsonBody ?? '',
+          ),
+          'name': _model.tFNameTextController!.text,
+          'email': CreateAccountAnotherUserCall.emailUser(
+            _model.createAuthUserSeller?.jsonBody ?? '',
+          ),
+          'phone': _model.tFPhoneTextController!.text,
+          'profile_type': ProfileType.Vendedor.name,
+          'cpf': _model.tFCpfTextController!.text,
+          'status': UserStatus.approved.name,
+          'lastname': _model.tFLastNameTextController!.text,
+          'fullname':
+              '${_model.tFNameTextController!.text} ${_model.tFLastNameTextController!.text}'
+                  .trim(),
+        });
+      } catch (e) {
+        await _rollbackContaOrfa(_model.tFEmailTextController!.text, e);
+        return;
+      }
       final emailSent = await sendCredentialsEmail(
         email: _model.tFEmailTextController!.text,
         password: _model.tFPasswordUserTextController!.text,
@@ -170,9 +182,47 @@ class _ModalRegisterSellerWidgetState
         ),
       );
       Navigator.of(context).pop();
+    } catch (e, st) {
+      // Sem este catch a exceção subia para o framework: o botão saía de
+      // "carregando" e nada mais acontecia — nenhuma mensagem na tela.
+      await Sentry.captureException(e,
+          stackTrace: st,
+          withScope: (s) => s.setTag('acao', 'vendedores.cadastrar'));
+      if (!mounted) return;
+      showWriteError(
+        context,
+        mensagemDeErro(e,
+            fallback: 'Não foi possível cadastrar o vendedor. Tente novamente.'),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// Desfaz a conta de auth criada quando o cadastro em `users` falha.
+  /// Espelha o que o `modal_create_client` já fazia.
+  Future<void> _rollbackContaOrfa(String email, Object erro) async {
+    try {
+      await SupaFlow.client.rpc(
+        'admin_purge_orphan_auth_user',
+        params: {'p_email': email},
+      );
+    } catch (_) {
+      // O purge é best-effort: se falhar, a conta órfã fica, mas o usuário
+      // precisa saber que o cadastro não foi concluído de qualquer forma.
+    }
+    await Sentry.captureException(
+      erro,
+      withScope: (s) => s.setTag('acao', 'vendedores.cadastrar.rollback'),
+    );
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    showWriteError(
+      context,
+      mensagemDeErro(erro,
+          fallback: 'Não foi possível concluir o cadastro. '
+              'Nenhum registro parcial foi mantido — tente novamente.'),
+    );
   }
 
   @override

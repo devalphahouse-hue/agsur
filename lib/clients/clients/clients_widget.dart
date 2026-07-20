@@ -7,6 +7,7 @@ import '/backend/paged_query.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/security/action_feedback.dart';
 import '/security/write_guard.dart';
 import '/index.dart';
 import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
@@ -36,6 +37,16 @@ class _ClientsWidgetState extends State<ClientsWidget> {
   Set<String> _selected = {};
   int _page = 1;
   int _perPage = kDefaultPerPage;
+
+  /// Traduz o erro do Postgres para algo que o usuário entenda. `42501` é o
+  /// errcode que a RPC levanta quando quem chamou não é Admin Master.
+  String _mensagemErroExclusao(Object e) {
+    final texto = e.toString();
+    if (texto.contains('42501') || texto.contains('Admin Master')) {
+      return 'Só o Admin Master pode excluir clientes.';
+    }
+    return 'Não foi possível excluir o cliente. Tente novamente.';
+  }
 
   void _toast(BuildContext context, String msg, {bool warn = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -73,6 +84,7 @@ class _ClientsWidgetState extends State<ClientsWidget> {
           btnColor: const Color(0xFFFF5963),
           confirmBtnAction: () async {
             var ok = 0;
+            Object? primeiroErro;
             for (final c in alvos) {
               try {
                 await SupaFlow.client.rpc(
@@ -80,8 +92,9 @@ class _ClientsWidgetState extends State<ClientsWidget> {
                   params: {'p_user_id': c.userId},
                 );
                 ok++;
-              } catch (_) {
+              } catch (e) {
                 // segue para os demais; o total honesto vai na mensagem
+                primeiroErro ??= e;
               }
             }
             if (!mounted) return;
@@ -92,7 +105,8 @@ class _ClientsWidgetState extends State<ClientsWidget> {
               context,
               falhou == 0
                   ? '$ok ${ok == 1 ? 'cliente excluído' : 'clientes excluídos'}'
-                  : '$ok excluído(s), $falhou sem permissão',
+                  : '$ok excluído(s), $falhou não: '
+                      '${_mensagemErroExclusao(primeiroErro!)}',
               warn: falhou > 0,
             );
           },
@@ -188,23 +202,21 @@ class _ClientsWidgetState extends State<ClientsWidget> {
             iconColor: const Color(0xFFFF5963),
             btnColor: const Color(0xFFFF5963),
             confirmBtnAction: () async {
-              await SupaFlow.client.rpc(
-                'admin_delete_app_user',
-                params: {'p_user_id': item.userId},
-              );
-              if (!mounted) return;
-              Navigator.of(dialogContext).pop();
-              _refresh();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Cliente excluído',
-                    style: GoogleFonts.inter(color: const Color(0xFF313131)),
-                  ),
-                  backgroundColor: const Color(0xFFC2D51C),
-                  duration: const Duration(seconds: 3),
+              // A RPC exige Admin Master e LANÇA para os demais perfis. O
+              // runAction garante que o diálogo feche e que o usuário veja o
+              // motivo — antes a tela simplesmente não respondia.
+              final ok = await runAction(
+                context,
+                dialogContext: dialogContext,
+                contexto: 'clientes.excluir',
+                success: 'Cliente excluído',
+                failure: 'Não foi possível excluir o cliente.',
+                action: () => SupaFlow.client.rpc(
+                  'admin_delete_app_user',
+                  params: {'p_user_id': item.userId},
                 ),
               );
+              if (ok) _refresh();
             },
           ),
         ),

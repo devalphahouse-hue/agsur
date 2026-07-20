@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '/security/action_feedback.dart';
+import '/security/write_guard.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
@@ -196,6 +199,16 @@ class _ModalServicesOfferingWidgetState
         ),
       );
       Navigator.of(context).pop();
+    } catch (e, st) {
+      // Sem catch a exceção subia para o framework: o botão saía de
+      // "carregando" e nada aparecia na tela.
+      await Sentry.captureException(e,
+          stackTrace: st, withScope: (s) => s.setTag('acao', 'cartas'));
+      if (!mounted) return;
+      showWriteError(
+        context,
+        mensagemDeErro(e, fallback: 'Não foi possível salvar a carta de serviço.'),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -233,6 +246,16 @@ class _ModalServicesOfferingWidgetState
         ),
       );
       Navigator.of(context).pop();
+    } catch (e, st) {
+      // Sem catch a exceção subia para o framework: o botão saía de
+      // "carregando" e nada aparecia na tela.
+      await Sentry.captureException(e,
+          stackTrace: st, withScope: (s) => s.setTag('acao', 'cartas'));
+      if (!mounted) return;
+      showWriteError(
+        context,
+        mensagemDeErro(e, fallback: 'Não foi possível salvar a carta de serviço.'),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }

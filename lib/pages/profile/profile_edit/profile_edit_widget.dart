@@ -1,5 +1,6 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/supabase/supabase.dart';
+import '/security/write_guard.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
@@ -481,7 +482,9 @@ class _ProfileEditWidgetState extends State<ProfileEditWidget> {
                                               AlignmentDirectional(1.0, 0.0),
                                           child: FFButtonWidget(
                                             onPressed: () async {
-                                              await UsersTable().update(
+                                              // guardWrite + returnRows: sem isso a RLS bloqueava em silêncio e a
+                                              // tela mostrava "atualizado com sucesso" sem ter gravado nada.
+                                              final okUpd = await guardWrite(context, () => UsersTable().update(
                                                 data: {
                                                   'name': _model
                                                       .tFNomeTextController
@@ -495,7 +498,9 @@ class _ProfileEditWidgetState extends State<ProfileEditWidget> {
                                                   'id',
                                                   currentUserUid,
                                                 ),
-                                              );
+                                                returnRows: true,
+                                              ));
+                                              if (!okUpd) return;
                                               ScaffoldMessenger.of(context)
                                                   .showSnackBar(
                                                 SnackBar(

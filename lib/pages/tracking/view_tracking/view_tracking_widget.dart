@@ -8,6 +8,7 @@ import '/auth/supabase_auth/auth_util.dart';
 import '/backend/api_requests/api_calls.dart';
 import '/backend/schema/structs/index.dart';
 import '/backend/supabase/supabase.dart';
+import '/security/write_guard.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/pages/modal_tracking/modal_tracking_widget.dart';
@@ -693,19 +694,31 @@ class _TrackingCard extends StatelessWidget {
           onLinks: (_, __, ___, ____, _____) async {},
           onConfiguration:
               (stripeColor, filter, panel, isCheck, useraircraftId, trackingId) async {
-            await UserAircraftTable().update(
-              data: {
-                'stripe_color': stripeColor,
-                'air_filter': filter,
-                'panel': panel,
-              },
-              matchingRows: (rows) =>
-                  rows.eqOrNull('id', useraircraftId),
+            // guardWrite + returnRows: a RLS filtra em silêncio num UPDATE,
+            // então o toast confirmava etapa salva sem nada ter sido gravado.
+            final okAeronave = await guardWrite(
+              context,
+              () => UserAircraftTable().update(
+                data: {
+                  'stripe_color': stripeColor,
+                  'air_filter': filter,
+                  'panel': panel,
+                },
+                matchingRows: (rows) =>
+                    rows.eqOrNull('id', useraircraftId),
+                returnRows: true,
+              ),
             );
-            await TrackingTable().update(
-              data: {'isCheck': isCheck},
-              matchingRows: (rows) => rows.eqOrNull('id', trackingId),
+            if (!okAeronave) return;
+            final okEtapa = await guardWrite(
+              context,
+              () => TrackingTable().update(
+                data: {'isCheck': isCheck},
+                matchingRows: (rows) => rows.eqOrNull('id', trackingId),
+                returnRows: true,
+              ),
             );
+            if (!okEtapa || !context.mounted) return;
             _toast(context, 'Dados atualizados com sucesso!');
             await onChanged();
             if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
@@ -721,10 +734,15 @@ class _TrackingCard extends StatelessWidget {
           idTracking: item.id,
           userAircraftId: item.userAircraftId,
           onLinks: (link1, link2, isCheck, idTracking, _) async {
-            await TrackingTable().update(
-              data: {'link': link1, 'link2': link2, 'isCheck': isCheck},
-              matchingRows: (rows) => rows.eqOrNull('id', idTracking),
+            final okLink = await guardWrite(
+              context,
+              () => TrackingTable().update(
+                data: {'link': link1, 'link2': link2, 'isCheck': isCheck},
+                matchingRows: (rows) => rows.eqOrNull('id', idTracking),
+                returnRows: true,
+              ),
             );
+            if (!okLink || !context.mounted) return;
             _toast(context, 'Link adicionado com sucesso!');
             await onChanged();
             if (context.mounted) Navigator.of(context, rootNavigator: true).pop();

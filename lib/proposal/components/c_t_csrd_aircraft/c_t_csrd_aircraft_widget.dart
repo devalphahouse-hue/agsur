@@ -1,4 +1,5 @@
 import '/auth/supabase_auth/auth_util.dart';
+import '/security/action_feedback.dart';
 import '/backend/supabase/supabase.dart';
 import '/security/write_guard.dart';
 import '/flutter_flow/flutter_flow_drop_down.dart';
@@ -767,11 +768,22 @@ class _CTCsrdAircraftWidgetState extends State<CTCsrdAircraftWidget> {
                           EdgeInsetsDirectional.fromSTEB(4.0, 16.0, 4.0, 16.0),
                       child: FFButtonWidget(
                         onPressed: () async {
+                          // Mesmo bug que derrubava a criação de proposta: sem
+                          // prazo selecionado, `int.parse(dPDLengthValue!)`
+                          // estourava e o handler morria antes do checkWrite e
+                          // do pop — modal aberta, nada salvo, nenhuma
+                          // mensagem. Valida antes de montar o update.
+                          final prazo = _model.dPDLengthValue;
+                          if (prazo == null || int.tryParse(prazo) == null) {
+                            showWriteError(context,
+                                'Selecione o prazo de financiamento antes de salvar.');
+                            return;
+                          }
                           final rowsFinancing =
                               await ProposalFinancingTable().update(
                             data: {
                               'term_length': valueOrDefault<int>(
-                                int.parse((_model.dPDLengthValue!)),
+                                int.tryParse(prazo),
                                 0,
                               ),
                               'credit_date': supaSerialize<DateTime>(
@@ -826,7 +838,10 @@ class _CTCsrdAircraftWidgetState extends State<CTCsrdAircraftWidget> {
                           );
                           if (!checkWrite(context, rowsFinancing)) return;
                           await widget.refresh?.call();
+                          if (!context.mounted) return;
                           Navigator.of(context, rootNavigator: true).pop();
+                          showActionSuccess(
+                              context, 'Financiamento atualizado');
 
                           safeSetState(() {});
                         },

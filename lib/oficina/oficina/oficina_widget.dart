@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '/backend/api_requests/api_calls.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/supabase/supabase.dart';
+import '/security/write_guard.dart';
+import '/security/action_feedback.dart';
 import '/security/credentials_email.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -150,22 +152,21 @@ class _OficinaWidgetState extends State<OficinaWidget> {
             iconColor: const Color(0xFFFF5963),
             btnColor: const Color(0xFFFF5963),
             confirmBtnAction: () async {
-              await SupaFlow.client.rpc(
-                'admin_delete_app_user',
-                params: {'p_user_id': item.id},
-              );
-              if (!mounted) return;
-              Navigator.of(dialogContext).pop();
-              _refresh();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Oficina excluída',
-                    style: GoogleFonts.inter(color: const Color(0xFF313131)),
-                  ),
-                  backgroundColor: const Color(0xFFC2D51C),
+              // A RPC exige Admin Master e LANÇA para os demais perfis.
+              // Sem o runAction a exceção subia pelo handler async: o
+              // diálogo ficava aberto e o usuário não recebia explicação.
+              final ok = await runAction(
+                context,
+                dialogContext: dialogContext,
+                contexto: 'oficinas.excluir',
+                success: 'Oficina excluída',
+                failure: 'Não foi possível excluir a oficina.',
+                action: () => SupaFlow.client.rpc(
+                  'admin_delete_app_user',
+                  params: {'p_user_id': item.id},
                 ),
               );
+              if (ok) _refresh();
             },
           ),
         ),
@@ -300,17 +301,33 @@ class _OficinaRow extends StatelessWidget {
             key: Key('ofc_switch_${item.id ?? index}'),
             initialValue: item.isActive ?? false,
             activeAction: () async {
-              await UsersTable().update(
-                data: {'is_active': true},
-                matchingRows: (rows) => rows.eqOrNull('id', item.id),
+              // guardWrite + returnRows: a RLS filtra em silêncio num
+              // UPDATE (2xx com 0 linhas), então sem isso o switch virava na
+              // tela e o toast confirmava algo que não foi gravado.
+              final ok = await guardWrite(
+                context,
+                () => UsersTable().update(
+                  data: {'is_active': true},
+                  matchingRows: (rows) => rows.eqOrNull('id', item.id),
+                  returnRows: true,
+                ),
               );
+              if (!ok || !context.mounted) return;
               _toast(context, 'Oficina ativada');
             },
             disableAction: () async {
-              await UsersTable().update(
-                data: {'is_active': false},
-                matchingRows: (rows) => rows.eqOrNull('id', item.id),
+              // guardWrite + returnRows: a RLS filtra em silêncio num
+              // UPDATE (2xx com 0 linhas), então sem isso o switch virava na
+              // tela e o toast confirmava algo que não foi gravado.
+              final ok = await guardWrite(
+                context,
+                () => UsersTable().update(
+                  data: {'is_active': false},
+                  matchingRows: (rows) => rows.eqOrNull('id', item.id),
+                  returnRows: true,
+                ),
               );
+              if (!ok || !context.mounted) return;
               _toast(context, 'Oficina desativada');
             },
           ),

@@ -1,5 +1,6 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/supabase/supabase.dart';
+import '/security/write_guard.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
@@ -950,7 +951,9 @@ class _CreateRatesWidgetState extends State<CreateRatesWidget> {
                               alignment: AlignmentDirectional(1.0, 0.0),
                               child: FFButtonWidget(
                                 onPressed: () async {
-                                  await FinancingRatesTable().update(
+                                  // Dado financeiro: sem guardWrite, um bloqueio de RLS mostrava
+                                  // "taxas atualizadas" e a proposta seguia calculando com a taxa velha.
+                                  final okRates = await guardWrite(context, () => FinancingRatesTable().update(
                                     data: {
                                       'sofr_rate': valueOrDefault<double>(
                                         (String sofr) {
@@ -998,7 +1001,9 @@ class _CreateRatesWidgetState extends State<CreateRatesWidget> {
                                       'id',
                                       'ce659e4b-caee-4b88-8d99-46f15c7e9b69',
                                     ),
-                                  );
+                                    returnRows: true,
+                                  ));
+                                  if (!okRates) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(

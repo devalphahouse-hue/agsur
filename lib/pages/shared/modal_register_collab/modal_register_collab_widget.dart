@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 
 import '/backend/api_requests/api_calls.dart';
 import '/backend/schema/enums/enums.dart';
+import '/security/action_feedback.dart';
+import '/security/write_guard.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -223,7 +226,10 @@ class _ModalRegisterCollabWidgetState
         return;
       }
       final isMaster = _accessLevel == 'admin_master';
-      await UsersTable().insert({
+      // A conta de auth já existe aqui. Falha no insert sem rollback deixaria
+      // conta órfã: e-mail ocupado para sempre e usuário invisível no painel.
+      try {
+        await UsersTable().insert({
         'id': CreateAccountAnotherUserCall.userID(auth.jsonBody),
         'name': _model.tFNameTextController!.text,
         'email': CreateAccountAnotherUserCall.emailUser(auth.jsonBody),
@@ -236,7 +242,11 @@ class _ModalRegisterCollabWidgetState
         'fullname':
             '${_model.tFNameTextController!.text} ${_model.tFLastNameTextController!.text}'
                 .trim(),
-      });
+        });
+      } catch (e) {
+        await _rollbackContaOrfa(_model.tFEmailTextController!.text, e);
+        return;
+      }
       final emailSent = await sendCredentialsEmail(
         email: _model.tFEmailTextController!.text,
         password: _model.tFPasswordUserTextController!.text,
@@ -257,9 +267,40 @@ class _ModalRegisterCollabWidgetState
         ),
       );
       Navigator.of(context).pop();
+    } catch (e, st) {
+      await Sentry.captureException(e,
+          stackTrace: st,
+          withScope: (s) => s.setTag('acao', 'colaboradores.cadastrar'));
+      if (!mounted) return;
+      showWriteError(
+        context,
+        mensagemDeErro(e,
+            fallback:
+                'Não foi possível cadastrar o colaborador. Tente novamente.'),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// Desfaz a conta de auth quando o cadastro em `users` falha.
+  Future<void> _rollbackContaOrfa(String email, Object erro) async {
+    try {
+      await SupaFlow.client.rpc(
+        'admin_purge_orphan_auth_user',
+        params: {'p_email': email},
+      );
+    } catch (_) {}
+    await Sentry.captureException(erro,
+        withScope: (s) => s.setTag('acao', 'colaboradores.cadastrar.rollback'));
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    showWriteError(
+      context,
+      mensagemDeErro(erro,
+          fallback: 'Não foi possível concluir o cadastro. '
+              'Nenhum registro parcial foi mantido — tente novamente.'),
+    );
   }
 
   @override

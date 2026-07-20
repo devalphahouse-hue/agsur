@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '/backend/schema/enums/enums.dart';
 import '/backend/supabase/supabase.dart';
+import '/security/write_guard.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
@@ -256,17 +257,33 @@ class _EmployeeRow extends StatelessWidget {
             key: Key('emp_switch_${item.id ?? index}'),
             initialValue: item.isActive ?? false,
             activeAction: () async {
-              await UsersTable().update(
-                data: {'is_active': true},
-                matchingRows: (rows) => rows.eqOrNull('id', item.id),
+              // guardWrite + returnRows: a RLS filtra em silêncio num
+              // UPDATE (2xx com 0 linhas), então sem isso o switch virava na
+              // tela e o toast confirmava algo que não foi gravado.
+              final ok = await guardWrite(
+                context,
+                () => UsersTable().update(
+                  data: {'is_active': true},
+                  matchingRows: (rows) => rows.eqOrNull('id', item.id),
+                  returnRows: true,
+                ),
               );
+              if (!ok || !context.mounted) return;
               _toast(context, 'Colaborador ativado');
             },
             disableAction: () async {
-              await UsersTable().update(
-                data: {'is_active': false},
-                matchingRows: (rows) => rows.eqOrNull('id', item.id),
+              // guardWrite + returnRows: a RLS filtra em silêncio num
+              // UPDATE (2xx com 0 linhas), então sem isso o switch virava na
+              // tela e o toast confirmava algo que não foi gravado.
+              final ok = await guardWrite(
+                context,
+                () => UsersTable().update(
+                  data: {'is_active': false},
+                  matchingRows: (rows) => rows.eqOrNull('id', item.id),
+                  returnRows: true,
+                ),
               );
+              if (!ok || !context.mounted) return;
               _toast(context, 'Colaborador desativado');
             },
           ),

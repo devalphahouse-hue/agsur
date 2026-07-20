@@ -48,4 +48,20 @@ class VwContractDataRow extends SupabaseDataRow {
   String? get createdByName => getField<String>('created_by_name');
   set createdByName(String? value) =>
       setField<String>('created_by_name', value);
+
+  // Cancelamento (migration 20260720120000). Escrito à mão: uma regen do
+  // FlutterFlow apaga estes getters — reponha-os se a listagem de contratos
+  // parar de mostrar o selo "Cancelado".
+  String? get contractId => getField<String>('contract_id');
+
+  DateTime? get cancelledAt => getField<DateTime>('cancelled_at');
+
+  String? get cancellationReason => getField<String>('cancellation_reason');
+
+  String? get cancellationNote => getField<String>('cancellation_note');
+
+  String? get cancelledByName => getField<String>('cancelled_by_name');
+
+  /// `true` quando o contrato foi cancelado — o registro continua existindo.
+  bool get isCancelled => cancelledAt != null;
 }

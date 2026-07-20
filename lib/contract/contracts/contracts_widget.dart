@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '/security/action_feedback.dart';
+import '/pages/shared/cancel_contract_dialog/cancel_contract_dialog.dart';
+import '/security/write_guard.dart';
 import '/backend/paged_query.dart';
 
 import '/auth/supabase_auth/auth_util.dart';
@@ -95,6 +98,60 @@ class _ContractsWidgetState extends State<ContractsWidget> {
         currency: r'$ ');
   }
 
+  void _refresh() => safeSetState(() {});
+
+  /// Contrato não se exclui — se cancela.
+  ///
+  /// A diferença não é de nomenclatura: exclusão apagaria a venda do histórico,
+  /// enquanto o cancelamento **preserva o registro** e acrescenta motivo, autor
+  /// e data. O contrato continua na listagem com o selo "Cancelado".
+  ///
+  /// Grava direto em `contract` (não na proposta): a proposta segue existindo e
+  /// válida — o que foi cancelado é o contrato.
+  Future<void> _confirmCancel(VwContractDataRow item) async {
+    final ref = '#${item.idRef ?? '0000000'}';
+    final contractId = item.contractId;
+    if (contractId == null || contractId.isEmpty) {
+      showWriteError(context,
+          'Contrato sem registro vinculado. Atualize a página e tente de novo.');
+      return;
+    }
+
+    final info = await askCancelContract(context, referencia: ref);
+    if (info == null || !mounted) return;
+
+    // Segundo passo: repete o que será gravado antes de gravar.
+    final confirmou =
+        await confirmCancelSummary(context, referencia: ref, info: info);
+    if (!confirmou || !mounted) return;
+
+    final ok = await runAction(
+      context,
+      contexto: 'contratos.cancelar',
+      success: 'Contrato $ref cancelado',
+      failure: 'Não foi possível cancelar o contrato.',
+      action: () async {
+        final rows = await ContractTable().update(
+          data: {
+            'cancelled_at': supaSerialize<DateTime>(getCurrentTimestamp),
+            'cancelled_by': currentUserUid,
+            'cancellation_reason': info.motivo.codigo,
+            'cancellation_note':
+                info.observacao.isEmpty ? null : info.observacao,
+          },
+          matchingRows: (q) => q.eqOrNull('id', contractId),
+          returnRows: true,
+        );
+        // A RLS filtra em silêncio num UPDATE: sem esta checagem o painel
+        // diria "cancelado" sem ter gravado nada.
+        if (rows.isEmpty) {
+          throw StateError('42501: sem permissão para cancelar este contrato');
+        }
+      },
+    );
+    if (ok) _refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppListScaffold(
@@ -139,11 +196,9 @@ class _ContractsWidgetState extends State<ContractsWidget> {
               ),
             );
           }
-          // Sem seleção/exclusão aqui de propósito: contrato é venda fechada e
-          // hoje a tela não tem exclusão nenhuma. "Excluir contrato" seria, na
-          // prática, marcar is_deleted na PROPOSTA (a contract não tem a
-          // coluna) — o que também some com o histórico da proposta. Só
-          // adicionar mediante decisão explícita.
+          // Sem seleção múltipla: cancelamento exige um motivo POR contrato.
+          // Em lote, ou o usuário atribuiria o mesmo motivo a todos (registro
+          // sem valor) ou responderia N modais seguidas.
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -208,16 +263,42 @@ class _ContractsWidgetState extends State<ContractsWidget> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const AppStatusBadge(
-                      label: 'Contrato',
-                      icon: Icons.verified_outlined,
-                      tone: AppStatusTone.success,
+                    AppStatusBadge(
+                      label: c.isCancelled ? 'Cancelado' : 'Contrato',
+                      icon: c.isCancelled
+                          ? Icons.block_rounded
+                          : Icons.verified_outlined,
+                      tone: c.isCancelled
+                          ? AppStatusTone.danger
+                          : AppStatusTone.success,
                       dense: true,
                     ),
                     const SizedBox(height: 5),
                     AppCellText(_money(c.fullprice), bold: true),
+                    if (c.isCancelled) ...[
+                      const SizedBox(height: 3),
+                      AppCellText(
+                        MotivoCancelamento.rotuloDe(c.cancellationReason),
+                        muted: true,
+                      ),
+                    ],
                   ],
                 ),
+              ),
+              AppDataColumn(
+                label: 'Ações',
+                width: 64,
+                align: Alignment.centerRight,
+                // Já cancelado não mostra a ação — cancelar duas vezes só
+                // sobrescreveria o motivo e a data do primeiro cancelamento.
+                cell: (c) => _canEdit && !c.isCancelled
+                    ? AppRowAction(
+                        icon: Icons.block_rounded,
+                        tooltip: 'Cancelar contrato',
+                        danger: true,
+                        onPressed: () => _confirmCancel(c),
+                      )
+                    : const SizedBox.shrink(),
               ),
             ],
               ),

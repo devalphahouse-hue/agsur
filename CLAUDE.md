@@ -133,6 +133,16 @@ camada de API própria além de algumas chamadas REST diretas em
 `lib/backend/api_requests/api_calls.dart` (ex.: `signup` chamando `/auth/v1/signup`
 para criar usuários sem deslogar o admin; `ViaCepCall` para autofill de CEP).
 
+> ⚠️ **PENDENTE — ~51 e-mails presos no soft-delete legado.** O tombstone que
+> libera o e-mail só entrou na `admin_delete_app_user` na migration
+> `20260622120000`. Quem foi excluído ANTES disso segurou o e-mail no
+> `auth.users` para sempre: o painel não acha o cliente (busca com
+> `is_deleted=false`), cai no signup, toma **422 `user_already_exists`** e
+> aborta — deadlock permanente para aquele e-mail. Medido em 2026-07-20: 53
+> casos, sendo 4 pela RPC antiga e **49 marcados por UPDATE direto** (sem ban,
+> o que o CLAUDE.md proíbe). Dois foram destravados na mão; o resto precisa de
+> backfill via migration + decidir se os 49 não-banidos devem ser banidos.
+
 **Criar/excluir usuário (armadilhas).** O signup (`/auth/v1/signup`, anon) cria a
 conta no auth e o painel insere a linha em `public.users` em seguida. Para
 **e-mail duplicado**, o GoTrue responde de duas formas — **422
@@ -178,11 +188,10 @@ e-mail nativo do Supabase, limitado a 2/hora, ficou só para "esqueci a senha").
 forma de editar por tela** — sem lápis avulso ao lado do texto; o e-mail vive
 dentro do formulário/modal que a tela já tem.
 
-> **Status (2026-07-18):** código em produção (commits `f3439d2` + `38b12cd`,
-> deploy via CI verde). ⚠️ **As migrations `20260717120000` e `20260717130000`
-> ainda NÃO foram aplicadas** (`npx supabase db push` pendente; o dry-run do
-> CI passou) — até lá, troca de e-mail pós-contrato e "Reenviar senha"
-> respondem com o erro amigável de RPC inexistente. Todo o resto já funciona.
+> ✅ **Status (2026-07-20):** código em produção e **as migrations
+> `20260717120000` e `20260717130000` foram APLICADAS** (`db push` junto com a
+> do cancelamento de contrato). Troca de e-mail pós-contrato e "Reenviar senha"
+> saíram da inércia em que estavam desde 17/07 — funcionam de verdade agora.
 
 - **Proposta (antes da conversão):** as modais de empresa
   (`modal_register_company`/`modal_edit_company`) ganharam o campo "E-mail do
@@ -418,6 +427,110 @@ bug do `company` passou meses invisível). Regras ao escrever no banco:
   item + sync de total), early-return deixaria a tela inconsistente — reporte e
   siga. Todos os 26 update/delete das telas do funil estão cobertos
   (2026-07-14).
+
+### Feedback ao usuário — `action_feedback` (2026-07-20)
+
+Complemento do `write_guard`: aquele pega o bloqueio **silencioso** da RLS
+(2xx com 0 linhas); este pega a exceção que **ninguém pegava**.
+
+Os `confirmBtnAction`/`onPressed` eram `() async {}` sem try/catch. Uma exceção
+subia pelo callback assíncrono, o `Navigator.pop` nunca rodava e o diálogo
+ficava aberto com o botão girando, sem mensagem — o sintoma que o usuário
+descrevia como "não sai daí". Aconteceu na exclusão de vendedor/oficina/
+piloto/cliente (a RPC `admin_delete_app_user` LANÇA para quem não é Admin
+Master), na criação de proposta e na conversão.
+
+- `runAction(context, action:, success:, failure:, dialogContext:, contexto:)`
+  de `lib/security/action_feedback.dart` garante: o diálogo fecha nos DOIS
+  caminhos, aparece mensagem em pt-BR nos dois, e o erro técnico vai para o
+  Sentry (com tag `acao`) em vez da tela. `runActionWithResult<T>` para quando
+  a ação produz algo (ex.: preview de impacto antes de excluir).
+- `mensagemDeErro(e, fallback:)` traduz os códigos do Postgres — `42501`,
+  `23505`, `23503`, `23502`, `22P02`, `PGRST116` — mais rede caída e
+  "Null check operator". **Mensagem nova de erro entra aqui**, não na tela:
+  todas as ações herdam de uma vez.
+- Ao escrever uma ação nova: se for UPDATE/DELETE, use `guardWrite` DENTRO do
+  `action`. Os dois se complementam e nenhum substitui o outro.
+
+⚠️ **Ordem importa em handler que escreve mais de uma coisa.** Validar TUDO
+antes do primeiro insert. A criação de proposta inseria a proposta e só depois
+fazia `int.parse(dPDLengthValue!)` do financiamento: sem prazo selecionado, o
+`!` estourava e cada tentativa deixava uma proposta órfã (17 acumuladas em
+2026-07-20, limpas por soft-delete). A conversão tem 7 escritas encadeadas —
+falha no meio deixa contrato sem venda ou aeronave sem esteira.
+
+### Exclusão em cascata no funil (2026-07-20)
+
+**Não existe `ON DELETE CASCADE` que resolva** — das tabelas do funil, só
+`leads.is_deleted`, `proposal.is_deleted` e `user_aircraft.deleted` têm
+soft-delete. `contract`, `sales`, `financial`, `tracking`, `company` e `notes`
+**não têm**. A "exclusão" é uma combinação de marcações:
+
+- `proposal.is_deleted = true` some com a proposta **E com o contrato** de
+  graça, porque a `vw_contract_data` filtra por essa coluna. É por isso que
+  "excluir contrato" só pode significar marcar a proposta.
+- **`tracking` é a exceção:** a `vw_all_tracking` NÃO filtra nada, então a
+  esteira só some **apagando** as linhas (`tracking` + `tracking_details`).
+  Irreversível — mas as 21 etapas são regeneráveis pelo template.
+
+`lib/backend/cascade_delete.dart` levanta o impacto antes (`previewLeadDeletion`
+/ `previewProposalDeletion`) e executa (`executeCascadeDelete`); a modal
+`confirm_delete_dialog` mostra o que será atingido. Ela avisa também quando o
+lead já virou cliente — aí a exclusão tira do cliente o acompanhamento no app.
+
+### Cancelamento de contrato (2026-07-20)
+
+**Contrato não se exclui — se cancela.** Exclusão apagaria a venda do
+histórico; o cancelamento preserva o registro e acrescenta motivo, autor e
+data. O contrato continua na listagem com o selo "Cancelado".
+
+- Migration `20260720120000`: `contract` ganha `cancelled_at`, `cancelled_by`,
+  `cancellation_reason`, `cancellation_note` + CHECK dos motivos fechados +
+  CHECK de coerência (ou cancelado com data E motivo, ou nada).
+- As colunas vão em `contract` (quem é cancelado é o contrato; a proposta segue
+  válida). Como a `vw_contract_data` é construída sobre `proposal`, ela passa a
+  fazer `LEFT JOIN contract` — **colunas só acrescentadas no fim**, senão o
+  `create or replace view` recusa. O `security_invoker=on` é reafirmado.
+- Motivos são conjunto fechado para render relatório. O enum
+  `MotivoCancelamento` (Dart) espelha o CHECK — **mexeu num, mexa no outro**.
+- Os getters de cancelamento em `vw_contract_data.dart` foram escritos à mão:
+  uma regen do FlutterFlow os apaga e o selo some da listagem.
+- **Não há tela para descancelar.** A modal de confirmação diz isso.
+
+### Listagens do funil — tabela e paginação (2026-07-20)
+
+Leads, Propostas, Contratos e Clientes usam `AppDataTable` (colunas, seleção
+múltipla, exclusão em lote) + `AppPagination`, com paginação **no servidor**
+(`queryPage` em `lib/backend/paged_query.dart`: `range` + `count=exact`).
+
+- `queryPage` mora em `lib/backend/` e **não** em
+  `lib/backend/supabase/database/table.dart` de propósito: aquele arquivo é
+  gerado pelo FlutterFlow e uma regen apagaria o método.
+- ⚠️ **Com paginação no servidor, todo filtro tem que ir no `queryFn`.**
+  Filtrar em Dart depois filtra só a página corrente — a busca "não acha"
+  registros das páginas seguintes e o total mente. Vale para a busca
+  (`orIlike` monta o `or=(col.ilike.*q*,…)`), para o `is_contract` de Contratos
+  e para a exclusão dos leads já convertidos.
+- Trocar de página **limpa a seleção**: ela guarda ids da página anterior, e a
+  exclusão em lote apagaria o que não está na tela.
+- Exclusão em lote passa linha a linha pelo `guardWrite` (ou pela RPC, em
+  Clientes) e reporta o resultado honesto — "3 excluído(s), 2 sem permissão"
+  em vez de sucesso falso.
+
+### Lead vira cliente (2026-07-20)
+
+Quando a proposta vira contrato, o lead passa a ser cliente e **sai da lista de
+Leads** — mas o registro em `leads` NÃO é apagado nem marcado. Ele é a chave de
+autorização do app cliente: `auth_owns_proposal` e `auth_owns_user_aircraft`
+(SECURITY DEFINER) fazem `JOIN leads ON lead_id` comparando
+`lower(l.email) = lower(auth_user_email())`. Sumir com ele tira do cliente o
+acesso à própria aeronave.
+
+A classificação é derivada de `users.lead_id` em `lib/backend/lead_conversion.dart`
+(nada é gravado no lead) e o cache é invalidado na conversão. É também o que
+viabiliza a **recompra**: o seletor de "Cadastrar proposta" lista Leads E
+Clientes com etiqueta; escolher um cliente resolve para o `lead_id` dele, então
+a proposta nasce ligada à mesma pessoa e a conversão reaproveita a conta.
 
 ### Itens de série/opcionais — vínculo com aeronave (2026-07-14)
 

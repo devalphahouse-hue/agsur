@@ -169,6 +169,35 @@ mergeado e o CI rodar `db push`.
 | 20260622150000 | `dashboard_security_invoker` | Liga `security_invoker=on` em `vw_homepage_dashboard` (agregava `financial`/`sales` admin-only → vazava p/ qualquer autenticado). Seguro: getters do Row nullable + UI gateia financeiro por isAdminMaster. Validar dashboard Admin Master (completo) e Vendedor (sem quebrar). |
 | 20260622160000 | `company_select_restrict` | `company` tinha SELECT `true` (qualquer autenticado lia todas as empresas: nome/cnpj/cpf/telefone/email). Restringe a `auth_is_seller_or_admin()`. Seguro: app cliente não usa company; `vw_my_aircraft*` não junta company. |
 
+## Histórico (julho/2026 — RBAC por nível, funil, ciclo de vida do cliente, contrato)
+
+Todas **aplicadas em produção**: a Fase 7 entrou em 2026-07-15 junto com o fix
+do bypass (rls-smoke verde antes e depois); o lote de 14/07 no próprio dia; as
+RPCs de 17/07 foram aplicadas em 2026-07-20 no mesmo `db push` do cancelamento
+de contrato; a de 22/07 no próprio dia. Detalhe técnico completo nos headers
+dos `.sql` e no `CLAUDE.md` (seções RBAC, write_guard, contrato e estoque).
+
+| Versão | Migration | O que faz |
+|---|---|---|
+| 20260701170000 | `users_access_level` | Coluna `users.access_level`, só para `profile_type='Admin'`: distingue `recepcao` × `documentacao` (demais perfis ficam NULL). Backfill: Admins existentes viram `recepcao` (decisão do dono) |
+| 20260701170500 | `rbac_level_helpers` | Helpers SECURITY DEFINER dos sub-níveis de Admin (`auth_is_admin_documentacao()`, `auth_is_vendedor()`, …). Aditiva — o enforcement é a próxima |
+| 20260701171000 | `rbac_level_enforcement` | **Fase 7**: aperta os triggers de write por nível. DOCUMENTAÇÃO: `financing_rates`, `aircrafts`, `aircraft_items`, `available_aircrafts`, `category`. FUNIL (master+documentação+vendedor): `leads`, `proposal*`, `contract*`, `sales`, `financial` + INSERT de `tracking`/`tracking_details` (a conversão do Vendedor cria as 21 etapas); UPDATE/DELETE de tracking só documentação. `services_offering`: qualquer Admin. Tabelas do app cliente NÃO tocadas |
+| 20260714120000 | `company_write_funil` | Write de `company` sai de Admin Master-only para o escopo FUNIL — `company` é a empresa DO LEAD, não cadastro institucional. Corrige o "salvo com sucesso" sem persistir nada (bloqueio silencioso de RLS em UPDATE) nos Dados Empresariais de Admin/documentação e Vendedor |
+| 20260714130000 | `aircraft_item_links` | Tabela N:N item↔aeronave + view `vw_aircraft_items_by_aircraft` (`security_invoker`) + RPC `get_proposal_details` **versionada pela 1ª vez**, agora filtrando itens de série pelo avião da proposta (antes o JOIN era `ON item_type='series'` — todo item entrava em toda proposta) |
+| 20260715120000 | `fix_trigger_service_role_bypass` | **Fix crítico**: as triggers de guarda eram no-op desde 2026-05-08 — em função SECURITY DEFINER, `current_user` é o dono (postgres) e `auth_is_service_role()` retornava true para qualquer chamador. Novo `auth_is_service_request()` (usa `session_user`) nas 5 funções de guarda. `tg_users_block_privilege_escalation` e as `tg_*_ownership` **seguem deliberadamente neutralizadas** (RLS é o guarda); `tg_require_service_role` (audit log) mantém o bypass de propósito |
+| 20260716140000 | `category_soft_delete` | Coluna `deleted` em `category`: excluir categoria vira soft-delete dela + itens. Antes era impossível (FK NOT NULL de `aircraft_items` → 23503) sem apagar itens usados em propostas |
+| 20260717120000 | `admin_update_client_email` | RPC atômica de troca de e-mail de cliente já convertido: `public.users` + `auth.users` + `auth.identities` (best-effort) + `leads` na MESMA transação, e revoga as sessões (o JWT antigo carrega o e-mail velho usado pela RLS). Permissão: Admin Master ou Admin documentação |
+| 20260717130000 | `admin_reset_client_password` | RPC "Reenviar senha": gera senha forte server-side (24 chars hex de `gen_random_bytes`), grava hash bcrypt em `auth.users`, revoga sessões e devolve a senha para o painel reenviar via Edge Function `send-credentials-email`. Só perfil Cliente; mesmo gate da troca de e-mail |
+| 20260720120000 | `contract_cancellation` | Contrato **se cancela, não se exclui**: `contract` ganha `cancelled_at`, `cancelled_by`, `cancellation_reason`, `cancellation_note` + CHECK de motivos fechados + CHECK de coerência. `vw_contract_data` passa a fazer LEFT JOIN em `contract` (colunas novas só no fim; `security_invoker=on` reafirmado) |
+| 20260722130000 | `contract_available_aircraft_link` | `contract.available_aircraft_id` → unidade física do estoque (`available_aircrafts`). `ON DELETE SET NULL` (excluir a unidade desfaz o vínculo) + índice único parcial: uma unidade por contrato **ativo** (cancelamento libera para revenda; duplo vínculo → 23505). Permissões existentes do contrato, nada novo |
+
+> Lacuna conhecida deste histórico: as migrations entre `20260622170000` e
+> `20260629130000` (predicado de authz nas `vw_my_aircraft*`, vínculos de
+> piloto por aeronave/modelo, chat do painel, bucket sem limite), o lote de
+> 2026-05-26, o de 2026-06-17 (`admin_delete_app_user` etc.) e o fim do batch
+> de 05-08 (`121500`/`121600`) ainda não têm entrada aqui — ver os headers dos
+> próprios `.sql`.
+
 ## Notas de segurança
 
 - `triggers` BEFORE rodam **independente de RLS**. Mesmo que uma policy

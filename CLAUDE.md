@@ -133,15 +133,16 @@ camada de API própria além de algumas chamadas REST diretas em
 `lib/backend/api_requests/api_calls.dart` (ex.: `signup` chamando `/auth/v1/signup`
 para criar usuários sem deslogar o admin; `ViaCepCall` para autofill de CEP).
 
-> ⚠️ **PENDENTE — ~51 e-mails presos no soft-delete legado.** O tombstone que
+> ⚠️ **PENDENTE — 51 e-mails presos no soft-delete legado.** O tombstone que
 > libera o e-mail só entrou na `admin_delete_app_user` na migration
 > `20260622120000`. Quem foi excluído ANTES disso segurou o e-mail no
 > `auth.users` para sempre: o painel não acha o cliente (busca com
 > `is_deleted=false`), cai no signup, toma **422 `user_already_exists`** e
-> aborta — deadlock permanente para aquele e-mail. Medido em 2026-07-20: 53
-> casos, sendo 4 pela RPC antiga e **49 marcados por UPDATE direto** (sem ban,
-> o que o CLAUDE.md proíbe). Dois foram destravados na mão; o resto precisa de
-> backfill via migration + decidir se os 49 não-banidos devem ser banidos.
+> aborta — deadlock permanente para aquele e-mail. Medido em 2026-07-20: **53
+> casos**, sendo 4 pela RPC antiga e **49 marcados por UPDATE direto** (sem ban,
+> o que o CLAUDE.md proíbe). Dois foram destravados na mão — **restam 51** —, e
+> o resto precisa de backfill via migration + decidir se os 49 não-banidos
+> devem ser banidos.
 
 **Criar/excluir usuário (armadilhas).** O signup (`/auth/v1/signup`, anon) cria a
 conta no auth e o painel insere a linha em `public.users` em seguida. Para

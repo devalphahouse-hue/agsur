@@ -163,6 +163,10 @@ class _ModalCreateAvailableAircraftWidgetState
   Future<void> _save(AvailableAircraftsRow row) async {
     if (_busy) return;
     setState(() {
+      // Valida como no create em vez de estourar no null-check mais
+      // adiante — era isso que fazia o salvar "não responder".
+      _aircraftError =
+          _model.dPDEditAircraftsValue == null ? 'Selecione o modelo' : null;
       _yearError =
           _model.dPDEditEntryYearValue == null ? 'Selecione o ano' : null;
       _statusError =
@@ -170,7 +174,9 @@ class _ModalCreateAvailableAircraftWidgetState
     });
     if (_model.formKey2.currentState == null ||
         !_model.formKey2.currentState!.validate()) return;
-    if (_yearError != null || _statusError != null) return;
+    if (_aircraftError != null || _yearError != null || _statusError != null) {
+      return;
+    }
     setState(() => _busy = true);
     try {
       final manuf = _model.datePicked2 ?? row.manufactureDate;
@@ -384,9 +390,13 @@ class _ModalCreateAvailableAircraftWidgetState
         if (!_editPrefilled) {
           _editPrefilled = true;
           _model.tFEditSerialNumberTextController!.text = row.serialNumber ?? '';
-          // available_aircrafts armazena o modelo, não o id da aeronave catálogo.
-          // Tentamos resolver depois carregando a tabela de aircrafts.
-          _model.dPDEditAircraftsValue ??= widget.aircraftId;
+          // A coluna aircraft_model guarda o ID do catálogo (aircrafts.id):
+          // é o que o create insere e o que fn_available_aircrafts resolve
+          // para nome na listagem. Sem este prefill o dropdown de modelo
+          // abria vazio e salvar sem re-selecionar o modelo morria no
+          // null-check — o usuário tinha que escolher o modelo de novo a
+          // cada edição de status (bug reportado em 2026-07-21).
+          _model.dPDEditAircraftsValue ??= widget.aircraftId ?? row.aircraftModel;
           _model.dPDEditEntryYearValue ??= row.entryYear;
           _model.dPDEditStatusValue ??= row.status;
           _model.tFViewSerialNumberTextController!.text = row.serialNumber ?? '';
@@ -484,12 +494,18 @@ class _ModalCreateAvailableAircraftWidgetState
                 icon: Icons.flight_outlined,
                 required: true,
                 searchable: true,
-                value: aircrafts.firstWhereOrNull(
-                    (a) => a.id == _model.dPDEditAircraftsValue),
+                // Casa por id (padrão atual) OU por nome — tolerância a
+                // unidades antigas que gravaram o nome do modelo na coluna.
+                value: aircrafts.firstWhereOrNull((a) =>
+                    a.id == _model.dPDEditAircraftsValue ||
+                    a.aircraftModel == _model.dPDEditAircraftsValue),
                 options: aircrafts,
                 labelOf: (a) => a.aircraftModel ?? a.id,
-                onChanged: (a) =>
-                    setState(() => _model.dPDEditAircraftsValue = a.id),
+                errorText: _aircraftError,
+                onChanged: (a) => setState(() {
+                  _model.dPDEditAircraftsValue = a.id;
+                  _aircraftError = null;
+                }),
               ),
               const SizedBox(height: 14),
               AppFormField(

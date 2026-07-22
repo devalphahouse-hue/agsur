@@ -12,6 +12,8 @@ import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/pages/modal_create_available_aircraft/modal_create_available_aircraft_widget.dart';
 import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
+import '/security/action_feedback.dart';
+import '/security/write_guard.dart';
 import 'available_aircrafts_model.dart';
 
 export 'available_aircrafts_model.dart';
@@ -87,34 +89,31 @@ class _AvailableAircraftsWidgetState extends State<AvailableAircraftsWidget> {
             btnAction: (idAeronave, numeroSerie, dataFabricacao,
                 prazoConfiguracao, dataEntrega, createdBy, anoBase, status,
                 updateBy, id) async {
-              await AvailableAircraftsTable().insert({
-                'aircraft_model': idAeronave,
-                'serial_number': numeroSerie,
-                'manufacture_date': supaSerialize<DateTime>(dataFabricacao),
-                'configuration_deadline':
-                    supaSerialize<DateTime>(prazoConfiguracao),
-                'delivery_date': supaSerialize<DateTime>(dataEntrega),
-                'status': status,
-                'created_by': createdBy,
-                'update_by': createdBy,
-                'entry_year': anoBase,
-              });
-              if (!mounted) return;
-              // Fecha o modal primeiro e invalida o cache da listagem em
-              // seguida: o rebuild/refetch acontece com a lista já como rota
-              // ativa, garantindo que a unidade recém-cadastrada apareça sem
-              // refresh manual (BUG-012).
-              Navigator.of(dialogContext).pop();
-              _refresh();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Aeronave cadastrada',
-                    style: GoogleFonts.inter(color: const Color(0xFF313131)),
-                  ),
-                  backgroundColor: const Color(0xFFC2D51C),
-                ),
+              // runAction fecha o modal nos dois caminhos e explica o erro
+              // (padrão action_feedback) — antes uma falha do insert deixava
+              // o diálogo travado com o botão girando. O pop acontece antes
+              // do _refresh, preservando o comportamento do BUG-012 (a lista
+              // refaz o fetch já como rota ativa).
+              final ok = await runAction(
+                context,
+                dialogContext: dialogContext,
+                contexto: 'estoque.cadastrar_unidade',
+                success: 'Aeronave cadastrada',
+                failure: 'Não foi possível cadastrar a aeronave.',
+                action: () => AvailableAircraftsTable().insert({
+                  'aircraft_model': idAeronave,
+                  'serial_number': numeroSerie,
+                  'manufacture_date': supaSerialize<DateTime>(dataFabricacao),
+                  'configuration_deadline':
+                      supaSerialize<DateTime>(prazoConfiguracao),
+                  'delivery_date': supaSerialize<DateTime>(dataEntrega),
+                  'status': status,
+                  'created_by': createdBy,
+                  'update_by': createdBy,
+                  'entry_year': anoBase,
+                }),
               );
+              if (ok && mounted) _refresh();
             },
           ),
         ),
@@ -141,24 +140,42 @@ class _AvailableAircraftsWidgetState extends State<AvailableAircraftsWidget> {
             btnAction: (idAeronave, numeroSerie, dataFabricacao,
                 prazoConfiguracao, dataEntrega, createdBy, anoBase, status,
                 updateBy, id) async {
-              await AvailableAircraftsTable().update(
-                data: {
-                  'aircraft_model': idAeronave,
-                  'serial_number': numeroSerie,
-                  'manufacture_date': supaSerialize<DateTime>(dataFabricacao),
-                  'configuration_deadline':
-                      supaSerialize<DateTime>(prazoConfiguracao),
-                  'delivery_date': supaSerialize<DateTime>(dataEntrega),
-                  'status': status,
-                  'update_by': updateBy,
-                  'entry_year': anoBase,
+              // guardWrite detecta o UPDATE bloqueado em silêncio pela RLS
+              // (2xx com 0 linhas); runAction cobre exceções reais e garante
+              // que o diálogo nunca fique travado (padrão action_feedback).
+              // O pop antes do _refresh preserva o BUG-012.
+              var gravou = false;
+              final ok = await runAction(
+                context,
+                dialogContext: dialogContext,
+                contexto: 'estoque.editar_unidade',
+                failure: 'Não foi possível salvar a unidade.',
+                action: () async {
+                  gravou = await guardWrite(
+                    context,
+                    () => AvailableAircraftsTable().update(
+                      data: {
+                        'aircraft_model': idAeronave,
+                        'serial_number': numeroSerie,
+                        'manufacture_date':
+                            supaSerialize<DateTime>(dataFabricacao),
+                        'configuration_deadline':
+                            supaSerialize<DateTime>(prazoConfiguracao),
+                        'delivery_date': supaSerialize<DateTime>(dataEntrega),
+                        'status': status,
+                        'update_by': updateBy,
+                        'entry_year': anoBase,
+                      },
+                      matchingRows: (rows) => rows.eqOrNull('id', item.id),
+                      returnRows: true,
+                    ),
+                    contexto: 'estoque.editar_unidade',
+                  );
                 },
-                matchingRows: (rows) => rows.eqOrNull('id', item.id),
               );
-              if (!mounted) return;
-              // Fecha o modal antes de invalidar o cache da listagem (BUG-012).
-              Navigator.of(dialogContext).pop();
+              if (!mounted || !ok || !gravou) return;
               _refresh();
+              showActionSuccess(context, 'Unidade atualizada');
             },
           ),
         ),
@@ -184,21 +201,29 @@ class _AvailableAircraftsWidgetState extends State<AvailableAircraftsWidget> {
             iconColor: const Color(0xFFFF5963),
             btnColor: const Color(0xFFFF5963),
             confirmBtnAction: () async {
-              await AvailableAircraftsTable().delete(
-                matchingRows: (rows) => rows.eqOrNull('id', item.id),
+              // Mesmo tratamento do editar: DELETE bloqueado pela RLS é
+              // silencioso (0 linhas) — sem o guardWrite a tela confirmava
+              // "excluída" com a unidade ainda lá.
+              var apagou = false;
+              final ok = await runAction(
+                context,
+                dialogContext: dialogContext,
+                contexto: 'estoque.excluir_unidade',
+                failure: 'Não foi possível excluir a aeronave.',
+                action: () async {
+                  apagou = await guardWrite(
+                    context,
+                    () => AvailableAircraftsTable().delete(
+                      matchingRows: (rows) => rows.eqOrNull('id', item.id),
+                      returnRows: true,
+                    ),
+                    contexto: 'estoque.excluir_unidade',
+                  );
+                },
               );
-              if (!mounted) return;
-              Navigator.of(dialogContext).pop();
+              if (!mounted || !ok || !apagou) return;
               _refresh();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Aeronave excluída',
-                    style: GoogleFonts.inter(color: const Color(0xFF313131)),
-                  ),
-                  backgroundColor: const Color(0xFFC2D51C),
-                ),
-              );
+              showActionSuccess(context, 'Aeronave excluída');
             },
           ),
         ),

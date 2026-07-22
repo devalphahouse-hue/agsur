@@ -7,6 +7,7 @@ import '/backend/supabase/supabase.dart';
 import '/security/action_feedback.dart';
 import '/security/credentials_email.dart';
 import '/security/password_utils.dart';
+import '/security/stuck_email.dart';
 import '/security/write_guard.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -5619,7 +5620,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                         password: clientPassword,
                                                       );
 
-                                                      final novoUserId = getJsonField(
+                                                      var novoUserId = getJsonField(
                                                           (_model.createUserAuth?.jsonBody ?? ''),
                                                           r'''$.user.id''');
                                                       var reusedExisting =
@@ -5649,20 +5650,57 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                                 false,
                                                               ),
                                                         );
-                                                        if (!(_model.userExist !=
+                                                        if (_model.userExist !=
                                                                 null &&
                                                             (_model.userExist)!
-                                                                .isNotEmpty)) {
-                                                          ScaffoldMessenger.of(context).showSnackBar(
-                                                            SnackBar(
-                                                              content: Text(
-                                                                  'Nao foi possivel criar o acesso do cliente. Verifique o e-mail do lead e tente novamente.'),
-                                                              backgroundColor: FlutterFlowTheme.of(context).error,
-                                                            ),
-                                                          );
-                                                          return;
+                                                                .isNotEmpty) {
+                                                          reusedExisting = true;
+                                                        } else {
+                                                          // Sem cadastro ativo
+                                                          // para reusar: o
+                                                          // e-mail deve estar
+                                                          // preso em conta
+                                                          // excluída (legado)
+                                                          // ou órfã (signup
+                                                          // interrompido). A
+                                                          // RPC libera SÓ
+                                                          // nesses casos —
+                                                          // conta ativa volta
+                                                          // 'ativo' e não é
+                                                          // tocada.
+                                                          final released =
+                                                              await releaseStuckEmail(
+                                                                  confirmedEmail);
+                                                          if (released ==
+                                                              'liberado') {
+                                                            _model.createUserAuth =
+                                                                await CreateAccountAnotherUserCall
+                                                                    .call(
+                                                              email:
+                                                                  confirmedEmail,
+                                                              password:
+                                                                  clientPassword,
+                                                            );
+                                                            novoUserId = getJsonField(
+                                                                (_model.createUserAuth
+                                                                        ?.jsonBody ??
+                                                                    ''),
+                                                                r'''$.user.id''');
+                                                          }
+                                                          if (novoUserId ==
+                                                              null) {
+                                                            ScaffoldMessenger.of(context).showSnackBar(
+                                                              SnackBar(
+                                                                content: Text(released ==
+                                                                        'ativo'
+                                                                    ? 'Este e-mail já pertence a outro cadastro ativo na plataforma. Confira o e-mail do cliente ou use outro.'
+                                                                    : 'Nao foi possivel criar o acesso do cliente. Verifique o e-mail do lead e tente novamente.'),
+                                                                backgroundColor: FlutterFlowTheme.of(context).error,
+                                                              ),
+                                                            );
+                                                            return;
+                                                          }
                                                         }
-                                                        reusedExisting = true;
                                                       }
                                                       if (!reusedExisting) {
                                                       _model.createUserPublic =
@@ -5890,6 +5928,16 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                       },
                                                     );
                                                     } catch (e, st) {
+                                                      // Rollback anti-órfã: se o signup criou a conta mas a
+                                                      // cadeia falhou antes do insert em users, remove a conta
+                                                      // órfã — a RPC só apaga quem NÃO tem linha em
+                                                      // public.users, então é no-op se a falha veio depois.
+                                                      try {
+                                                        await SupaFlow.client.rpc(
+                                                          'admin_purge_orphan_auth_user',
+                                                          params: {'p_email': confirmedEmail},
+                                                        );
+                                                      } catch (_) {}
                                                       await Sentry.captureException(e, stackTrace: st,
                                                           withScope: (s) => s.setTag('acao', 'proposta.converter'));
                                                       if (!context.mounted) return;

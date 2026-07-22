@@ -7,6 +7,7 @@ import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/security/credentials_email.dart';
 import '/security/password_utils.dart';
+import '/security/stuck_email.dart';
 import 'modal_create_client_model.dart';
 
 export 'modal_create_client_model.dart';
@@ -90,10 +91,40 @@ class _ModalCreateClientWidgetState extends State<ModalCreateClientWidget> {
               (identities is List && identities.isEmpty));
       final invalidId = newUserId.isEmpty || newUserId == 'null';
 
-      if (!succeeded || dupByError || dupByIdentities || invalidId) {
+      var duplicate = dupByError || dupByIdentities;
+      var userId = newUserId;
+      var failed = !succeeded || duplicate || invalidId;
+
+      if (failed && duplicate) {
+        // Duplicado de verdade OU e-mail preso em conta excluída/órfã?
+        // Sem cadastro ativo para justificar o duplicado, a RPC
+        // admin_release_stuck_email libera (só nesses dois casos) e o
+        // signup é repetido UMA vez.
+        final activeUser = await UsersTable().queryRows(
+          queryFn: (q) =>
+              q.ilike('email', email).eqOrNull('is_deleted', false),
+        );
+        if (activeUser.isEmpty &&
+            await releaseStuckEmail(email) == 'liberado') {
+          _model.authUserResponse = await CreateAccountAnotherUserCall.call(
+            email: email,
+            password: _model.tFPasswordUserTextController!.text,
+          );
+          final retryBody = _model.authUserResponse?.jsonBody ?? '';
+          userId = (CreateAccountAnotherUserCall.userID(retryBody) ??
+                  getJsonField(retryBody, r'$.id')?.toString() ??
+                  '')
+              .trim();
+          failed = !(_model.authUserResponse?.succeeded ?? false) ||
+              userId.isEmpty ||
+              userId == 'null';
+          if (!failed) duplicate = false;
+        }
+      }
+
+      if (failed) {
         if (!mounted) return;
         Navigator.of(context).pop();
-        final duplicate = dupByError || dupByIdentities;
         await _showInfoDialog(
           title: duplicate ? 'E-mail já cadastrado' : 'Erro',
           message: duplicate
@@ -108,7 +139,7 @@ class _ModalCreateClientWidgetState extends State<ModalCreateClientWidget> {
       final UsersRow newUser;
       try {
         newUser = await UsersTable().insert({
-          'id': newUserId,
+          'id': userId,
           'name': _selectedLead?.name ?? 'vazio',
           'email': email,
           'phone': _selectedLead?.phone ?? 'vazio',

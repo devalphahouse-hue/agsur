@@ -133,16 +133,21 @@ camada de API própria além de algumas chamadas REST diretas em
 `lib/backend/api_requests/api_calls.dart` (ex.: `signup` chamando `/auth/v1/signup`
 para criar usuários sem deslogar o admin; `ViaCepCall` para autofill de CEP).
 
-> ⚠️ **PENDENTE — 51 e-mails presos no soft-delete legado.** O tombstone que
-> libera o e-mail só entrou na `admin_delete_app_user` na migration
-> `20260622120000`. Quem foi excluído ANTES disso segurou o e-mail no
-> `auth.users` para sempre: o painel não acha o cliente (busca com
-> `is_deleted=false`), cai no signup, toma **422 `user_already_exists`** e
-> aborta — deadlock permanente para aquele e-mail. Medido em 2026-07-20: **53
-> casos**, sendo 4 pela RPC antiga e **49 marcados por UPDATE direto** (sem ban,
-> o que o CLAUDE.md proíbe). Dois foram destravados na mão — **restam 51** —, e
-> o resto precisa de backfill via migration + decidir se os 49 não-banidos
-> devem ser banidos.
+> ✅ **RESOLVIDO 2026-07-22 — e-mails presos no auth (422 na conversão).**
+> Duas causas com o mesmo sintoma: (a) soft-delete legado — excluídos antes do
+> tombstone (`20260622120000`) seguraram o e-mail no `auth.users`; (b) conta de
+> auth **órfã** (signup criou a conta, o insert em `public.users` falhou e o
+> rollback não rodou — aconteceu até em 17-18/07). O backfill
+> `20260722200000` tombstoneou+baniu todos (51 legados + órfãs), e a RPC
+> **`admin_release_stuck_email`** (`20260722201000`) tornou o fluxo
+> auto-curativo: quando o signup recusa e não há cadastro ativo para reusar, o
+> painel chama a RPC (libera SÓ conta excluída/órfã; ativa retorna `'ativo'` e
+> não é tocada) e repete o signup UMA vez — na conversão
+> (`view_edit_proposal`) e na criação manual (`modal_create_client`), via
+> `lib/security/stuck_email.dart`. O `catch` da conversão também ganhou
+> rollback best-effort (`admin_purge_orphan_auth_user`) para não deixar órfã
+> nova. `20260722202000` revogou EXECUTE de `anon` nas 5 RPCs admin (default
+> privileges do Supabase davam o grant direto; o gate interno já segurava).
 
 **Criar/excluir usuário (armadilhas).** O signup (`/auth/v1/signup`, anon) cria a
 conta no auth e o painel insere a linha em `public.users` em seguida. Para

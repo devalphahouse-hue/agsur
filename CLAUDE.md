@@ -570,10 +570,36 @@ escrita à mão). Mapa do fluxo:
   são FIXOS na UI (`_TermsFillIn`) — o usuário só preenche o valor de cada
   linha; `_composeTerms()` remonta "rótulo: valor" na hora do Gerar PDF (nada é
   gravado no banco, como antes). Linha nova no template vira campo novo
-  sozinha.
+  sozinha. Desde 2026-07-22 os termos **não saem mais no PDF do contrato**
+  (vão para a CPI, pendente) — mas o fluxo de preenchimento continua.
 - **Data do contrato:** a RPC devolve timestamp ISO cru; exibir via
   `_formatContractDate` (`dd/MM/yyyy 'às' HH:mm`, local, `tryParse` contra
   placeholder).
+- **⚠️ Proposta sem `proposal_financing` NÃO pode quebrar a tela.** 21 das 48
+  propostas (medido 2026-07-22) não têm financing row — o fluxo de criação
+  permite pular o financiamento. Três null-checks de build deixavam a página
+  inteira cinza (fix 2026-07-22): os campos degradam para 0 e o lápis de
+  editar financiamento / Gerar PDF avisam com mensagem em vez de estourar.
+  Código novo nesta tela deve usar `containerProposalFinancingRow?.` sempre.
+- **Vínculo contrato ↔ unidade do estoque (2026-07-22):** seção "Aeronave do
+  estoque" (`contract_aircraft_unit_section.dart`, widget próprio fora do
+  código FF) grava `contract.available_aircraft_id` (migration
+  `20260722130000`). Regras: uma unidade por contrato ATIVO (índice único
+  parcial; cancelamento libera), `ON DELETE SET NULL`, botões gated por
+  `typeAccess == 'edit'` (canEditFunil), status da unidade no estoque segue
+  manual. Proposta sem contrato não mostra a seção. Violação 23505 é traduzida
+  para "unidade já vinculada a outro contrato ativo".
+
+### Estoque de unidades (`available_aircrafts`)
+
+- **A coluna `aircraft_model` guarda o ID do catálogo (`aircrafts.id`), não o
+  nome** — é o que o create insere e o que `fn_available_aircrafts` resolve
+  para nome na listagem. Um comentário antigo no modal dizia o contrário e
+  causou o bug de 2026-07-21: o dropdown de modelo abria vazio no editar e
+  salvar sem re-selecionar morria em null-check. O modal agora pré-carrega da
+  própria row e casa por id OU nome (tolerância a dado legado).
+- Criar/editar/excluir unidade seguem o padrão `action_feedback`/`guardWrite`
+  (a tela ficou fora da varredura de 2026-07-20 e foi coberta em 2026-07-22).
 
 ### Observabilidade
 
@@ -626,6 +652,23 @@ escaparam no contrato e foram corrigidos). Na tabela CONDIÇÕES DE PAGAMENTO
 da proposta: SALDO = bem − entradas; RISCO PAIS = prêmio; TOTAL FINANCIADO =
 saldo + risco país (crédito total) — os três já estiveram rodiziados entre os
 rótulos; DEPOSITO TOTAL = entrada + depósito saldo (% dinâmico no rótulo).
+**EXCEÇÃO (cliente, 2026-07-21): a tabela de parcelas do plano NÃO arredonda**
+— crédito total (já arredondado) ÷ N e juros sobre o saldo exato, centavos
+reais via `formatCurrencyExact`. Arredondar cada linha desalinharia a soma das
+parcelas do crédito financiado.
+
+**PDF da proposta — layout (colagem do cliente, 2026-07-21/22).** 3 páginas:
+1 = invoice/itens; 2 = plano de financiamento **completo num único A4**
+(info de crédito + detalhamento, parcelas 1–14, CONDIÇÕES DE PAGAMENTO com
+depósitos 5%/10%/15%, informações bancárias, SUBTOTAL/INVOICE TOTAL + nota do
+depósito) — linhas em `_densePad` e margem 18 para caber; validado com render
+real; 3 = termos de pré-compra. A antiga página avulsa de "Condições de
+Pagamento" e a tabela CONDIÇÕES DE FINANCIAMENTO **não existem mais** (saíam
+duplicadas). "% TOTAL DE ENTRADA" deriva de sinal+depósito — o campo
+`percentual_pgto_total` do banco vem 0/null, não usar. No PDF do contrato
+(proforma): linha "Deposito Total - 15%" abaixo do Depósito N° 2, e a seção
+"Termos do Contrato" **foi removida** — os termos vão passar a sair na CPI
+(inclusão futura; `_composeTerms()` e a UI seguem intactos como insumo).
 
 ## Convenções
 

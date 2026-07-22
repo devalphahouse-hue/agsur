@@ -28,6 +28,8 @@ DateTime addMonths(DateTime date, int months) {
 // arredonda SEMPRE PARA CIMA na unidade inteira — $ 1.138.684,91 vira
 // $ 1.138.685,00. O round nos centavos antes do ceil evita que ruído de
 // ponto flutuante (ex.: X,000000002) empurre o valor um dólar acima.
+// EXCEÇÃO (cliente, 2026-07-21): a tabela de parcelas do plano de
+// financiamento NÃO arredonda — ver calcularParcelas.
 double roundUp(double value) {
   return ((value * 100).round() / 100).ceilToDouble();
 }
@@ -35,6 +37,13 @@ double roundUp(double value) {
 String formatCurrency(double value) {
   final formatter = NumberFormat("#,##0.00", "en_US");
   return "\$ ${formatter.format(roundUp(value))}";
+}
+
+// Formata SEM arredondar para cima (centavos reais). Uso exclusivo da
+// tabela de parcelas — o resto do PDF segue formatCurrency/roundUp.
+String formatCurrencyExact(double value) {
+  final formatter = NumberFormat("#,##0.00", "en_US");
+  return "\$ ${formatter.format(value)}";
 }
 
 String formatCurrencyU(double value) {
@@ -64,13 +73,19 @@ String normalizeTypeDoc(dynamic v) {
 }
 
 // ===================== PARCELAS =====================
+// Regra do cliente (2026-07-21): aqui NÃO se arredonda nada — nem
+// principal, nem juros, nem pgto total, nem saldo. O crédito total (esse
+// sim já arredondado) é dividido pelo nº de parcelas e os juros são
+// calculados sobre o saldo exato; os centavos reais ficam no PDF.
+// Arredondar cada linha desalinharia a soma das parcelas do crédito
+// total financiado.
 List<Map<String, dynamic>> calcularParcelas(
   double creditoTotal,
   int numParcelas,
   DateTime dataCredito,
   double taxaJurosEfetivos,
 ) {
-  double principalParcelado = creditoTotal / numParcelas;
+  final double principalParcelado = creditoTotal / numParcelas;
   double principalRestante = creditoTotal;
   List<Map<String, dynamic>> parcelas = [];
   DateTime dataParcela = addMonths(dataCredito, 6);
@@ -78,21 +93,20 @@ List<Map<String, dynamic>> calcularParcelas(
   for (int i = 1; i <= numParcelas; i++) {
     DateTime dataAnterior = (i == 1) ? dataCredito : addMonths(dataCredito, 6 * (i - 1));
     int diasJuros = dataParcela.difference(dataAnterior).inDays;
-    double juros = roundUp((principalRestante * taxaJurosEfetivos / 360) * diasJuros);
-    principalParcelado = roundUp(principalParcelado);
-    principalRestante = roundUp(principalRestante);
-    double pagamentoTotal = roundUp(principalParcelado + juros);
+    double juros = (principalRestante * taxaJurosEfetivos / 360) * diasJuros;
+    double pagamentoTotal = principalParcelado + juros;
     principalRestante -= principalParcelado;
     if (principalRestante < 0) principalRestante = 0;
+    // Última parcela: mata o resíduo de ponto flutuante da divisão.
     if (i == numParcelas && principalRestante < 1) principalRestante = 0;
 
     parcelas.add({
       'n': i.toString(),
       'data': DateFormat('dd/MM/yyyy').format(dataParcela),
-      'principal': formatCurrency(principalParcelado),
-      'juros': formatCurrency(juros),
-      'total': formatCurrency(pagamentoTotal),
-      'saldo': formatCurrency(principalRestante),
+      'principal': formatCurrencyExact(principalParcelado),
+      'juros': formatCurrencyExact(juros),
+      'total': formatCurrencyExact(pagamentoTotal),
+      'saldo': formatCurrencyExact(principalRestante),
       'dias': diasJuros.toString(),
     });
     dataParcela = addMonths(dataParcela, 6);
@@ -296,7 +310,10 @@ Future<void> generateProposalPdf(
   final taxaSofr = asGetFinancialProposal.taxaSofr;
   final taxaJurosEfetivos = asGetFinancialProposal.taxaJurosEfetivos;
   final dataCredito = asGetFinancialProposal.dataCredito;
-  final percentualPgtoTotal = asGetFinancialProposal.percentualPgtoTotal;
+  // % TOTAL DE ENTRADA derivado de sinal + depósito (5% + 10% = 15%). O
+  // campo percentual_pgto_total do banco vem 0/null e imprimia "0%"
+  // (apontado pelo cliente em 2026-07-21) — não usar.
+  final percentualEntrada = sinalPercent + depositoPercent;
 
   final parcelas = calcularParcelas(creditoTotal, qtdParcelas, dataCredito!, taxaJurosEfetivos);
 
@@ -349,6 +366,9 @@ Future<void> generateProposalPdf(
   // Aircraft base price = fullPrice minus optionals (fullPrice already includes optionals)
   final aircraftOnlyPrice = fullPrice - optionalsTotal;
   final aircraftDescription = _pdfSafe(aircraft.aircraftDescription);
+
+  // fullPrice already includes optionals, so invoiceTotal = fullPrice
+  final invoiceTotal = fullPrice;
 
   // ==================== PAGE 1 - INVOICE / ITEMS ====================
   pdf.addPage(
@@ -579,104 +599,11 @@ Future<void> generateProposalPdf(
 
             pw.Spacer(),
 
-            // Bottom separator lines
+            // SUBTOTAL / SHIPPING / INVOICE TOTAL — morava na antiga página
+            // de "Condições de Pagamento", removida em 2026-07-21 a pedido do
+            // cliente (saía duplicada com a CONDIÇÕES DE FINANCIAMENTO do
+            // plano). Totais de invoice pertencem à página do invoice.
             pw.Divider(thickness: 0.5),
-            pw.Divider(thickness: 0.5),
-
-            pw.SizedBox(height: 4),
-            _buildPageNumber(1, totalPages),
-          ],
-        );
-      },
-    ),
-  );
-
-  // fullPrice already includes optionals, so invoiceTotal = fullPrice
-  final invoiceTotal = fullPrice;
-
-  // ==================== PAGE 2 - PAYMENT CONDITIONS / BANKING ====================
-  pdf.addPage(
-    pw.Page(
-      pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.all(24),
-      build: (context) {
-        return pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            _buildHeader(logoImage, year, clientName, invoiceRef, date, previsaoEntrega, proposalYear: proposalYear),
-            pw.SizedBox(height: 16),
-
-            // CONDIÇÕES DE PAGAMENTO
-            pw.Container(
-              decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
-              child: pw.Column(children: [
-                _tableHeader('CONDIÇÕES DE PAGAMENTO'),
-                _tableRow('FINANCIAMENTO', '$prazo ANOS'),
-                _tableRow('PERIODICIDADE', 'PAGAMENTOS SEMESTRAIS'),
-                _tableRow('CARENCIA INICIAL', '6 MESES'),
-                _tableRow('VALOR DO BEM', formatCurrency(fullPrice)),
-                _tableRow('DEPOSITO ENTRADA ${(sinalPercent * 100).toStringAsFixed(0)}% - ATE (DATA)', formatCurrency(sinalValor)),
-                _tableRow('DEPOSITO SALDO ${(depositoPercent * 100).toStringAsFixed(0)}% - (ANTES DA ENTREGA)', formatCurrency(depositoValor)),
-                _tableRow('DEPOSITO TOTAL ${((sinalPercent + depositoPercent) * 100).toStringAsFixed(0)}%', formatCurrency(roundUp(sinalValor + depositoValor))),
-                // Ordem validada com o cliente (2026-07-15): SALDO = bem menos
-                // entradas; RISCO PAIS = prêmio; TOTAL FINANCIADO = saldo +
-                // risco país (crédito total). Antes os três valores estavam
-                // rodiziados entre os rótulos.
-                _tableRow('SALDO', formatCurrency(roundUp(creditoTotal - premium))),
-                _tableRow('RISCO PAIS - TAXA EXIM (ESTIMADA)', formatCurrency(premium)),
-                _tableRow('TOTAL FINANCIADO', formatCurrency(creditoTotal)),
-                _tableRow('CUSTO BANCARIO', formatCurrency(2500)),
-                _tableRow('*PAGAMENTO CAUÇÃO (ATO)', formatCurrency(10000)),
-                pw.Container(
-                  padding: const pw.EdgeInsets.all(8),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        '**pagamento caução é reembolsavel apor 12 meses da entrega da aeroanave, se não houver inadimplemento nas parcelas',
-                        style: pw.TextStyle(fontSize: 6, fontStyle: pw.FontStyle.italic),
-                      ),
-                    ],
-                  ),
-                ),
-              ]),
-            ),
-            pw.SizedBox(height: 16),
-
-            // INFORMAÇÕES BANCÁRIAS
-            pw.Container(
-              decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
-              child: pw.Column(children: [
-                _tableHeader('INFORMAÇÕES BANCARIAS PARA TRANFERENCIA - VIA BANCO CENTRAL'),
-                _tableRow('NOME DO BANCO', 'WELLS FARGO BANK, N.A.'),
-                _tableRow('ENDEREÇO DO BANCO', 'SAN FRANCISCO, CA 94104 USA'),
-                _tableRow('NUMERO DE TRANSITO', '121000248'),
-                _tableRow('SWIFT', 'WFBIUS6S'),
-                _tableRow('NUMERO DA CONTA', '5140101725'),
-                _tableRow('BENEFICIARIO', 'AIR TRACTOR, INC.'),
-              ]),
-            ),
-            pw.SizedBox(height: 24),
-
-            // Signatures
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
-              children: [
-                pw.Column(children: [
-                  pw.Container(width: 180, decoration: pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(width: 0.5)))),
-                  pw.SizedBox(height: 4),
-                  pw.Text('COMPRADOR', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
-                ]),
-                pw.Column(children: [
-                  pw.Container(width: 180, decoration: pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(width: 0.5)))),
-                  pw.SizedBox(height: 4),
-                  pw.Text('AGSUR BRASIL', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
-                ]),
-              ],
-            ),
-            pw.Spacer(),
-
-            // SUBTOTAL / SHIPPING / INVOICE TOTAL
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.end,
               children: [
@@ -710,14 +637,14 @@ Future<void> generateProposalPdf(
               style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, fontStyle: pw.FontStyle.italic),
             ),
             pw.SizedBox(height: 4),
-            _buildPageNumber(2, totalPages),
+            _buildPageNumber(1, totalPages),
           ],
         );
       },
     ),
   );
 
-  // ==================== PAGE 3 - FINANCING PLAN ====================
+  // ==================== PAGE 2 - FINANCING PLAN ====================
   pdf.addPage(
     pw.Page(
       pageFormat: PdfPageFormat.a4,
@@ -776,7 +703,7 @@ Future<void> generateProposalPdf(
                       _tableRow('PRAZO', '$prazo ANOS', boldLabel: false),
                       _tableRow('PAIS', 'BRASIL', boldLabel: false),
                       _tableRow('N° DE PAGAMENTOS', '$qtdParcelas', boldLabel: false),
-                      _tableRow('% TOTAL DE ENTRADA', '${(percentualPgtoTotal * 100).toStringAsFixed(0)}%', boldLabel: false),
+                      _tableRow('% TOTAL DE ENTRADA', '${(percentualEntrada * 100).toStringAsFixed(0)}%', boldLabel: false),
                     ]),
                   ),
                 ),
@@ -825,7 +752,9 @@ Future<void> generateProposalPdf(
             ),
             pw.SizedBox(height: 8),
 
-            // CONDIÇÕES DE FINANCIAMENTO
+            // CONDIÇÕES DE FINANCIAMENTO — única tabela de condições do PDF
+            // desde 2026-07-21 (a "Condições de Pagamento" avulsa, que saía
+            // duplicada em página própria, foi removida a pedido do cliente).
             pw.Container(
               decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
               child: pw.Column(children: [
@@ -841,17 +770,41 @@ Future<void> generateProposalPdf(
                 pw.Container(height: 4),
                 _tableRow('ENCARGO BANCARIO', formatCurrency(2500)),
                 _tableRow('RESERVA DE SEGURO (ATO)', formatCurrency(10000)),
+                pw.Container(
+                  width: double.infinity,
+                  padding: const pw.EdgeInsets.all(8),
+                  child: pw.Text(
+                    '**pagamento caução é reembolsavel apor 12 meses da entrega da aeroanave, se não houver inadimplemento nas parcelas',
+                    style: pw.TextStyle(fontSize: 6, fontStyle: pw.FontStyle.italic),
+                  ),
+                ),
+              ]),
+            ),
+            pw.SizedBox(height: 8),
+
+            // INFORMAÇÕES BANCÁRIAS — subiu da página removida para junto da
+            // tabela do plano (pedido do cliente, 2026-07-21).
+            pw.Container(
+              decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
+              child: pw.Column(children: [
+                _tableHeader('INFORMAÇÕES BANCARIAS PARA TRANFERENCIA - VIA BANCO CENTRAL'),
+                _tableRow('NOME DO BANCO', 'WELLS FARGO BANK, N.A.'),
+                _tableRow('ENDEREÇO DO BANCO', 'SAN FRANCISCO, CA 94104 USA'),
+                _tableRow('NUMERO DE TRANSITO', '121000248'),
+                _tableRow('SWIFT', 'WFBIUS6S'),
+                _tableRow('NUMERO DA CONTA', '5140101725'),
+                _tableRow('BENEFICIARIO', 'AIR TRACTOR, INC.'),
               ]),
             ),
             pw.Spacer(),
-            _buildPageNumber(3, totalPages),
+            _buildPageNumber(2, totalPages),
           ],
         );
       },
     ),
   );
 
-  // ==================== PAGE 4 - TERMOS DE PRE-COMPRA ====================
+  // ==================== PAGE 3 - TERMOS DE PRE-COMPRA ====================
   pdf.addPage(
     pw.Page(
       pageFormat: PdfPageFormat.a4,

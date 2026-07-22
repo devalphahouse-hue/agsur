@@ -534,6 +534,10 @@ Future<void> generateContractPdf(
                 _tableRow('Valor do Bem:', _formatCurrencyUS(fullPrice)),
                 _tableRow('Deposito N° 1 - ${(sinalPercent * 100).toStringAsFixed(0)}% (ate: )', _formatCurrencyUS(sinalValor)),
                 _tableRow('Deposito N° 2: - (antes da entrega)', _formatCurrencyUS(depositoValor)),
+                // Depósito Total logo abaixo do N° 2 (pedido do cliente,
+                // 2026-07-22) — soma dos dois depósitos, mesmo valor que o
+                // "DEPOSITO TOTAL 15%" do PDF da proposta.
+                _tableRow('Deposito Total - ${((sinalPercent + depositoPercent) * 100).toStringAsFixed(0)}%:', _formatCurrencyUS(depositoTotal)),
                 _tableRow('Saldo:', _formatCurrencyUS(subtotal)),
                 _tableRow('Risco Pais - Taxa EXIM (estimada)', _formatCurrencyUS(premium)),
                 _tableRow('Total Financiado:', _formatCurrencyUS(creditoTotal)),
@@ -585,18 +589,12 @@ Future<void> generateContractPdf(
                 ],
               ),
             ),
-            // Termos do Contrato (digitados pelo usuário)
-            if (terms.isNotEmpty) ...[
-              pw.SizedBox(height: 12),
-              pw.Text('Termos do Contrato',
-                  style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
-              pw.SizedBox(height: 6),
-              pw.Container(
-                padding: const pw.EdgeInsets.all(8),
-                decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
-                child: pw.Text(terms, style: pw.TextStyle(fontSize: 9)),
-              ),
-            ],
+            // "Termos do Contrato" removido do PDF em 2026-07-22 (pedido do
+            // cliente): os termos vão passar a sair na CPI, não aqui. O
+            // parâmetro `terms` segue na assinatura de propósito — a chamada
+            // em view_contract_widget.dart (página FlutterFlow) continua
+            // passando _composeTerms() e não precisa mudar; quando a CPI
+            // ganhar os termos, esse texto é o insumo.
             pw.SizedBox(height: 24),
 
             // Signatures

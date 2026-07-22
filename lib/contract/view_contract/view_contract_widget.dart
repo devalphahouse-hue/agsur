@@ -547,6 +547,18 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                               size: 20.0,
                                             ),
                                             onPressed: () async {
+                                              // Proposta sem financing row: o
+                                              // modal exige a linha (bang
+                                              // adiante) — avisa em vez de
+                                              // estourar.
+                                              if (containerProposalFinancingRow ==
+                                                  null) {
+                                                showWriteError(
+                                                    context,
+                                                    'Esta proposta não tem dados de financiamento. '
+                                                    'Preencha o financiamento na edição da proposta.');
+                                                return;
+                                              }
                                               await showDialog(
                                                 context: context,
                                                 builder: (dialogContext) {
@@ -801,8 +813,13 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                                     text:
                                                         valueOrDefault<String>(
                                                       '${valueOrDefault<String>(
-                                                        (containerProposalFinancingRow!
-                                                                    .termLength *
+                                                        // Proposta pode não ter
+                                                        // financing row — o `!`
+                                                        // aqui deixava a tela
+                                                        // inteira cinza.
+                                                        ((containerProposalFinancingRow
+                                                                        ?.termLength ??
+                                                                    0) *
                                                                 2)
                                                             .toString(),
                                                         '0',
@@ -1137,8 +1154,9 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                                                 .toStringAsFixed(
                                                                     2) +
                                                             '%';
-                                                      }(containerProposalFinancingRow!
-                                                          .downPayment),
+                                                      }(containerProposalFinancingRow
+                                                              ?.downPayment ??
+                                                          0.0),
                                                       '0',
                                                     ),
                                                     style: TextStyle(
@@ -1252,8 +1270,9 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                                                 .toStringAsFixed(
                                                                     2) +
                                                             '%';
-                                                      }(containerProposalFinancingRow!
-                                                          .initialDeposit),
+                                                      }(containerProposalFinancingRow
+                                                              ?.initialDeposit ??
+                                                          0.0),
                                                       '0',
                                                     ),
                                                     style: TextStyle(
@@ -5606,6 +5625,16 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                   alignment: AlignmentDirectional(1.0, 0.0),
                                   child: FFButtonWidget(
                                     onPressed: () async {
+                                      // Proposta sem financing row: o PDF
+                                      // sairia todo zerado — avisa e aborta.
+                                      if (containerProposalFinancingRow ==
+                                          null) {
+                                        showWriteError(
+                                            context,
+                                            'Esta proposta não tem dados de financiamento. '
+                                            'Preencha o financiamento na edição da proposta antes de gerar o PDF.');
+                                        return;
+                                      }
                                       // Re-fetch proposal data before generating PDF
                                       final freshData = await GetProposalDetailsCall.call(
                                         pProposalId: widget!.proposalId,

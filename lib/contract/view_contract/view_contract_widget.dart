@@ -23,6 +23,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'contract_aircraft_unit_section.dart';
 import 'view_contract_model.dart';
 export 'view_contract_model.dart';
 
@@ -4652,6 +4653,13 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                               ),
                             ),
                           ],
+                        ),
+                        // Vínculo contrato ↔ unidade física do estoque
+                        // (pedido do cliente, 2026-07-21). Só renderiza
+                        // quando a proposta já virou contrato.
+                        ContractAircraftUnitSection(
+                          proposalId: widget!.proposalId ?? '',
+                          canEdit: widget!.typeAccess == 'edit',
                         ),
                         Padding(
                           padding: EdgeInsetsDirectional.fromSTEB(

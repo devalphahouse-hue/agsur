@@ -31,4 +31,12 @@ class ContractRow extends SupabaseDataRow {
 
   String get createdBy => getField<String>('created_by')!;
   set createdBy(String value) => setField<String>('created_by', value);
+
+  DateTime? get cancelledAt => getField<DateTime>('cancelled_at');
+  set cancelledAt(DateTime? value) => setField<DateTime>('cancelled_at', value);
+
+  // Unidade física do estoque vinculada (migration 20260722130000).
+  String? get availableAircraftId => getField<String>('available_aircraft_id');
+  set availableAircraftId(String? value) =>
+      setField<String>('available_aircraft_id', value);
 }

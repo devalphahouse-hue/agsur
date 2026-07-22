@@ -161,6 +161,11 @@ String _pdfSafe(String? input) {
   return s;
 }
 
+// Padding compacto das linhas da página do plano de financiamento — ela
+// concentra parcelas + condições + banco + totais num único A4 (layout da
+// colagem do cliente, 2026-07-21) e não fecha com o padding padrão.
+const _densePad = pw.EdgeInsets.symmetric(vertical: 1.2, horizontal: 8);
+
 // ===================== COLORS =====================
 final _darkBg = PdfColor.fromHex('#333333');
 final _white = PdfColors.white;
@@ -599,43 +604,10 @@ Future<void> generateProposalPdf(
 
             pw.Spacer(),
 
-            // SUBTOTAL / SHIPPING / INVOICE TOTAL — morava na antiga página
-            // de "Condições de Pagamento", removida em 2026-07-21 a pedido do
-            // cliente (saía duplicada com a CONDIÇÕES DE FINANCIAMENTO do
-            // plano). Totais de invoice pertencem à página do invoice.
+            // Bottom separator lines
             pw.Divider(thickness: 0.5),
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.end,
-              children: [
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.end,
-                  children: [
-                    pw.Row(children: [
-                      pw.Text('SUBTOTAL', style: pw.TextStyle(fontSize: 9)),
-                      pw.SizedBox(width: 20),
-                      pw.Text(formatCurrency(invoiceTotal), style: pw.TextStyle(fontSize: 9)),
-                    ]),
-                    pw.Row(children: [
-                      pw.Text('SHIPPING', style: pw.TextStyle(fontSize: 9)),
-                      pw.SizedBox(width: 20),
-                      pw.Text('\$ -', style: pw.TextStyle(fontSize: 9)),
-                    ]),
-                    pw.Row(children: [
-                      pw.Text('INVOICE TOTAL', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, fontStyle: pw.FontStyle.italic)),
-                      pw.SizedBox(width: 20),
-                      pw.Text(formatCurrency(invoiceTotal), style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
-                    ]),
-                    pw.Text('TODOS OS PREÇOS ESTAO EM USD (DOLAR AMERICANO)',
-                        style: pw.TextStyle(fontSize: 6)),
-                  ],
-                ),
-              ],
-            ),
-            pw.SizedBox(height: 8),
-            pw.Text(
-              '**O depósito de ${(sinalPercent * 100).toStringAsFixed(0)}% é reembolsável até 120 dias antes da data estimada de entrega. Após esse prazo, não é mais reembolsável.**',
-              style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, fontStyle: pw.FontStyle.italic),
-            ),
+            pw.Divider(thickness: 0.5),
+
             pw.SizedBox(height: 4),
             _buildPageNumber(1, totalPages),
           ],
@@ -648,13 +620,15 @@ Future<void> generateProposalPdf(
   pdf.addPage(
     pw.Page(
       pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.all(24),
+      // Margem menor que as demais páginas: esta concentra parcelas +
+      // condições + banco + totais num único A4 (colagem do cliente).
+      margin: const pw.EdgeInsets.all(18),
       build: (context) {
         return pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             _buildHeader(logoImage, year, clientName, invoiceRef, date, previsaoEntrega, proposalYear: proposalYear),
-            pw.SizedBox(height: 12),
+            pw.SizedBox(height: 8),
 
             // Title
             pw.Row(
@@ -678,14 +652,14 @@ Future<void> generateProposalPdf(
                     decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
                     child: pw.Column(children: [
                       _tableHeader('INFORMAÇÃO DE CRÉDITO'),
-                      _tableRow('PREÇO NA FATURA', formatCurrency(fullPrice), boldLabel: false),
-                      _tableRow('SINAL', formatCurrency(sinalValor), boldLabel: false),
-                      _tableRow('DEPOSITO (ANTES DA ENTREGA)', formatCurrency(depositoValor), boldLabel: false),
-                      _tableRow('DEPOSITO TOTAL', formatCurrency(depositoTotal), boldLabel: false),
-                      _tableRow('SUBTORAL', formatCurrency(subtotal), boldLabel: false),
-                      _tableRow('TAXA PREMIUL (ESTIMATIVA)', '${(taxaPremium * 100).toStringAsFixed(2)}%', boldLabel: false),
-                      _tableRow('PREMIUM', formatCurrency(premium), boldLabel: false),
-                      _tableRow('CREDITO TOTAL', formatCurrency(creditoTotal), boldLabel: false),
+                      _tableRow('PREÇO NA FATURA', formatCurrency(fullPrice), boldLabel: false, padding: _densePad),
+                      _tableRow('SINAL', formatCurrency(sinalValor), boldLabel: false, padding: _densePad),
+                      _tableRow('DEPOSITO (ANTES DA ENTREGA)', formatCurrency(depositoValor), boldLabel: false, padding: _densePad),
+                      _tableRow('DEPOSITO TOTAL', formatCurrency(depositoTotal), boldLabel: false, padding: _densePad),
+                      _tableRow('SUBTORAL', formatCurrency(subtotal), boldLabel: false, padding: _densePad),
+                      _tableRow('TAXA PREMIUL (ESTIMATIVA)', '${(taxaPremium * 100).toStringAsFixed(2)}%', boldLabel: false, padding: _densePad),
+                      _tableRow('PREMIUM', formatCurrency(premium), boldLabel: false, padding: _densePad),
+                      _tableRow('CREDITO TOTAL', formatCurrency(creditoTotal), boldLabel: false, padding: _densePad),
                     ]),
                   ),
                 ),
@@ -696,14 +670,14 @@ Future<void> generateProposalPdf(
                     decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
                     child: pw.Column(children: [
                       _tableHeader('DETALHAMENTO DO CÁLCULO'),
-                      _tableRow('DATA DO CREDITO', dataCredito != null ? DateFormat('dd/MM/yyyy').format(dataCredito) : '', boldLabel: false),
-                      _tableRow('TAXA DE JUROS', '${(taxaJuros * 100).toStringAsFixed(4)}%', boldLabel: false),
-                      _tableRow('TAXA DE SOFR (ESTIMADA)', '${(taxaSofr * 100).toStringAsFixed(4)}%', boldLabel: false),
-                      _tableRow('TAXA DE JUROS EFETIVO', '${(taxaJurosEfetivos * 100).toStringAsFixed(4)}%', boldLabel: false),
-                      _tableRow('PRAZO', '$prazo ANOS', boldLabel: false),
-                      _tableRow('PAIS', 'BRASIL', boldLabel: false),
-                      _tableRow('N° DE PAGAMENTOS', '$qtdParcelas', boldLabel: false),
-                      _tableRow('% TOTAL DE ENTRADA', '${(percentualEntrada * 100).toStringAsFixed(0)}%', boldLabel: false),
+                      _tableRow('DATA DO CREDITO', dataCredito != null ? DateFormat('dd/MM/yyyy').format(dataCredito) : '', boldLabel: false, padding: _densePad),
+                      _tableRow('TAXA DE JUROS', '${(taxaJuros * 100).toStringAsFixed(4)}%', boldLabel: false, padding: _densePad),
+                      _tableRow('TAXA DE SOFR (ESTIMADA)', '${(taxaSofr * 100).toStringAsFixed(4)}%', boldLabel: false, padding: _densePad),
+                      _tableRow('TAXA DE JUROS EFETIVO', '${(taxaJurosEfetivos * 100).toStringAsFixed(4)}%', boldLabel: false, padding: _densePad),
+                      _tableRow('PRAZO', '$prazo ANOS', boldLabel: false, padding: _densePad),
+                      _tableRow('PAIS', 'BRASIL', boldLabel: false, padding: _densePad),
+                      _tableRow('N° DE PAGAMENTOS', '$qtdParcelas', boldLabel: false, padding: _densePad),
+                      _tableRow('% TOTAL DE ENTRADA', '${(percentualEntrada * 100).toStringAsFixed(0)}%', boldLabel: false, padding: _densePad),
                     ]),
                   ),
                 ),
@@ -733,7 +707,7 @@ Future<void> generateProposalPdf(
                 ...List.generate(14, (i) {
                   final hasData = i < parcelas.length;
                   return pw.Container(
-                    padding: const pw.EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                    padding: const pw.EdgeInsets.symmetric(vertical: 1.2, horizontal: 4),
                     decoration: pw.BoxDecoration(
                       border: pw.Border(bottom: pw.BorderSide(color: PdfColor.fromHex('#dddddd'), width: 0.3)),
                     ),
@@ -752,49 +726,93 @@ Future<void> generateProposalPdf(
             ),
             pw.SizedBox(height: 8),
 
-            // CONDIÇÕES DE FINANCIAMENTO — única tabela de condições do PDF
-            // desde 2026-07-21 (a "Condições de Pagamento" avulsa, que saía
-            // duplicada em página própria, foi removida a pedido do cliente).
+            // Layout validado com a colagem do cliente (foto de 2026-07-21):
+            // nesta página, abaixo da tabela de parcelas, ficam a CONDIÇÕES
+            // DE PAGAMENTO (a tabela "que a gente cria", com os depósitos
+            // 5%/10%/15%), as informações bancárias e o bloco de totais do
+            // invoice com a nota do depósito. A CONDIÇÕES DE FINANCIAMENTO
+            // (que saía duplicada junto da tabela) foi removida. Linhas em
+            // padding denso para a página fechar em um A4.
             pw.Container(
               decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
               child: pw.Column(children: [
-                _tableHeader('CONDIÇÕES DE FINANCIAMENTO'),
-                _tableRow('PRAZO', '$prazo ANOS'),
-                _tableRow('PERIODICIDADE', 'PAGAMENTOS SEMESTRAIS'),
-                _tableRow('CARENCIA INICIAL', '6 MESES'),
-                _tableRow('VALOR DO BEM', formatCurrency(fullPrice)),
-                _tableRow('SINAL.: 1° PAGAMENTO', formatCurrency(sinalValor)),
-                _tableRow('2° PAGAMENTO (ANTES DA ENTREGA)', formatCurrency(depositoValor)),
-                _tableRow('VALOR DO PREMIO ESTIMATIVO', formatCurrency(premium)),
-                _tableRow('TOTAL FINANCIADO', formatCurrency(creditoTotal)),
-                pw.Container(height: 4),
-                _tableRow('ENCARGO BANCARIO', formatCurrency(2500)),
-                _tableRow('RESERVA DE SEGURO (ATO)', formatCurrency(10000)),
+                _tableHeader('CONDIÇOES DE PAGAMENTO'),
+                _tableRow('FINANCIAMENTO', '$prazo ANOS', padding: _densePad),
+                _tableRow('PERIODICIDADE', 'PAGAMENTOS SEMESTRAIS', padding: _densePad),
+                _tableRow('CARENCIA INICIAL', '6 MESES', padding: _densePad),
+                _tableRow('VALOR DO BEM', formatCurrency(fullPrice), padding: _densePad),
+                _tableRow('DEPOSITO ENTRADA ${(sinalPercent * 100).toStringAsFixed(0)}% - ATE (DATA)', formatCurrency(sinalValor), padding: _densePad),
+                _tableRow('DEPOSITO SALDO ${(depositoPercent * 100).toStringAsFixed(0)}% - (ANTES DA ENTREGA)', formatCurrency(depositoValor), padding: _densePad),
+                _tableRow('DEPOSITO TOTAL ${((sinalPercent + depositoPercent) * 100).toStringAsFixed(0)}%', formatCurrency(roundUp(sinalValor + depositoValor)), padding: _densePad),
+                // Ordem validada com o cliente (2026-07-15): SALDO = bem menos
+                // entradas; RISCO PAIS = prêmio; TOTAL FINANCIADO = saldo +
+                // risco país (crédito total).
+                _tableRow('SALDO', formatCurrency(roundUp(creditoTotal - premium)), padding: _densePad),
+                _tableRow('RISCO PAIS - TAXA EXIM (ESTIMADA)', formatCurrency(premium), padding: _densePad),
+                _tableRow('TOTAL FINANCIADO', formatCurrency(creditoTotal), padding: _densePad),
+                _tableRow('CUSTO BANCARIO', formatCurrency(2500), padding: _densePad),
+                _tableRow('*PAGAMENTO CAUÇÃO (ATO)', formatCurrency(10000), padding: _densePad),
                 pw.Container(
                   width: double.infinity,
-                  padding: const pw.EdgeInsets.all(8),
+                  padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
                   child: pw.Text(
                     '**pagamento caução é reembolsavel apor 12 meses da entrega da aeroanave, se não houver inadimplemento nas parcelas',
                     style: pw.TextStyle(fontSize: 6, fontStyle: pw.FontStyle.italic),
+                    textAlign: pw.TextAlign.center,
                   ),
                 ),
               ]),
             ),
-            pw.SizedBox(height: 8),
+            pw.SizedBox(height: 6),
 
-            // INFORMAÇÕES BANCÁRIAS — subiu da página removida para junto da
-            // tabela do plano (pedido do cliente, 2026-07-21).
+            // INFORMAÇÕES BANCÁRIAS
             pw.Container(
               decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
               child: pw.Column(children: [
                 _tableHeader('INFORMAÇÕES BANCARIAS PARA TRANFERENCIA - VIA BANCO CENTRAL'),
-                _tableRow('NOME DO BANCO', 'WELLS FARGO BANK, N.A.'),
-                _tableRow('ENDEREÇO DO BANCO', 'SAN FRANCISCO, CA 94104 USA'),
-                _tableRow('NUMERO DE TRANSITO', '121000248'),
-                _tableRow('SWIFT', 'WFBIUS6S'),
-                _tableRow('NUMERO DA CONTA', '5140101725'),
-                _tableRow('BENEFICIARIO', 'AIR TRACTOR, INC.'),
+                _tableRow('NOME DO BANCO', 'WELLS FARGO BANK, N.A.', padding: _densePad),
+                _tableRow('ENDEREÇO DO BANCO', 'SAN FRANCISCO, CA 94104 USA', padding: _densePad),
+                _tableRow('NUMERO DE TRANSITO', '121000248', padding: _densePad),
+                _tableRow('SWIFT', 'WFBIUS6S', padding: _densePad),
+                _tableRow('NUMERO DA CONTA', '5140101725', padding: _densePad),
+                _tableRow('BENEFICIARIO', 'AIR TRACTOR, INC.', padding: _densePad),
               ]),
+            ),
+            pw.SizedBox(height: 6),
+
+            // SUBTOTAL / SHIPPING / INVOICE TOTAL — rodapé desta página,
+            // como na colagem do cliente.
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.end,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Row(mainAxisSize: pw.MainAxisSize.min, children: [
+                      pw.Text('SUBTOTAL', style: pw.TextStyle(fontSize: 9)),
+                      pw.SizedBox(width: 20),
+                      pw.Text(formatCurrency(invoiceTotal), style: pw.TextStyle(fontSize: 9)),
+                    ]),
+                    pw.Row(mainAxisSize: pw.MainAxisSize.min, children: [
+                      pw.Text('SHIPPING', style: pw.TextStyle(fontSize: 9)),
+                      pw.SizedBox(width: 20),
+                      pw.Text('\$ -', style: pw.TextStyle(fontSize: 9)),
+                    ]),
+                    pw.Row(mainAxisSize: pw.MainAxisSize.min, children: [
+                      pw.Text('INVOICE TOTAL', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, fontStyle: pw.FontStyle.italic)),
+                      pw.SizedBox(width: 20),
+                      pw.Text(formatCurrency(invoiceTotal), style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+                    ]),
+                    pw.Text('TODOS OS PREÇOS ESTAO EM USD (DOLAR AMERICANO)',
+                        style: pw.TextStyle(fontSize: 6)),
+                  ],
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 4),
+            pw.Text(
+              '**O depósito de ${(sinalPercent * 100).toStringAsFixed(0)}% é reembolsável até 120 dias antes da data estimada de entrega. Após esse prazo, não é mais reembolsável.**',
+              style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, fontStyle: pw.FontStyle.italic),
             ),
             pw.Spacer(),
             _buildPageNumber(2, totalPages),

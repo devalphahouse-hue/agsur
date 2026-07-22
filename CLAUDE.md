@@ -708,6 +708,13 @@ quebrou produção:
 - **`Image.asset` não renderiza neste build.** Logos/imagens de asset carregam
   via `rootBundle.load` + `Image.memory` (ver login). `Image.asset` direto sai
   em branco; `cacheWidth`/`cacheHeight` também quebram o render.
+- **`Printing.layoutPdf` não funciona em WebKit** (Safari desktop imprime em
+  branco de iframe oculto; Safari/Chrome de iOS têm o popup bloqueado após o
+  await da geração). PDF novo deve sair por
+  `abrirPdfGerado(bytes, nomeArquivo)`
+  (`lib/custom_code/actions/abrir_pdf_gerado.dart`): detecta WebKit e baixa o
+  arquivo via atributo `download`; demais navegadores mantêm o diálogo de
+  impressão (fix 2026-07-22).
 - **CSP em `vercel.json` precisa de `blob:`.** Upload de foto/PDF usa URLs
   `blob:` — `connect-src`/`img-src`/`worker-src`/`child-src` já liberam. Remover
   quebra uploads **silenciosamente**. Domínio externo novo (API, CDN) tem que

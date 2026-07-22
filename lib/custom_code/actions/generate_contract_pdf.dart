@@ -9,8 +9,9 @@ import '/flutter_flow/flutter_flow_util.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:http/http.dart' as http;
-import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
+
+import 'abrir_pdf_gerado.dart';
 
 // ===================== HELPERS =====================
 
@@ -698,9 +699,7 @@ Future<void> generateContractPdf(
     ),
   );
 
-  await Printing.layoutPdf(
-    onLayout: (_) async => pdf.save(),
-  );
+  await abrirPdfGerado(await pdf.save(), 'Contrato_Agsur.pdf');
 }
 
 pw.Widget _bankInfoRow(String label, String value) {

@@ -5450,6 +5450,20 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                   alignment: AlignmentDirectional(1.0, 0.0),
                                   child: FFButtonWidget(
                                     onPressed: () async {
+                                      // Proposta sem financing row: o PDF
+                                      // sairia todo zerado — avisa e aborta.
+                                      // Mesma guarda do botão gêmeo em
+                                      // view_contract; sem ela os dois `!`
+                                      // logo abaixo estouram em null-check e o
+                                      // clique não fazia absolutamente nada.
+                                      if (containerProposalFinancingRow ==
+                                          null) {
+                                        showWriteError(
+                                            context,
+                                            'Esta proposta não tem dados de financiamento. '
+                                            'Preencha o financiamento antes de gerar o PDF.');
+                                        return;
+                                      }
                                       // Re-fetch proposal data before generating PDF
                                       final freshData = await GetProposalDetailsCall.call(
                                         pProposalId: widget!.proposalId,

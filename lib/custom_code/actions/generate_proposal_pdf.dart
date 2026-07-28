@@ -321,7 +321,13 @@ Future<void> generateProposalPdf(
   // (apontado pelo cliente em 2026-07-21) — não usar.
   final percentualEntrada = sinalPercent + depositoPercent;
 
-  final parcelas = calcularParcelas(creditoTotal, qtdParcelas, dataCredito!, taxaJurosEfetivos);
+  // `dataCredito` é o único campo nullable do struct e sem ele não há como
+  // datar parcela nenhuma. O `!` aqui estourava em null-check e o clique em
+  // "Gerar PDF" não fazia nada — a exibição da data (DATA DO CREDITO, abaixo)
+  // já degradava para vazio; a tabela de parcelas passa a fazer o mesmo.
+  final parcelas = dataCredito != null
+      ? calcularParcelas(creditoTotal, qtdParcelas, dataCredito, taxaJurosEfetivos)
+      : <Map<String, dynamic>>[];
 
   // Common data
   final year = aircraft.aircraftYear.isNotEmpty ? aircraft.aircraftYear : DateTime.now().year.toString();

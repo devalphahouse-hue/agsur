@@ -6,7 +6,8 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
 import '/pages/shared/linked_clients_section/linked_clients_section_widget.dart';
-import '/pages/shared/custom_snac_bar/custom_snac_bar_widget.dart';
+import '/security/action_feedback.dart';
+import '/security/write_guard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -1550,6 +1551,13 @@ class _OficinaDetailsWidgetState extends State<OficinaDetailsWidget> {
                                                         focusNode: _model
                                                             .tFEmailOficinaFocusNode,
                                                         autofocus: true,
+                                                        // O e-mail é o login no auth. Trocá-lo exige alterar
+                                                        // users + auth.users + auth.identities na mesma
+                                                        // transação, e a RPC que faz isso
+                                                        // (admin_update_client_email) só aceita perfil
+                                                        // Cliente. Editável aqui, o campo prometia uma troca
+                                                        // que o save não podia cumprir.
+                                                        readOnly: true,
                                                         obscureText: false,
                                                         decoration:
                                                             InputDecoration(
@@ -2183,77 +2191,71 @@ class _OficinaDetailsWidgetState extends State<OficinaDetailsWidget> {
                                                                     .primary,
                                                             confirmBtnAction:
                                                                 () async {
-                                                              await UsersTable()
-                                                                  .update(
-                                                                data: {
-                                                                  'name': _model
-                                                                      .tFFullnameOficinaTextController
-                                                                      .text,
-                                                                  'email': _model
-                                                                      .tFEmailOficinaTextController
-                                                                      .text,
-                                                                  'phone': _model
-                                                                      .tFPhoneOficinaTextController
-                                                                      .text,
-                                                                  'cpf': _model
-                                                                      .tFCnpjOficinaTextController
-                                                                      .text,
-                                                                },
-                                                                matchingRows:
-                                                                    (rows) => rows
-                                                                        .eqOrNull(
-                                                                  'id',
-                                                                  containerUsersRow
-                                                                      ?.id,
-                                                                ),
-                                                              );
-                                                              await showDialog(
-                                                                context:
+                                                              // Sem `returnRows` + guardWrite, um bloqueio de RLS
+                                                              // volta 2xx com 0 linhas e a tela confirmava uma
+                                                              // gravação que não aconteceu.
+                                                              //
+                                                              // `email` NÃO entra no payload: ele é o login no
+                                                              // auth, e gravá-lo só em `users` desliga a oficina
+                                                              // do próprio acesso. A RPC que faz a troca atômica
+                                                              // (admin_update_client_email) recusa perfil que não
+                                                              // seja Cliente — por isso o campo é somente leitura.
+                                                              var gravou =
+                                                                  false;
+                                                              final ok =
+                                                                  await runAction(
+                                                                context,
+                                                                dialogContext:
+                                                                    dialogContext,
+                                                                contexto:
+                                                                    'oficina.atualizar_dados',
+                                                                failure:
+                                                                    'Não foi possível atualizar a oficina.',
+                                                                action:
+                                                                    () async {
+                                                                  gravou =
+                                                                      await guardWrite(
                                                                     context,
-                                                                builder:
-                                                                    (dialogContext) {
-                                                                  return Dialog(
-                                                                    elevation:
-                                                                        0,
-                                                                    insetPadding:
-                                                                        EdgeInsets
-                                                                            .zero,
-                                                                    backgroundColor:
-                                                                        Colors
-                                                                            .transparent,
-                                                                    alignment: AlignmentDirectional(
-                                                                            0.0,
-                                                                            0.0)
-                                                                        .resolve(
-                                                                            Directionality.of(context)),
-                                                                    child:
-                                                                        GestureDetector(
-                                                                      onTap:
-                                                                          () {
-                                                                        FocusScope.of(dialogContext)
-                                                                            .unfocus();
-                                                                        FocusManager
-                                                                            .instance
-                                                                            .primaryFocus
-                                                                            ?.unfocus();
+                                                                    () => UsersTable()
+                                                                        .update(
+                                                                      data: {
+                                                                        'name': _model
+                                                                            .tFFullnameOficinaTextController
+                                                                            .text,
+                                                                        'phone': _model
+                                                                            .tFPhoneOficinaTextController
+                                                                            .text,
+                                                                        'cpf': _model
+                                                                            .tFCnpjOficinaTextController
+                                                                            .text,
                                                                       },
-                                                                      child:
-                                                                          CustomSnacBarWidget(
-                                                                        title:
-                                                                            'Atualizando oficina',
-                                                                        isLoad:
-                                                                            true,
+                                                                      matchingRows:
+                                                                          (rows) =>
+                                                                              rows.eqOrNull(
+                                                                        'id',
+                                                                        containerUsersRow
+                                                                            ?.id,
                                                                       ),
+                                                                      returnRows:
+                                                                          true,
                                                                     ),
+                                                                    contexto:
+                                                                        'oficina.atualizar_dados',
                                                                   );
                                                                 },
                                                               );
-
+                                                              if (!mounted ||
+                                                                  !ok ||
+                                                                  !gravou) {
+                                                                return;
+                                                              }
                                                               _model.edit =
                                                                   false;
                                                               safeSetState(
                                                                   () {});
-                                                              Navigator.of(context, rootNavigator: true).pop();
+                                                              showActionSuccess(
+                                                                  context,
+                                                                  'Dados da oficina atualizados');
                                                             },
                                                           ),
                                                         ),

@@ -567,7 +567,12 @@ Future<void> generateContractPdf(
               pw.Container(
                 padding: const pw.EdgeInsets.all(8),
                 decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
-                child: pw.Text(instructions, style: pw.TextStyle(fontSize: 9)),
+                // Texto livre digitado/colado pelo usuário — é o campo com
+                // MAIOR chance de trazer aspa curva, travessão e reticências
+                // de uma colagem de Word/e-mail, e era o único do arquivo
+                // fora do _pdfSafe (a fonte WinAnsi não cobre esses glifos).
+                child: pw.Text(_pdfSafe(instructions),
+                    style: pw.TextStyle(fontSize: 9)),
               ),
               pw.SizedBox(height: 12),
             ],

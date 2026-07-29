@@ -14,7 +14,9 @@ Este repo também contém:
 
 - `supabase/` — schema versionado (migrations, RPCs, RLS) **compartilhado
   com o agsur-app** (cliente final). DDL é fonte da verdade pra ambos.
-- `.github/workflows/` — CI: `flutter-analyze`, `supabase-db-check`, `rls-smoke`.
+- `.github/workflows/` — CI: `flutter-analyze`, `supabase-db-check`, `rls-smoke`
+  e `deploy-vercel` (o único caminho de deploy do painel — ver o aviso em
+  "Build de produção").
 - `RUNBOOK.md`, `SECURITY.md`, `supabase/DASHBOARD_TIER2_TODO.md` — operação.
 
 **`agsur-app` mora em repo separado:** `https://github.com/devalphahouse-hue/agsur-app`.
@@ -69,7 +71,8 @@ do deploy (manualmente ou via script). Vercel apenas serve o resultado.
 > disparado pelo push sai **vazio** (sem `index.html`) e mesmo assim **rouba o
 > alias de produção** → `painel.agsurbrasil.app` inteiro vira `404 NOT_FOUND`.
 >
-> Isso já aconteceu **duas vezes** (2026-06-25 e 2026-07-15). Na segunda, a
+> Isso já aconteceu **4 vezes**: 2026-06-25 (a integração apontava pro repo
+> errado e subiu outro site por cima), 06-30, 07-02 e 2026-07-15. Na última, a
 > integração estava ligada desde 02/07 e ficava escondida: o deploy do CI rodava
 > logo depois de cada push e re-aliasava por cima. Um commit **só de `.md`** —
 > que o `deploy-vercel.yml` pula via `paths-ignore` — deixou o deployment vazio
@@ -125,6 +128,36 @@ esconder um registro da UI depende do filtro da view, que varia:
   `admin_delete_app_user` (soft-delete + ban + libera e-mail).
 
 ## Arquitetura
+
+### Onde mora cada tela — layout do `lib/`
+
+Não é um layout único: as telas estão divididas em dois lugares por motivo
+histórico, e o nome da pasta do design system quase colide com o do `agsur-app`.
+
+- **Funil / CRM → `lib/<feature>/`, na raiz do `lib`.** `leads/`, `clients/`,
+  `proposal/`, `contract/`, `sellers/`, `rates/`, `employees/`, `oficina/`.
+  Padrão de cada uma: `<feature>/` (listagem) + `view_edit_<feature>/`
+  (detalhe/edição) — ex. `lib/leads/leads/` e `lib/leads/view_edit_lead/`. O
+  `contract/` foge um pouco (`contracts/`, `view_contract/`,
+  `create_contract_terms/`, `view_edit_contract_terms/`).
+- **Telas herdadas do FlutterFlow → `lib/pages/`.** `aircrafts`, `tracking`,
+  `users`, `chat`, `guarantes` (sic), `profile`, `items`, `parts_quote`,
+  `service_offering`, `authentication` e os `modal_*`. Procurar uma tela do
+  funil aqui não acha nada.
+- **Design system: `lib/core_ui/`** — ⚠️ **no `agsur-app` é `lib/core/ui/`.**
+  São projetos e pastas diferentes; ao pular de um app para o outro é fácil
+  importar/procurar no caminho errado. Aqui ficam `AppModal`,
+  `AppListScaffold`, `AppDetailsScaffold`, `ResponsiveRow`, `app_shell.dart`
+  (`kSidebarBreakpoint`) e `app_responsive.dart` (`kStackBreakpoint`).
+- **`lib/security/` guarda mais do que o nome sugere** — além de
+  `access_control.dart`, `jwt_utils.dart` e `password_utils.dart`, mora ali o
+  cross-cutting de UX/fluxo: `action_feedback.dart` (padrão de feedback de
+  escrita), `credentials_email.dart` (chamada da Edge Function) e
+  `stuck_email.dart` (autocura do 422). Antes de escrever helper novo desse
+  tipo, olhe aqui.
+- **Gerado/intocável:** `lib/flutter_flow/` e `lib/backend/supabase/database/`
+  (ver "Stack"). `lib/custom_code/actions/` são as actions custom do
+  FlutterFlow — é onde vive o `abrir_pdf_gerado.dart`.
 
 ### Backend Supabase
 
@@ -337,6 +370,40 @@ Lotes posteriores (fora do batch inicial):
 Status atual completo + smoke tests em `supabase/README.md`. Pendências
 manuais do dashboard em `supabase/DASHBOARD_TIER2_TODO.md`.
 
+### Grants de função: as DUAS metades do revoke (2026-07-28)
+
+Armadilha que já mordeu duas vezes, em direções opostas. Um grant não substitui
+o outro, e `has_function_privilege('anon', ...)` é a única conferência confiável:
+
+- **`REVOKE ... FROM public` NÃO remove o grant direto a `anon`.** O
+  `alter default privileges` do Supabase concede EXECUTE a `anon` em toda função
+  nova de `public`. Foi o que `20260722202000` corrigiu nas 5 RPCs admin.
+- **`REVOKE ... FROM anon` NÃO remove o grant herdado de `PUBLIC`.** Função que
+  nunca recebeu o grant direto aparece com ACL `=X/postgres` (grantee vazio =
+  PUBLIC) e o `anon` executa por herança. Descoberto em `20260728123000`, ao
+  conferir o resultado de `20260728120000`: 2 das 7 funções seguiam abertas.
+
+Receita para fechar de verdade uma função nova:
+
+```sql
+REVOKE ALL ON FUNCTION public.<f>(<args>) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.<f>(<args>) TO authenticated, service_role;
+```
+
+E confira **no banco**, não no diff (`false` nas duas colunas é o esperado):
+
+```sql
+select p.proname, has_function_privilege('anon', p.oid, 'EXECUTE') as anon,
+       has_function_privilege('authenticated', p.oid, 'EXECUTE') as painel
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+ where n.nspname = 'public' and p.proname = '<f>';
+```
+
+⚠️ **Assinatura errada quebra o `db push`.** `purge_security_audit_log` é
+`(retention_days int DEFAULT 365)`, não `()` — um `REVOKE ... ON FUNCTION f()`
+falha com "function does not exist". Confira a assinatura na migration de origem
+antes de revogar.
+
 ### ⚠️ Endurecimento de segurança 2026-06-22 — handoff (VALIDAR)
 
 Várias mudanças foram aplicadas **direto em produção** via Management API (e
@@ -443,6 +510,30 @@ bug do `company` passou meses invisível). Regras ao escrever no banco:
   item + sync de total), early-return deixaria a tela inconsistente — reporte e
   siga. Todos os 26 update/delete das telas do funil estão cobertos
   (2026-07-14).
+
+### Telas que escrevem sem guarda — varredura de 2026-07-28
+
+A cobertura do `write_guard`/`action_feedback` tinha um furo: `oficina_details`
+(o "Atualizar dados") chamava `UsersTable().update` **sem `returnRows` e sem
+guarda**, abrindo o diálogo de sucesso incondicionalmente — bloqueio de RLS
+virava "salvo com sucesso". Corrigido. Das 22 telas de escrita do funil, era a
+única descoberta; as outras 4 que não importam o helper usam `checkWrite`.
+
+No mesmo arquivo, o campo **e-mail virou somente leitura**: ele é o login no
+auth, e gravá-lo só em `public.users` desliga a oficina do próprio acesso. A RPC
+que faz a troca atômica (`admin_update_client_email`) **recusa perfil que não
+seja Cliente** — ou seja, **não existe fluxo de troca de e-mail para
+Oficina/Piloto hoje**. Campo editável prometia o que o save não podia cumprir.
+
+**Null-check no caminho do PDF (2 casos, ambos corrigidos).** O botão "Gerar
+PDF" de `view_edit_proposal` usava `containerProposalFinancingRow!` num bloco
+onde todo o resto usa `?.` — nas 21 de 48 propostas sem financiamento o clique
+estourava e, sem `try/catch` no callback assíncrono, **não acontecia nada**: sem
+PDF e sem mensagem (o sintoma "não sai daí"). O botão gêmeo do `view_contract`
+já tinha a guarda desde 22/07. `generate_proposal_pdf` tinha o mesmo problema com
+`dataCredito!` — único campo nullable do struct, que o arquivo já degradava na
+exibição e não no cálculo. Ao mexer nesses dois arquivos, **procure `!` isolado
+em meio a `?.`**: é a assinatura do bug.
 
 ### Feedback ao usuário — `action_feedback` (2026-07-20)
 

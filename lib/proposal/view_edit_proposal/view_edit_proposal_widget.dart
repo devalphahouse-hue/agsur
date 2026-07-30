@@ -1,5 +1,6 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/api_requests/api_calls.dart';
+import '/backend/client_reuse.dart';
 import '/backend/lead_conversion.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/schema/structs/index.dart';
@@ -177,6 +178,97 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
     _model.dispose();
 
     super.dispose();
+  }
+
+  /// Aplica a [decideClientReuse] quando a conversão encontra um usuário com
+  /// o e-mail confirmado. Devolve `false` quando a conversão deve ser
+  /// abortada (e-mail de cliente de outro lead, ou de quem não é Cliente).
+  ///
+  /// No `reusarEVincular`, grava `users.lead_id` — sem o vínculo o lead nunca
+  /// sai da lista de leads (a classificação é derivada em
+  /// `lead_conversion.dart`). A RLS de hoje só deixa Admin Master atualizar
+  /// cadastro de terceiro (`user_security_update`), então um bloqueio aqui
+  /// não aborta: a conversão segue e o aviso explica que o lead permanecerá
+  /// na lista até um master concluir o vínculo.
+  Future<bool> _applyClientReuseDecision(
+    BuildContext context,
+    UsersRow existing,
+  ) async {
+    final proposalLeadId =
+        FFAppState().asGetProposalDetails.proposalLead.id;
+    // Placeholder/struct vazio no lugar do UUID (armadilha conhecida da RPC):
+    // sem lead identificável não dá para decidir com segurança em cima de
+    // quem o contrato vai cair — aborta com orientação em vez de arriscar.
+    if (!RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    ).hasMatch(proposalLeadId)) {
+      showWriteError(
+        context,
+        'Não foi possível identificar o lead desta proposta. '
+        'Recarregue a página e tente novamente.',
+      );
+      return false;
+    }
+    final decision = decideClientReuse(
+      proposalLeadId: proposalLeadId,
+      userExists: true,
+      existingIsCliente:
+          existing.profileType == ProfileType.Cliente.name,
+      existingLeadId: existing.leadId,
+    );
+    switch (decision) {
+      case ClientReuseDecision.bloquearNaoCliente:
+        showWriteError(
+          context,
+          'Este e-mail pertence a um usuário "${existing.profileType}" da '
+          'plataforma, não a um cliente. Corrija o e-mail do cliente antes '
+          'de converter.',
+        );
+        return false;
+      case ClientReuseDecision.bloquearOutroLead:
+        showWriteError(
+          context,
+          'Este e-mail já pertence ao cliente '
+          '"${existing.fullname ?? existing.email}", vinculado a outro '
+          'lead — o contrato sairia no cadastro dele. Corrija o e-mail '
+          'antes de converter.',
+        );
+        return false;
+      case ClientReuseDecision.reusarEVincular:
+        final linked = await guardWrite(
+          context,
+          () => UsersTable().update(
+            data: {'lead_id': proposalLeadId},
+            matchingRows: (rows) => rows.eqOrNull('id', existing.id),
+            returnRows: true,
+          ),
+          // O bloqueio não deve abortar a conversão: vai ao Sentry e o
+          // aviso abaixo explica a consequência para quem clicou.
+          silent: true,
+          contexto: 'conversao: vincular lead ao cliente reusado',
+        );
+        if (!linked && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'O contrato será criado para o cliente já cadastrado, mas '
+                'você não tem permissão para vincular o lead a ele — o '
+                'lead continuará na lista de leads. Peça a um Admin '
+                'Master para concluir o vínculo.',
+                style: TextStyle(
+                  color: FlutterFlowTheme.of(context).primaryText,
+                ),
+              ),
+              duration: Duration(milliseconds: 6000),
+              backgroundColor: FlutterFlowTheme.of(context).warning,
+            ),
+          );
+        }
+        return true;
+      case ClientReuseDecision.reusarMesmoLead:
+      case ClientReuseDecision.criarNovo:
+        return true;
+    }
   }
 
   @override
@@ -5595,6 +5687,30 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                             false,
                                                           ),
                                                     );
+                                                    if (_model.userExist !=
+                                                            null &&
+                                                        (_model.userExist)!
+                                                            .isNotEmpty) {
+                                                      // Reuso NUNCA é mais
+                                                      // silencioso: bloqueia
+                                                      // e-mail de outro
+                                                      // cliente e grava o
+                                                      // lead_id quando o
+                                                      // cliente ainda não tem
+                                                      // lead — senão o lead
+                                                      // não sai do funil
+                                                      // (caso Maria Silva,
+                                                      // 2026-07-29).
+                                                      final okReuse =
+                                                          await _applyClientReuseDecision(
+                                                        context,
+                                                        (_model.userExist)!
+                                                            .first,
+                                                      );
+                                                      if (!okReuse) {
+                                                        return;
+                                                      }
+                                                    }
                                                     if (!(_model.userExist !=
                                                             null &&
                                                         (_model.userExist)!
@@ -5654,6 +5770,22 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                                 null &&
                                                             (_model.userExist)!
                                                                 .isNotEmpty) {
+                                                          // Mesmas regras de
+                                                          // reuso do lookup
+                                                          // inicial — este
+                                                          // caminho só corre
+                                                          // quando o signup
+                                                          // recusou por conta
+                                                          // já existente.
+                                                          final okReuse =
+                                                              await _applyClientReuseDecision(
+                                                            context,
+                                                            (_model.userExist)!
+                                                                .first,
+                                                          );
+                                                          if (!okReuse) {
+                                                            return;
+                                                          }
                                                           reusedExisting = true;
                                                         } else {
                                                           // Sem cadastro ativo

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '/backend/api_requests/api_calls.dart';
+import '/backend/lead_conversion.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
@@ -148,6 +149,11 @@ class _ModalCreateClientWidgetState extends State<ModalCreateClientWidget> {
           'status': UserStatus.approved.name,
           'lastname': _selectedLead?.lastName ?? 'vazio',
           'fullname': _selectedLead?.fullname ?? 'vazio',
+          // Sem o vínculo o lead segue aparecendo na lista de leads
+          // (a classificação lead/cliente é derivada de users.lead_id em
+          // lead_conversion.dart) e uma conversão futura reusaria este
+          // cliente sem conseguir tirar o lead do funil.
+          'lead_id': _selectedLead?.id,
         });
       } catch (_) {
         // Rollback: remove a conta de auth recém-criada (órfã, sem users).
@@ -166,6 +172,10 @@ class _ModalCreateClientWidgetState extends State<ModalCreateClientWidget> {
         );
         return;
       }
+
+      // O lead virou cliente: sem invalidar, a lista de Leads e o seletor
+      // de proposta seguem classificando-o como lead em aberto.
+      LeadConversion.invalidate();
 
       // users criado com sucesso (conta válida). O tracking inicial é
       // secundário — uma falha aqui não invalida o cliente.

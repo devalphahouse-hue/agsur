@@ -211,12 +211,22 @@ dentro do formulário/modal que a tela já tem.
   primeiro "Confirmar e-mail do cliente" (diálogo compartilhado
   `lib/pages/shared/edit_email_dialog/edit_email_dialog.dart`, pré-preenchido e
   editável); o e-mail confirmado alimenta lookup, signup, insert e
-  `sendCredentialsEmail`. **Cliente já existente = reuso:** o lookup é
-  case-insensitive (`ilike` + `is_deleted=false`), `createUserPublic` é zerado
-  a cada conversão (senão um resíduo do model roubava o `user_Id` do
-  contrato), e se o signup recusar por conta já existente (422 ou 200
-  "ofuscado"), re-busca o users e segue com o cliente existente — contrato
-  novo para o mesmo cliente, sem abortar e sem duplicar.
+  `sendCredentialsEmail`. **Cliente já existente = reuso COM regras
+  (2026-07-29):** o lookup é case-insensitive (`ilike` + `is_deleted=false`),
+  `createUserPublic` é zerado a cada conversão (senão um resíduo do model
+  roubava o `user_Id` do contrato), e se o signup recusar por conta já
+  existente (422 ou 200 "ofuscado"), re-busca o users. O que acontece com o
+  cliente encontrado é decidido por `decideClientReuse`
+  (`lib/backend/client_reuse.dart`, pura, testada em
+  `test/client_reuse_test.dart`) e aplicado por `_applyClientReuseDecision`
+  nos DOIS pontos de reuso: **mesmo lead** → recompra, segue como sempre;
+  **cliente sem lead vinculado** → reusa e grava `users.lead_id` (sem isso o
+  lead nunca sai do funil — se a RLS bloquear o UPDATE, que hoje é só de
+  master, a conversão segue com aviso em vez de abortar); **cliente de OUTRO
+  lead** → **bloqueia** com o nome do cliente (o contrato sairia no cadastro
+  de outra pessoa — caso real "Maria Silva", bug reportado pelo dono em
+  27/07); **e-mail de quem não é Cliente** (perfil de painel/piloto/oficina)
+  → bloqueia. Reuso silencioso não existe mais.
 - **Depois da conversão:** o e-mail é o login do app E a chave de RLS
   (`leads.email = auth_user_email()`), então a troca passa pela RPC
   **`admin_update_client_email`** (migration `20260717120000` — troca
@@ -537,6 +547,14 @@ A classificação é derivada de `users.lead_id` em `lib/backend/lead_conversion
 viabiliza a **recompra**: o seletor de "Cadastrar proposta" lista Leads E
 Clientes com etiqueta; escolher um cliente resolve para o `lead_id` dele, então
 a proposta nasce ligada à mesma pessoa e a conversão reaproveita a conta.
+
+⚠️ **Todo caminho que cria/reusa cliente TEM que garantir o `users.lead_id`**
+— é o único vínculo que tira o lead do funil. Já falhou de dois jeitos
+(descobertos 2026-07-29, vídeo do dono): o `modal_create_client` inseria o
+cliente **sem** `lead_id` (corrigido — hoje grava e invalida o cache), e o
+reuso na conversão pulava a gravação (corrigido via `client_reuse.dart` — ver
+"Na conversão" acima). Cliente novo por outro fluxo? Grave o `lead_id` e chame
+`LeadConversion.invalidate()`.
 
 ### Itens de série/opcionais — vínculo com aeronave (2026-07-14)
 

@@ -263,7 +263,15 @@ class _ModalCreateAvailableAircraftWidgetState
 
   Widget _buildCreate() {
     return FutureBuilder<List<AircraftsRow>>(
-      future: AircraftsTable().queryRows(queryFn: (q) => q),
+      // Só modelos vivos do catálogo. Sem esse filtro o seletor listava as
+      // 13 aeronaves soft-deletadas junto com as 7 ativas — inclusive lixo
+      // de teste ("sdsdwd", "teste", "Teste Renan", "A380") e duplicatas.
+      future: AircraftsTable().queryRows(
+        queryFn: (q) => q
+            .eqOrNull('active', true)
+            .eqOrNull('deleted', false)
+            .order('aircraft_model', ascending: true),
+      ),
       builder: (context, snap) {
         if (!snap.hasData) {
           return Column(
@@ -469,7 +477,13 @@ class _ModalCreateAvailableAircraftWidgetState
 
   Widget _buildEditForm(AvailableAircraftsRow row) {
     return FutureBuilder<List<AircraftsRow>>(
-      future: AircraftsTable().queryRows(queryFn: (q) => q),
+      // Aqui a consulta NÃO pode filtrar no servidor: em produção 2 das 3
+      // unidades apontam para modelo soft-deletado. Some com ele e o
+      // dropdown abre vazio e o save morre em null-check (bug de
+      // 2026-07-21). O filtro é feito abaixo, preservando o já vinculado.
+      future: AircraftsTable().queryRows(
+        queryFn: (q) => q.order('aircraft_model', ascending: true),
+      ),
       builder: (context, snap) {
         if (!snap.hasData) {
           return Column(
@@ -482,7 +496,14 @@ class _ModalCreateAvailableAircraftWidgetState
             ),
           );
         }
-        final aircrafts = snap.data!;
+        // Modelos vivos + o que esta unidade já usa (mesmo deletado), casado
+        // por id OU nome — mesma tolerância a dado legado do `value:` abaixo.
+        final aircrafts = snap.data!
+            .where((a) =>
+                (a.active && !a.deleted) ||
+                a.id == _model.dPDEditAircraftsValue ||
+                a.aircraftModel == _model.dPDEditAircraftsValue)
+            .toList();
         return Form(
           key: _model.formKey2,
           autovalidateMode: AutovalidateMode.onUserInteraction,

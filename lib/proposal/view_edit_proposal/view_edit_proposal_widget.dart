@@ -4639,8 +4639,11 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                           child: FutureBuilder<List<CategoryRow>>(
                             future: _model.optionalCategoriesFuture ??=
                                 CategoryTable().queryRows(
+                              // Categoria excluída não pode voltar na
+                              // proposta — a query só filtrava item_type.
                               queryFn: (q) => q
                                   .eqOrNull('item_type', 'optional')
+                                  .eqOrNull('deleted', false)
                                   .order('category_name', ascending: true),
                             ),
                             builder: (context, categoriesSnapshot) {

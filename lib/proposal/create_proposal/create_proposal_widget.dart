@@ -4669,11 +4669,14 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                             child: FutureBuilder<List<CategoryRow>>(
                               future: _model.optionalCategoriesFuture ??=
                                   CategoryTable().queryRows(
+                                // Categoria excluída não pode voltar na
+                                // proposta — a query só filtrava item_type.
                                 queryFn: (q) => q
                                     .eqOrNull(
                                       'item_type',
                                       AircraftItemType.optional.name,
                                     )
+                                    .eqOrNull('deleted', false)
                                     .order('category_name', ascending: true),
                               ),
                               builder: (context, snapshot) {

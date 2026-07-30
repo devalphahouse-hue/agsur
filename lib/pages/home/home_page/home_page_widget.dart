@@ -383,8 +383,12 @@ class _DashboardKpis extends StatelessWidget {
         : formatNumber(v,
             formatType: FormatType.decimal,
             decimalType: DecimalType.automatic);
-    String pct(num? v) =>
-        v == null ? '0,00%' : formatNumber(v, formatType: FormatType.percent);
+    // A view devolve pontos percentuais (-50.00 = -50%), mas
+    // FormatType.percent usa NumberFormat.percentPattern, que multiplica por
+    // 100 — sem o /100 um crescimento de 12% saía como "1.200%".
+    String pct(num? v) => v == null
+        ? '0,00%'
+        : formatNumber(v / 100, formatType: FormatType.percent);
     String money(num? v) => v == null
         ? r'$ 0'
         : formatNumber(v,

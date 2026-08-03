@@ -145,10 +145,23 @@ class _ModalServicesOfferingWidgetState
         });
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Falha no upload do PDF')),
-          );
+          showWriteError(context, 'Falha no upload do PDF. Tente novamente.');
         }
+      }
+    } catch (e, st) {
+      // Sem este catch a exceção subia pelo callback assíncrono do onTap: o
+      // spinner sumia (o finally roda) e NADA aparecia na tela — o campo
+      // voltava para "Anexar PDF" sem explicar por quê. Acontece de verdade:
+      // `uploadSupabaseStorageFile` lança StorageUploadException (arquivo
+      // vazio, extensão fora da whitelist) e o Storage lança em 403/mime/
+      // tamanho. O usuário lia isso como "o cadastro não funciona".
+      await Sentry.captureException(e,
+          stackTrace: st, withScope: (s) => s.setTag('acao', 'cartas.upload'));
+      if (mounted) {
+        showWriteError(
+          context,
+          mensagemDeErro(e, fallback: 'Não foi possível anexar o PDF.'),
+        );
       }
     } finally {
       if (mounted) {
@@ -365,8 +378,12 @@ class _ModalServicesOfferingWidgetState
             if (t.isNotEmpty) _selModelsEdit.add(t);
           }
           _model.dpdTypeEditValue = row.type;
-          if (row.docUrl != null && row.docUrl!.isNotEmpty) {
-            _model.uploadedFileUrl_uploadPDFEdit = row.docUrl!;
+          // Lido pelo campo bruto, não pelo getter `docUrl`: ele é
+          // `getField<String>('doc_url')!` e ESTOURA se a coluna vier nula —
+          // o `!= null` de antes nunca chegava a rodar.
+          final docUrl = row.getField<String>('doc_url') ?? '';
+          if (docUrl.isNotEmpty) {
+            _model.uploadedFileUrl_uploadPDFEdit = docUrl;
           }
         }
         return Form(
@@ -761,6 +778,70 @@ class _ModelMultiSelect extends StatelessWidget {
   }
 }
 
+/// Linha "Selecionar todos" do seletor de modelos.
+///
+/// O ícone tem três estados: vazio (nenhum marcado), traço (parte) e cheio
+/// (todos). Clicar com seleção parcial completa a seleção — o caminho que o
+/// usuário quase sempre quer; só desmarca quando já está tudo marcado.
+class _SelectAllRow extends StatelessWidget {
+  const _SelectAllRow({
+    required this.total,
+    required this.selecionados,
+    required this.onToggle,
+  });
+
+  final int total;
+  final int selecionados;
+  final ValueChanged<bool> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final todos = selecionados == total;
+    final parcial = selecionados > 0 && !todos;
+    return InkWell(
+      onTap: () => onToggle(!todos),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        child: Row(
+          children: [
+            Icon(
+              todos
+                  ? Icons.check_box_rounded
+                  : parcial
+                      ? Icons.indeterminate_check_box_rounded
+                      : Icons.check_box_outline_blank_rounded,
+              color: todos || parcial
+                  ? const Color(0xFFC2D51C)
+                  : const Color(0x66FFFFFF),
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                todos ? 'Desmarcar todos' : 'Selecionar todos ($total)',
+                style: GoogleFonts.inter(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            if (selecionados > 0)
+              Text(
+                '$selecionados marcado(s)',
+                style: GoogleFonts.roboto(
+                  fontSize: 12,
+                  color: const Color(0x99FFFFFF),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Diálogo de seleção de modelos: busca + lista com checkboxes.
 class _ModelPickerDialog extends StatefulWidget {
   const _ModelPickerDialog({required this.all, required this.initial});
@@ -830,6 +911,22 @@ class _ModelPickerDialogState extends State<_ModelPickerDialog> {
                 ),
               ),
               const SizedBox(height: 12),
+              // Selecionar todos age sobre os modelos FILTRADOS, não sobre o
+              // catálogo inteiro: com uma busca ativa, marcar tudo que não está
+              // na tela seria uma surpresa. Sem busca, filtrados == todos.
+              if (filtered.isNotEmpty)
+                _SelectAllRow(
+                  total: filtered.length,
+                  selecionados:
+                      filtered.where((m) => _sel.contains(m)).length,
+                  onToggle: (marcar) => setState(() {
+                    if (marcar) {
+                      _sel.addAll(filtered);
+                    } else {
+                      _sel.removeAll(filtered);
+                    }
+                  }),
+                ),
               Flexible(
                 child: filtered.isEmpty
                     ? Padding(

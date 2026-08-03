@@ -3,9 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '/backend/paged_query.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/security/action_feedback.dart';
+import '/security/write_guard.dart';
 import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
 import '/pages/shared/modal_services_offering/modal_services_offering_widget.dart';
 import 'services_offering_model.dart';
@@ -25,6 +28,8 @@ class ServicesOfferingWidget extends StatefulWidget {
 class _ServicesOfferingWidgetState extends State<ServicesOfferingWidget> {
   late ServicesOfferingModel _model;
   String _query = '';
+  int _page = 1;
+  int _perPage = kDefaultPerPage;
 
   @override
   void initState() {
@@ -41,6 +46,35 @@ class _ServicesOfferingWidgetState extends State<ServicesOfferingWidget> {
   }
 
   void _refresh() => safeSetState(() => _model.requestCompleter = null);
+
+  void _goToPage(int p) => safeSetState(() {
+        _page = p;
+        _model.requestCompleter = null;
+      });
+
+  void _setPerPage(int n) => safeSetState(() {
+        _perPage = n;
+        _page = 1;
+        _model.requestCompleter = null;
+      });
+
+  /// Página vinda do backend (`range` + `count=exact`).
+  ///
+  /// A busca vai no `queryFn` — filtrar em Dart depois de paginar filtraria só
+  /// a página corrente, e o total mentiria. `orIlike` também limpa `(`, `)`,
+  /// `,` e `*` do termo, que quebrariam a sintaxe do filtro.
+  Future<PagedResult<ServicesOfferingRow>> _fetchPage() => queryPage(
+        table: ServicesOfferingTable(),
+        page: _page,
+        perPage: _perPage,
+        queryFn: (q) {
+          final base = q.eqOrNull('is_deleted', false);
+          final f = _query.trim().isEmpty
+              ? base
+              : base.or(orIlike(const ['service_title', 'models'], _query));
+          return f.order('service_title', ascending: true);
+        },
+      );
 
   Future<void> _openCreate() async {
     await showDialog(
@@ -82,22 +116,32 @@ class _ServicesOfferingWidgetState extends State<ServicesOfferingWidget> {
             iconColor: const Color(0xFFFF5963),
             btnColor: const Color(0xFFFF5963),
             confirmBtnAction: () async {
-              await ServicesOfferingTable().update(
-                data: {'is_deleted': true},
-                matchingRows: (rows) => rows.eqOrNull('id', item.id),
+              // Num UPDATE a RLS filtra a linha ANTES da trigger e devolve 2xx
+              // com 0 linhas: sem o guardWrite a tela confirmava "excluída" com
+              // a carta ainda na lista. `returnRows: true` é obrigatório —
+              // sem ele o update devolve [] SEMPRE e o guard acusaria bloqueio
+              // em toda exclusão.
+              var apagou = false;
+              final ok = await runAction(
+                context,
+                dialogContext: dialogContext,
+                contexto: 'cartas.excluir',
+                failure: 'Não foi possível excluir a carta de serviço.',
+                action: () async {
+                  apagou = await guardWrite(
+                    context,
+                    () => ServicesOfferingTable().update(
+                      data: {'is_deleted': true},
+                      matchingRows: (rows) => rows.eqOrNull('id', item.id),
+                      returnRows: true,
+                    ),
+                    contexto: 'cartas.excluir',
+                  );
+                },
               );
-              if (!mounted) return;
-              Navigator.of(dialogContext).pop();
+              if (!mounted || !ok || !apagou) return;
               _refresh();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Carta de serviço excluída',
-                    style: GoogleFonts.inter(color: const Color(0xFF313131)),
-                  ),
-                  backgroundColor: const Color(0xFFC2D51C),
-                ),
-              );
+              showActionSuccess(context, 'Carta de serviço excluída');
             },
           ),
         ),
@@ -121,22 +165,22 @@ class _ServicesOfferingWidgetState extends State<ServicesOfferingWidget> {
       ],
       search: AppSearchInput(
         value: _query,
-        placeholder: 'Buscar por título...',
+        placeholder: 'Buscar por título ou modelo...',
         onChanged: (v) {
-          setState(() => _query = v);
+          setState(() {
+            _query = v;
+            // Buscar volta para a primeira página: parado na pág. 3, um termo
+            // com 5 resultados devolveria uma página vazia.
+            _page = 1;
+          });
           _model.textController?.text = v;
           _refresh();
         },
       ),
-      body: FutureBuilder<List<ServicesOfferingRow>>(
+      body: FutureBuilder<PagedResult<ServicesOfferingRow>>(
         future: (_model.requestCompleter ??=
-                Completer<List<ServicesOfferingRow>>()
-                  ..complete(ServicesOfferingTable().queryRows(
-                    queryFn: (q) => q
-                        .eqOrNull('is_deleted', false)
-                        .ilike('service_title', '%$_query%')
-                        .order('service_title', ascending: true),
-                  )))
+                Completer<PagedResult<ServicesOfferingRow>>()
+                  ..complete(_fetchPage()))
             .future,
         builder: (context, snap) {
           if (!snap.hasData) {
@@ -150,7 +194,8 @@ class _ServicesOfferingWidgetState extends State<ServicesOfferingWidget> {
               ),
             );
           }
-          final list = snap.data!;
+          final paged = snap.data!;
+          final list = paged.items;
           if (list.isEmpty) {
             return AppCard(
               child: AppEmptyState(
@@ -175,6 +220,11 @@ class _ServicesOfferingWidgetState extends State<ServicesOfferingWidget> {
                     onDelete: () => _confirmDelete(list[i]),
                   ).appStagger(i),
                 ),
+              AppPagination(
+                result: paged,
+                onPageChanged: _goToPage,
+                onPerPageChanged: _setPerPage,
+              ),
             ],
           );
         },

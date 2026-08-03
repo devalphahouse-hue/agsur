@@ -1,3 +1,4 @@
+import '/backend/paged_query.dart';
 import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/pages/shared/menu/menu_widget.dart';
@@ -13,7 +14,7 @@ class ServicesOfferingModel extends FlutterFlowModel<ServicesOfferingWidget> {
   FocusNode? textFieldFocusNode;
   TextEditingController? textController;
   String? Function(BuildContext, String?)? textControllerValidator;
-  Completer<List<ServicesOfferingRow>>? requestCompleter;
+  Completer<PagedResult<ServicesOfferingRow>>? requestCompleter;
   // Model for menu component.
   late MenuModel menuModel;
 

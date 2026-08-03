@@ -141,6 +141,24 @@ void showActionSuccess(BuildContext context, String message) {
 /// [fallback] genérico em vez de vazar `PostgrestException(code: 23505, ...)`
 /// na cara do usuário.
 String mensagemDeErro(Object e, {required String fallback}) {
+  // Upload de arquivo. A validação local já escreve em pt-BR para humanos
+  // (extensão fora da whitelist, arquivo vazio/grande) — repassar é melhor que
+  // esconder atrás do genérico, porque diz o que fazer para dar certo.
+  if (e is StorageUploadException) return e.message;
+  if (e is StorageException) {
+    final m = e.message.toLowerCase();
+    if (m.contains('mime') || m.contains('content type')) {
+      return 'Este tipo de arquivo não é aceito neste campo.';
+    }
+    if (m.contains('maximum allowed size') || m.contains('too large')) {
+      return 'Arquivo grande demais para o servidor.';
+    }
+    if (e.statusCode == '403' || m.contains('row-level security')) {
+      return kWriteBlockedMessage;
+    }
+    return 'Não foi possível enviar o arquivo. Tente novamente.';
+  }
+
   if (e is PostgrestException) {
     switch (e.code) {
       case '42501': // insufficient_privilege — RLS ou trigger de guarda

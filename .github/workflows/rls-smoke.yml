@@ -20,9 +20,14 @@ jobs:
           SUPABASE_URL: https://bkzybtmxxzpxtztesdye.supabase.co
           ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
+          # Secret ausente = FALHA, nunca skip. Até 2026-08-06 este passo fazia
+          # `exit 0` com um ::warning:: — o smoke "diário de drift" ficava verde
+          # em ~16s sem disparar uma única requisição (assim desde 2026-07-11).
           if [ -z "$ANON_KEY" ]; then
-            echo "::warning::SUPABASE_ANON_KEY não configurada — pulando smoke."
-            exit 0
+            echo "::error::SUPABASE_ANON_KEY ausente — o smoke NÃO rodou; nenhum drift foi verificado."
+            echo "Cadastre em Settings → Secrets and variables → Actions do repo"
+            echo "devalphahouse-hue/agsur (a anon key é pública por design; o segredo aqui é só de conveniência)."
+            exit 1
           fi
           set -e
           fail=0

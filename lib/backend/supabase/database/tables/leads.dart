@@ -61,4 +61,26 @@ class LeadsRow extends SupabaseDataRow {
 
   String? get companyName => getField<String>('company_name');
   set companyName(String? value) => setField<String>('company_name', value);
+
+  // ⚠️ Escritos à mão (migration 20260817120000_leads_referral). Uma regeneração
+  // do FlutterFlow apaga daqui para baixo e a indicação para de chegar na
+  // conversão — a comissão do vendedor volta silenciosamente para 7500.
+  // `isReferral` é NOT NULL DEFAULT false no banco, mas o getter é nullable de
+  // propósito: linha vinda de um SELECT que não pediu a coluna devolveria null.
+  bool? get isReferral => getField<bool>('is_referral');
+  set isReferral(bool? value) => setField<bool>('is_referral', value);
+
+  String? get referralName => getField<String>('referral_name');
+  set referralName(String? value) => setField<String>('referral_name', value);
+
+  String? get referralPhone => getField<String>('referral_phone');
+  set referralPhone(String? value) => setField<String>('referral_phone', value);
+
+  String? get referralEmail => getField<String>('referral_email');
+  set referralEmail(String? value) => setField<String>('referral_email', value);
+
+  double? get referralAgreedValue =>
+      getField<double>('referral_agreed_value');
+  set referralAgreedValue(double? value) =>
+      setField<double>('referral_agreed_value', value);
 }

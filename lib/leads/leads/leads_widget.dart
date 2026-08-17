@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '/backend/cascade_delete.dart';
+import '/backend/commission.dart';
 import '/security/action_feedback.dart';
 import '/pages/shared/confirm_delete_dialog/confirm_delete_dialog.dart';
 import '/backend/lead_conversion.dart';
@@ -143,20 +144,34 @@ class _LeadsWidgetState extends State<LeadsWidget> {
           },
           child: ModalRegisterLeadWidget(
             btnAction: (name, lastname, cpf, company, jobTitle, email, phone,
-                city, uf, createdBy) async {
-              _model.insertLead = await LeadsTable().insert({
-                'name': name,
-                'last_name': lastname,
-                'cpf': cpf,
-                'email': email,
-                'phone': phone,
-                'city': city,
-                'state': uf,
-                'created_by': createdBy,
-                'job_title': jobTitle,
-                'company_name': company,
-              });
+                city, uf, createdBy, referral) async {
+              // guardInsert (e não insert cru): sem ele, uma exceção do
+              // PostgREST subia pelo callback assíncrono e a modal ficava
+              // aberta com o botão girando, sem mensagem — o sintoma "não sai
+              // daí". Alcança tanto bloqueio de RLS/trigger quanto erro de
+              // coluna (ex.: app novo antes da migration de indicação).
+              _model.insertLead = await guardInsert(
+                context,
+                () => LeadsTable().insert({
+                  'name': name,
+                  'last_name': lastname,
+                  'cpf': cpf,
+                  'email': email,
+                  'phone': phone,
+                  'city': city,
+                  'state': uf,
+                  'created_by': createdBy,
+                  'job_title': jobTitle,
+                  'company_name': company,
+                  // Indicação: define a comissão do vendedor lá na conversão
+                  // (7500 direta / 4500 indicação) — ver backend/commission.dart.
+                  ...leadReferralColumns(referral),
+                }),
+              );
               if (!mounted) return;
+              // Falhou: a modal fica aberta com os campos preenchidos, e o
+              // guardInsert já mostrou o motivo.
+              if (_model.insertLead == null) return;
               _refresh();
               Navigator.of(dialogContext).pop();
               ScaffoldMessenger.of(context).showSnackBar(

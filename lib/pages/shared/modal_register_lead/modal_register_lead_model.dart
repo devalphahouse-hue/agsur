@@ -27,34 +27,36 @@ class ModalRegisterLeadModel
     return null;
   }
 
-  // CPF
+  // CPF — opcional no cadastro (captura de feira): o vendedor precisa registrar
+  // o contato em segundos e completa o cadastro depois, em `view_edit_lead`.
+  // Continua validando o formato de quem for preenchido.
   FocusNode? tFCpfFocusNode;
   TextEditingController? tFCpfTextController;
   late MaskTextInputFormatter tFCpfMask;
   String? Function(BuildContext, String?)? tFCpfTextControllerValidator;
   String? _tFCpfTextControllerValidator(BuildContext context, String? val) {
-    if (val == null || val.isEmpty) return 'Campo obrigatório';
+    if (val == null || val.trim().isEmpty) return null;
     final digits = val.replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.length != 11) return 'CPF inválido';
     return null;
   }
 
-  // Empresa
+  // Empresa — opcional. Lead pessoa física não tem empresa; quando fica em
+  // branco o submit grava "Nome Sobrenome" (ver `_submit`), porque
+  // `company_name` é uma das colunas da busca das listagens de lead.
   FocusNode? tFEmpresaFocusNode;
   TextEditingController? tFEmpresaTextController;
   String? Function(BuildContext, String?)? tFEmpresaTextControllerValidator;
   String? _tFEmpresaTextControllerValidator(
       BuildContext context, String? val) {
-    if (val == null || val.trim().isEmpty) return 'Campo obrigatório';
     return null;
   }
 
-  // Cargo
+  // Cargo — opcional (completado depois).
   FocusNode? tFCargoFocusNode;
   TextEditingController? tFCargoTextController;
   String? Function(BuildContext, String?)? tFCargoTextControllerValidator;
   String? _tFCargoTextControllerValidator(BuildContext context, String? val) {
-    if (val == null || val.trim().isEmpty) return 'Campo obrigatório';
     return null;
   }
 
@@ -87,7 +89,7 @@ class ModalRegisterLeadModel
   late MaskTextInputFormatter tFCepMask;
   String? Function(BuildContext, String?)? tFCepTextControllerValidator;
   String? _tFCepTextControllerValidator(BuildContext context, String? val) {
-    if (val == null || val.isEmpty) return 'Campo obrigatório';
+    if (val == null || val.trim().isEmpty) return null;
     final digits = val.replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.length != 8) return 'CEP inválido';
     return null;
@@ -101,7 +103,6 @@ class ModalRegisterLeadModel
   TextEditingController? tFCityTextController;
   String? Function(BuildContext, String?)? tFCityTextControllerValidator;
   String? _tFCityTextControllerValidator(BuildContext context, String? val) {
-    if (val == null || val.trim().isEmpty) return 'Campo obrigatório';
     return null;
   }
 
@@ -112,15 +113,71 @@ class ModalRegisterLeadModel
   String? Function(BuildContext, String?)? tFZipCodeTextControllerValidator;
   String? _tFZipCodeTextControllerValidator(
       BuildContext context, String? val) {
-    if (val == null || val.trim().isEmpty) return 'Obrigatório';
+    if (val == null || val.trim().isEmpty) return null;
     if (val.trim().length != 2) return 'UF';
     return null;
+  }
+
+  // ---------------------------------------------------------------------
+  // Indicação de venda (17/08/2026)
+  //
+  // Marcar a caixa troca a comissão do vendedor de US$ 7.500 para US$ 4.500 na
+  // conversão — ver `lib/backend/commission.dart`. Por isso os campos moram no
+  // LEAD: precisam existir antes da proposta virar contrato.
+  // ---------------------------------------------------------------------
+  bool isReferral = false;
+
+  FocusNode? tFReferralNameFocusNode;
+  TextEditingController? tFReferralNameTextController;
+  String? Function(BuildContext, String?)? tFReferralNameTextControllerValidator;
+  String? _tFReferralNameTextControllerValidator(
+      BuildContext context, String? val) {
+    // Só cobra quando a caixa está marcada. Espelha o CHECK
+    // `leads_referral_coerente`: indicação sem quem indicou não entra.
+    if (!isReferral) return null;
+    if (val == null || val.trim().isEmpty) return 'Campo obrigatório';
+    return null;
+  }
+
+  FocusNode? tFReferralPhoneFocusNode;
+  TextEditingController? tFReferralPhoneTextController;
+  late MaskTextInputFormatter tFReferralPhoneMask;
+
+  FocusNode? tFReferralEmailFocusNode;
+  TextEditingController? tFReferralEmailTextController;
+  String? Function(BuildContext, String?)?
+      tFReferralEmailTextControllerValidator;
+  String? _tFReferralEmailTextControllerValidator(
+      BuildContext context, String? val) {
+    if (val == null || val.trim().isEmpty) return null;
+    final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(val.trim());
+    if (!ok) return 'E-mail inválido';
+    return null;
+  }
+
+  FocusNode? tFReferralValueFocusNode;
+  TextEditingController? tFReferralValueTextController;
+
+  /// Valor acordado digitado, em dólar. `null` quando vazio ou ilegível —
+  /// nunca 0, para não confundir "não combinado" com "combinado zero".
+  double? get referralAgreedValue {
+    final raw = tFReferralValueTextController?.text.trim() ?? '';
+    if (raw.isEmpty) return null;
+    // Aceita "4.500,00" e "4500.00": tira separador de milhar e normaliza a
+    // vírgula decimal do pt-BR.
+    final normalizado =
+        raw.replaceAll(RegExp(r'[^0-9,.]'), '').replaceAll('.', '').replaceAll(',', '.');
+    return double.tryParse(normalizado);
   }
 
   bool? formRLead;
 
   @override
   void initState(BuildContext context) {
+    tFReferralNameTextControllerValidator =
+        _tFReferralNameTextControllerValidator;
+    tFReferralEmailTextControllerValidator =
+        _tFReferralEmailTextControllerValidator;
     tFNameTextControllerValidator = _tFNameTextControllerValidator;
     tFLastNameTextControllerValidator = _tFLastNameTextControllerValidator;
     tFCpfTextControllerValidator = _tFCpfTextControllerValidator;
@@ -155,5 +212,13 @@ class ModalRegisterLeadModel
     tFZipCodeTextController?.dispose();
     tFCepFocusNode?.dispose();
     tFCepTextController?.dispose();
+    tFReferralNameFocusNode?.dispose();
+    tFReferralNameTextController?.dispose();
+    tFReferralPhoneFocusNode?.dispose();
+    tFReferralPhoneTextController?.dispose();
+    tFReferralEmailFocusNode?.dispose();
+    tFReferralEmailTextController?.dispose();
+    tFReferralValueFocusNode?.dispose();
+    tFReferralValueTextController?.dispose();
   }
 }

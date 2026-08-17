@@ -1,8 +1,10 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/api_requests/api_calls.dart';
 import '/backend/supabase/supabase.dart';
+import '/security/access_control.dart';
 import '/security/write_guard.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
+import 'lead_referral_section.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
@@ -3571,6 +3573,19 @@ class _ViewEditLeadWidgetState extends State<ViewEditLeadWidget> {
                                 }
                               },
                             ),
+                          ),
+                        ),
+                        // Indicação de venda — seção própria, fora do código
+                        // gerado (a RPC getLeadDetails não devolve essas
+                        // colunas). Salva sozinha; define a comissão do
+                        // vendedor na conversão. Ver lead_referral_section.dart.
+                        Padding(
+                          padding: EdgeInsetsDirectional.fromSTEB(
+                              16.0, 0.0, 16.0, 16.0),
+                          child: LeadReferralSection(
+                            leadId: widget!.leadId!,
+                            canEdit: AccessControl.canEditFunil(
+                                AccessControl.current),
                           ),
                         ),
                         FutureBuilder<List<VwNotesDetailsRow>>(

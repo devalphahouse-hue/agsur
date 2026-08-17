@@ -3,6 +3,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
@@ -75,24 +76,38 @@ class _ModalEditCompanyWidgetState extends State<ModalEditCompanyWidget> {
     _model.tFIncricCompanyFocusNode ??= FocusNode();
 
     SchedulerBinding.instance.addPostFrameCallback((_) async {
-      _model.getCompany = await CompanyTable().queryRows(
-        queryFn: (q) => q.eqOrNull('id', widget.companyId),
-      );
-      if (!mounted) return;
-      final row = _model.getCompany?.firstOrNull;
-      if (row != null) {
-        _model.typeDoc = row.typeDoc == '1' ? 1 : 2;
-        _model.tFCompanyNameTextController!.text = row.companyName;
-        _applyMaskedText(_model.tFPhoneCompanyTextController!,
-            _model.tFPhoneCompanyMask, row.phone ?? '');
-        _applyMaskedText(_model.tFCpfCompanyTextController!,
-            _model.tFCpfCompanyMask, row.cpf ?? '');
-        _applyMaskedText(_model.tFCnpjCompanyTextController!,
-            _model.tFCnpjCompanyMask, row.cnpj ?? '');
-        _model.tFIncricCompanyTextController!.text =
-            row.stateRegistration ?? '';
+      try {
+        _model.getCompany = await CompanyTable().queryRows(
+          queryFn: (q) => q.eqOrNull('id', widget.companyId),
+        );
+        if (!mounted) return;
+        final row = _model.getCompany?.firstOrNull;
+        if (row != null) {
+          _model.typeDoc = row.typeDoc == '1' ? 1 : 2;
+          _model.tFCompanyNameTextController!.text = row.companyName;
+          _applyMaskedText(_model.tFPhoneCompanyTextController!,
+              _model.tFPhoneCompanyMask, row.phone ?? '');
+          _applyMaskedText(_model.tFCpfCompanyTextController!,
+              _model.tFCpfCompanyMask, row.cpf ?? '');
+          _applyMaskedText(_model.tFCnpjCompanyTextController!,
+              _model.tFCnpjCompanyMask, row.cnpj ?? '');
+          _model.tFIncricCompanyTextController!.text =
+              row.stateRegistration ?? '';
+        }
+      } catch (e, st) {
+        // Um `companyId` que não é UUID (o placeholder "Não cadastrado" das
+        // RPCs) derruba o queryRows em 22P02. Sem este catch o `_loading`
+        // nunca virava false e a modal ficava girando para sempre, sem
+        // mensagem — o sintoma "não dá para alterar".
+        Sentry.captureException(
+          e,
+          stackTrace: st,
+          withScope: (scope) =>
+              scope.setTag('acao', 'modal_edit_company.carregarEmpresa'),
+        );
+      } finally {
+        if (mounted) setState(() => _loading = false);
       }
-      setState(() => _loading = false);
     });
   }
 

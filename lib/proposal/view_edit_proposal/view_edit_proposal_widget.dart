@@ -1,6 +1,7 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/api_requests/api_calls.dart';
 import '/backend/client_reuse.dart';
+import '/backend/commission.dart';
 import '/backend/lead_conversion.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/schema/structs/index.dart';
@@ -15,6 +16,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/pages/modal_edit_company/modal_edit_company_widget.dart';
+import '/pages/modal_register_company/modal_register_company_widget.dart';
 import '/pages/shared/alert_dialog/alert_dialog_widget.dart';
 import '/pages/shared/edit_email_dialog/edit_email_dialog.dart';
 import '/pages/shared/empty_all_lists/empty_all_lists_widget.dart';
@@ -178,6 +180,148 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
     _model.dispose();
 
     super.dispose();
+  }
+
+  /// A proposta já tem empresa cadastrada?
+  ///
+  /// `get_proposal_details` devolve o placeholder `"Não cadastrado"` (ou um
+  /// struct vazio) quando não há empresa — não é UUID. Sem esta checagem o
+  /// lápis abria a modal de edição com esse texto no lugar do id, o
+  /// `queryRows` morria em 22P02 e a modal ficava girando para sempre; e não
+  /// havia caminho nenhum para CADASTRAR a empresa depois de criar a proposta
+  /// (só `create_proposal` tinha o botão de "+"). Ver a armadilha do
+  /// placeholder de UUID no CLAUDE.md.
+  bool get _proposalHasCompany => RegExp(
+        r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+      ).hasMatch(FFAppState().asGetProposalDetails.proposalCompany.id);
+
+  /// A venda veio de indicação de terceiro?
+  ///
+  /// A marcação mora no LEAD (`leads.is_referral`, migration
+  /// `20260817120000`), porque precisa existir antes da conversão para a
+  /// comissão do vendedor sair certa de primeira — ver `commission.dart`.
+  /// Não dá para usar `_model.getLead`: ele só é carregado no ramo de cliente
+  /// NOVO, e numa recompra fica null.
+  ///
+  /// Falha-fechada em `false` (comissão cheia). Se a leitura do lead falhar,
+  /// pagar os US$ 7.500 é o erro barato; cortar US$ 3.000 de alguém por causa
+  /// de uma consulta que não respondeu, não.
+  Future<bool> _vendaVeioDeIndicacao() async {
+    final leadId = FFAppState().asGetProposalDetails.proposalLead.id;
+    if (!RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    ).hasMatch(leadId)) {
+      return false;
+    }
+    try {
+      final rows = await LeadsTable().queryRows(
+        queryFn: (q) => q.eqOrNull('id', leadId),
+      );
+      return rows.firstOrNull?.isReferral ?? false;
+    } catch (e, st) {
+      Sentry.captureException(
+        e,
+        stackTrace: st,
+        withScope: (scope) =>
+            scope.setTag('acao', 'conversao.lerIndicacaoDoLead'),
+      );
+      return false;
+    }
+  }
+
+  /// Cadastra a empresa de uma proposta que nasceu sem ela.
+  ///
+  /// A empresa pertence ao LEAD (`company.lead_id`), não à proposta — por isso
+  /// o insert leva o lead e o refresh vem da própria `get_proposal_details`.
+  Future<void> _cadastrarEmpresaDaProposta(BuildContext context) async {
+    final leadId = FFAppState().asGetProposalDetails.proposalLead.id;
+    if (!RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    ).hasMatch(leadId)) {
+      showWriteError(
+        context,
+        'Não foi possível identificar o lead desta proposta. '
+        'Recarregue a página e tente novamente.',
+      );
+      return;
+    }
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          elevation: 0,
+          insetPadding: EdgeInsets.zero,
+          backgroundColor: Colors.transparent,
+          alignment: AlignmentDirectional(0.0, 0.0)
+              .resolve(Directionality.of(context)),
+          child: GestureDetector(
+            onTap: () {
+              FocusScope.of(dialogContext).unfocus();
+              FocusManager.instance.primaryFocus?.unfocus();
+            },
+            child: ModalRegisterCompanyWidget(
+              leadId: leadId,
+              btnActions: (companyName, companyCnpj, companyPhone, _,
+                  companyCpf, typeDoc, stateRegistration) async {
+                final inserida = await guardInsert(
+                  context,
+                  () => CompanyTable().insert({
+                    'company_name': companyName,
+                    'cnpj': companyCnpj,
+                    'phone': companyPhone,
+                    'created_by': currentUserUid,
+                    'lead_id': leadId,
+                    'cpf': companyCpf,
+                    'type_doc': typeDoc?.toString(),
+                    'state_registration': stateRegistration,
+                  }),
+                );
+                // Bloqueio de RLS/trigger: a modal fica aberta com os campos
+                // preenchidos em vez de fechar fingindo que salvou.
+                if (inserida == null) return;
+
+                _model.viewEditCompanyProposal =
+                    await GetProposalDetailsCall.call(
+                  pProposalId: FFAppState().asGetProposalDetails.proposal.id,
+                );
+                if (!mounted) return;
+
+                final empresaAtualizada =
+                    GetProposalDetailsCall.objProposalCompany(
+                  (_model.viewEditCompanyProposal?.jsonBody ?? ''),
+                );
+                if ((_model.viewEditCompanyProposal?.succeeded ?? false) &&
+                    empresaAtualizada != null) {
+                  FFAppState().updateAsGetProposalDetailsStruct(
+                    (e) => e..proposalCompany = empresaAtualizada,
+                  );
+                }
+                safeSetState(() {});
+
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Empresa cadastrada com sucesso!',
+                      style: TextStyle(
+                        color: FlutterFlowTheme.of(context).primaryText,
+                      ),
+                    ),
+                    duration: Duration(milliseconds: 4000),
+                    backgroundColor: FlutterFlowTheme.of(context).primary,
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+
+    safeSetState(() {});
   }
 
   /// Aplica a [decideClientReuse] quando a conversão encontra um usuário com
@@ -1232,7 +1376,8 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                               ),
                                         ),
                                       ),
-                                      if (widget!.typeAccess == 'edit')
+                                      if (widget!.typeAccess == 'edit' &&
+                                          _proposalHasCompany)
                                       Builder(
                                         builder: (context) =>
                                             FlutterFlowIconButton(
@@ -1456,6 +1601,34 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                           },
                                         ),
                                       ),
+                                      // Proposta criada sem empresa: aqui entra
+                                      // o CADASTRO (o lápis acima só edita uma
+                                      // empresa que já existe). Sem este botão
+                                      // não havia como preencher os Dados
+                                      // Empresariais depois de criar a
+                                      // proposta — bug relatado em 14/08.
+                                      if (widget!.typeAccess == 'edit' &&
+                                          !_proposalHasCompany)
+                                        Builder(
+                                          builder: (context) =>
+                                              FlutterFlowIconButton(
+                                            borderRadius: 8.0,
+                                            buttonSize: 36.0,
+                                            fillColor:
+                                                FlutterFlowTheme.of(context)
+                                                    .primary,
+                                            icon: Icon(
+                                              Icons.add,
+                                              color:
+                                                  FlutterFlowTheme.of(context)
+                                                      .primaryText,
+                                              size: 20.0,
+                                            ),
+                                            onPressed: () =>
+                                                _cadastrarEmpresaDaProposta(
+                                                    context),
+                                          ),
+                                        ),
                                     ],
                                   ),
                                   Divider(
@@ -5941,6 +6114,26 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                       'contract_id':
                                                           createdContract.id,
                                                     });
+                                                    // Régua de 17/08/2026: 2%
+                                                    // para a AGSur e valor fixo
+                                                    // para o vendedor (7500, ou
+                                                    // 4500 se veio de
+                                                    // indicação). Os números
+                                                    // vivem em
+                                                    // backend/commission.dart —
+                                                    // não volte a chumbá-los
+                                                    // aqui. Congela agora: o
+                                                    // que for gravado não é
+                                                    // recalculado depois.
+                                                    final comissao =
+                                                        calcularComissao(
+                                                      fullprice: FFAppState()
+                                                          .asGetProposalDetails
+                                                          .proposal
+                                                          .fullprice,
+                                                      isIndicacao:
+                                                          await _vendaVeioDeIndicacao(),
+                                                    );
                                                     _model.createSales =
                                                         await SalesTable()
                                                             .insert({
@@ -5953,27 +6146,9 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                           .proposal
                                                           .fullprice,
                                                       'seller_commission':
-                                                          valueOrDefault<
-                                                              double>(
-                                                        (FFAppState()
-                                                                    .asGetProposalDetails
-                                                                    .proposal
-                                                                    .fullprice *
-                                                                5) /
-                                                            100,
-                                                        0.0,
-                                                      ),
+                                                          comissao.seller,
                                                       'company_commission':
-                                                          valueOrDefault<
-                                                              double>(
-                                                        (FFAppState()
-                                                                    .asGetProposalDetails
-                                                                    .proposal
-                                                                    .fullprice *
-                                                                25) /
-                                                            100,
-                                                        0.0,
-                                                      ),
+                                                          comissao.company,
                                                       'created_by':
                                                           currentUserUid,
                                                       'proposal_id': FFAppState()

@@ -41,14 +41,25 @@ class AppModal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
+    // Altura do teclado. No web/desktop é sempre 0, então isto é no-op lá.
+    // No celular, sem descontar: `size.height` é a tela INTEIRA, o modal é
+    // dimensionado como se o teclado não existisse e os campos de baixo ficam
+    // atrás dele, sem rolagem que alcance. Vale para os 28 usos de AppModal.
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    final visibleHeight = size.height - keyboard;
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 24,
+          bottom: 24 + keyboard,
+        ),
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: maxWidth,
-            maxHeight: size.height * 0.9,
+            maxHeight: visibleHeight * 0.9,
           ),
           child: Container(
             decoration: BoxDecoration(

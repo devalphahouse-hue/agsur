@@ -87,27 +87,33 @@ class _AppShellState extends State<AppShell> {
       key: appShellScaffoldKey,
       backgroundColor: const Color(0xFF313131),
       drawer: wide ? null : Drawer(elevation: 16.0, child: menu),
-      body: wide
-          ? Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  width: kSidebarWidth,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: Border(
-                        right: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.06),
+      // SafeArea aqui e não nas telas: são 42 usando AppListScaffold/
+      // AppDetailsScaffold, e todas desenhavam o topo POR BAIXO da barra de
+      // status no iOS — o título saía escrito por cima do relógio. No web é
+      // no-op (não há inset), por isso o bug só apareceu ao rodar no device.
+      body: SafeArea(
+        child: wide
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    width: kSidebarWidth,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border(
+                          right: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.06),
+                          ),
                         ),
                       ),
+                      child: menu,
                     ),
-                    child: menu,
                   ),
-                ),
-                Expanded(child: animatedChild),
-              ],
-            )
-          : animatedChild,
+                  Expanded(child: animatedChild),
+                ],
+              )
+            : animatedChild,
+      ),
     );
   }
 }

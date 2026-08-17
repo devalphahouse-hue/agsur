@@ -47,6 +47,14 @@ Migration `20260622160000_company_select_restrict` (aplicada e verificada):
   `auth_is_seller_or_admin()`. Seguro: app cliente não usa `CompanyTable`,
   `vw_my_aircraft*` não junta company, e as views de painel são lidas por Admin/Vendedor.
 
+Migration `20260622170000_my_aircraft_views_authz_predicate` (aplicada):
+- ✅ Predicado de autorização no `WHERE` das `vw_my_aircraft*` (que seguem
+  definer, lidas pelo app cliente) — mitiga o IDOR do item B enquanto o
+  `security_invoker` não pode ser ligado.
+- ⚠️ **Validar no app cliente** (Cliente / Piloto / Oficina): "minhas
+  aeronaves" e os detalhes precisam carregar. Se vier **vazio**, reverter
+  removendo o predicado do `WHERE` das duas views.
+
 ## Pendente — exige teste nos apps ou ação do dono
 
 Não aplicado headless de propósito (quebraria app/produção sem validação):
@@ -91,7 +99,18 @@ app mobile** (Cliente, Piloto, Oficina). Rollback: `set (security_invoker=off)`.
   ambas OFF). **Risco residual aceito:** contas admin ficam protegidas só por
   senha + gate de login (`check_app_access`, fail-closed). TOTP está habilitado no
   projeto, então dá pra retomar a qualquer momento.
-- 🟡 **Rotacionar** o `SUPABASE_ACCESS_TOKEN` (exposto em chat).
+- 🔴 **Rotacionar o `SUPABASE_ACCESS_TOKEN` — reexposto em chat em 2026-08-12**
+  (`sbp_eac2…a46`). É token da Management API: executa DDL e ignora RLS.
+  Item 7 do `RUNBOOK.md`. O token anterior já estava vencido, o que confirma
+  que o ciclo de rotação não está sendo seguido.
+- 🔴 **Conta de revisão com Admin Master em produção.**
+  `revisao.loja@agsurbrasil.app`, criada em 2026-08-12 para os revisores das
+  lojas. Enxerga todo o cadastro e o financeiro e alcança
+  `admin_delete_app_user`. A senha foi entregue à Apple e ao Google nos
+  formulários de revisão. **Depois da aprovação, rebaixar ou excluir.**
+- 🟡 **Trocar a senha fraca do Admin Master** (`vicenteroriz003`). O servidor já
+  exige `password_min_length=8` + `password_hibp_enabled=true`, mas a política
+  vale para senha **nova**; a antiga continua valendo até ser trocada.
 - 🟢 Higiene opcional: policies com `anon`/`public` → `TO authenticated` (hoje já
   inertes por se auto-bloquearem em `auth.uid()`).
 

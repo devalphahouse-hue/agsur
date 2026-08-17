@@ -1,2 +1,7 @@
 #include "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
 #include "Generated.xcconfig"
+
+// Time de assinatura (vicente el khatib roriz). Sem isto, build
+// para device físico falha pedindo "Signing for Runner requires a team".
+DEVELOPMENT_TEAM=XYYV8DTFFV
+CODE_SIGN_STYLE=Automatic

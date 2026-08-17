@@ -10,6 +10,11 @@ endereço alternativo). Gerencia leads, vendedores, propostas, contratos,
 oficina, esteira de importação ("tracking"), funcionários, taxas de
 financiamento.
 
+**Desde 2026-08-12 o mesmo código também é publicado como app de loja**
+(Android + iOS, `com.agsur.painel`) — ver "Build mobile / lojas". **Web é a
+produção viva; mobile é alvo adicional do mesmo `lib/`.** Toda mudança precisa
+compilar nos dois.
+
 Este repo também contém:
 
 - `supabase/` — schema versionado (migrations, RPCs, RLS) **compartilhado
@@ -18,6 +23,7 @@ Este repo também contém:
   e `deploy-vercel` (o único caminho de deploy do painel — ver o aviso em
   "Build de produção").
 - `RUNBOOK.md`, `SECURITY.md`, `supabase/DASHBOARD_TIER2_TODO.md` — operação.
+- `STORE_LISTING.md` — textos, Segurança de dados e conta de revisão das lojas.
 
 **`agsur-app` mora em repo separado:** `https://github.com/devalphahouse-hue/agsur-app`.
 
@@ -36,9 +42,14 @@ antes de subir.
 
 ```bash
 flutter pub get
-flutter analyze
-flutter test                                 # todos
+
+# Igual ao CI (flutter-analyze.yml). `flutter analyze` puro cospe milhares de
+# info/warning de código gerado pelo FlutterFlow — só ERROR é regressão real.
+flutter analyze --no-fatal-infos --no-fatal-warnings
+
+flutter test                                 # todos (o CI roda isto também)
 flutter test test/jwt_utils_test.dart        # arquivo único
+flutter test --plain-name "recompra"         # um caso por nome
 
 flutter run -d chrome                        # web
 flutter build web --release                  # antes de deploy Vercel
@@ -70,23 +81,132 @@ do deploy (manualmente ou via script). Vercel apenas serve o resultado.
 > projeto.** Como o Vercel não builda Flutter (`buildCommand: null`), um deploy
 > disparado pelo push sai **vazio** (sem `index.html`) e mesmo assim **rouba o
 > alias de produção** → `painel.agsurbrasil.app` inteiro vira `404 NOT_FOUND`.
+> Já derrubou o painel 4 vezes.
 >
-> Isso já aconteceu **4 vezes**: 2026-06-25 (a integração apontava pro repo
-> errado e subiu outro site por cima), 06-30, 07-02 e 2026-07-15. Na última, a
-> integração estava ligada desde 02/07 e ficava escondida: o deploy do CI rodava
-> logo depois de cada push e re-aliasava por cima. Um commit **só de `.md`** —
-> que o `deploy-vercel.yml` pula via `paths-ignore` — deixou o deployment vazio
-> sozinho e derrubou o painel.
->
-> A guarda hoje é `"git": {"deploymentEnabled": false}` no `vercel.json`
-> (versionada, sobrevive a mexida no dashboard). **Não remova.** Ela não afeta o
+> A guarda é `"git": {"deploymentEnabled": false}` no `vercel.json` (versionada,
+> sobrevive a mexida no dashboard). **Não remova.** Ela não afeta o
 > `vercel deploy --prebuilt` do CI, só o auto-deploy por push.
 >
-> **Sintoma → diagnóstico:** 404 com `x-vercel-error: NOT_FOUND` (e *não*
-> `DEPLOYMENT_NOT_FOUND`) = o deployment existe mas está vazio. Confirme com
-> `vercel inspect https://painel.agsurbrasil.app`: se o deployment servindo prod
-> tiver `"source": "git"`, é isso. Conserto: `vercel promote <dpl_ do último CI
-> verde>` restaura em segundos.
+> Diagnóstico e conserto do 404: `RUNBOOK.md` §12.1.
+
+### Build mobile / lojas (desde 2026-08-12)
+
+O mesmo `lib/` vira app Android e iOS, **`com.agsur.painel`** nas duas lojas.
+Textos, Segurança de dados e conta de revisão: `STORE_LISTING.md`.
+
+```bash
+flutter build appbundle --release --dart-define=APP_ENV=production  # Play (.aab)
+flutter build ios --release --no-codesign                            # só compilar
+
+# archive assinado (o time PRECISA vir na linha de comando: o pbxproj não tem
+# DEVELOPMENT_TEAM, e o CODE_SIGN_IDENTITY dele venceria um xcconfig)
+xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release \
+  -archivePath "$PWD/build/Runner.xcarchive" archive \
+  DEVELOPMENT_TEAM=XYYV8DTFFV CODE_SIGN_STYLE=Automatic -allowProvisioningUpdates
+```
+
+> ⚠️ **Nunca importe `package:web` (nem `dart:html`/`dart:js`) direto em
+> `lib/`.** É web-only e quebra o build mobile lá no kernel snapshot, com um
+> erro que não menciona a plataforma (`The getter 'toJS' isn't defined for the
+> type 'String'`, apontando para dentro do pacote). Foi exatamente o que
+> impediu o primeiro build de loja. O padrão é o de
+> `abrir_pdf_gerado.dart`: API neutra no arquivo principal + import condicional
+> `import 'x_io.dart' if (dart.library.js_interop) 'x_web.dart';`, com o stub
+> io compilando fora do navegador. **Web continua sendo a produção viva** —
+> mudou algo aqui, rode `flutter build web --release` também.
+
+**Nome do app mora em 4 lugares e o FlutterFlow reverte 3 deles.** O nome é
+**`Agsur Painel`** em todos; o valor original gerado (`AGSur - BackOffice`)
+aparecia sob o ícone e não batia com a ficha das lojas:
+
+- `ios/Runner/Info.plist` → `CFBundleDisplayName` **e** `CFBundleName`
+- `android/app/src/main/AndroidManifest.xml` → `android:label`
+- ficha do Play e do App Store (essas duas só mudam pelo console)
+
+Depois de uma regen, confira os três do código antes de gerar release.
+
+**Ícone: o iOS estava com o logo do Flutter.** Os 15 arquivos do
+`AppIcon.appiconset` eram o padrão do FlutterFlow — inclusive o de 1024, que é
+o que a Apple mostra na ficha (reprovação garantida). O Android já tinha a
+marca nos mipmaps; só o iOS ficou para trás. Regenerados em 2026-08-12 a partir
+de **`web/icons/Icon-512.png`**, que é a única arte quadrada da marca no
+projeto. Duas consequências para quem mexer nisso:
+
+- **A fonte tem 512px e o iOS precisa de 1024** — o atual é upscale 2× (LANCZOS)
+  e fica visivelmente macio de perto. Se aparecer o original em vetor ou 1024+,
+  vale regerar.
+- **iOS não aceita alpha**: achate sobre `rgb(27,27,26)`, que é a cor do canto
+  interno da arte, senão a silhueta arredondada aparece contra o fundo.
+
+**Assinatura iOS.** `DEVELOPMENT_TEAM=XYYV8DTFFV` e `CODE_SIGN_STYLE=Automatic`
+ficam em `ios/Flutter/Debug.xcconfig` e `Release.xcconfig` — sem isso o build
+para device físico falha pedindo time. O `pbxproj` não tem `DEVELOPMENT_TEAM`,
+então o xcconfig vale; mas ele **tem** `CODE_SIGN_IDENTITY`, que vence xcconfig
+— por isso o archive passa o time pela linha de comando também.
+
+⚠️ **`MinimumOSVersion 14.0`**: o upload de 2026-08-12 passou com aviso — a
+partir da primavera de 2027 a Apple exige 15.0. É trocar `IPHONEOS_DEPLOYMENT_TARGET`
+e o `platform :ios` do Podfile.
+
+**Assinatura Android.** `android/key.properties` + `android/app/key.jks` (alias
+`upload`, os dois fora do git e com `chmod 600`). O `build.gradle` usa a chave
+de release quando o `key.properties` existe e cai na de **debug** quando não —
+isso deixa `flutter run --release` funcionando em clone novo/CI, mas **um .aab
+assim é recusado no upload**. Confira antes de subir:
+
+```bash
+unzip -p build/app/outputs/bundle/release/app-release.aab META-INF/UPLOAD.RSA | keytool -printcert
+# esperado: CN=Agsur Painel  ·  SHA1 DB:B9:C8:1A:18:66:46:40:DC:78:1C:94:50:2C:A9:93:78:8A:75:1C
+```
+
+Perder o `key.jks` impede atualizar o app — o Play App Signing reduz o estrago,
+não elimina. Backup fora da máquina.
+
+**Identidades (não confundir com as vizinhas na mesma conta):**
+
+| | Onde | Detalhe |
+|---|---|---|
+| Play | conta `Vinicius Moreira` (`6549776849384192904`) | app `4972837200360954328`; é a mesma conta do `com.agsur.clientapp` (AEROTG) |
+| Apple | time **`XYYV8DTFFV`** (vicente el khatib roriz) | App ID e app do ASC criados lá; o AEROTG também mora nesse time |
+
+⚠️ O Apple ID usado tem 4 times (Busca Moto Brasil, Rinovva, TN Vet e o
+individual). **O portal e o App Store Connect voltam sozinhos para outro time**
+— o ASC chega a avisar "sua sessão foi encerrada em X e iniciada em Y", e abrir
+uma segunda aba do ASC basta para virar o time da sessão inteira. Confira o
+cabeçalho **imediatamente antes** de criar qualquer coisa.
+
+⚠️ **O Xcode 26 migrou o projeto iOS para o ciclo de vida UIScene** no primeiro
+build (mexeu em `ios/Runner/AppDelegate.swift`, `Info.plist` e
+`Runner.xcscheme`). Uma regen do FlutterFlow pode desfazer isso e voltar a
+quebrar o build iOS.
+
+**Screenshots: o mesmo arquivo NÃO serve para as duas lojas.** As capturas do
+simulador saem em **1320×2868**, que é exatamente a especificação de 6,9" da
+Apple — mas dá proporção 1:2,17, e o **Play recusa acima de 9:16** (1:1,78).
+Para o Google é preciso completar a largura para 1614×2868 (barras na cor de
+fundo do app), senão o upload é rejeitado.
+
+**Data safety do Play: use o CSV, não o formulário.** A tela tem
+`Export to CSV` / `Import from CSV`, e o importador **valida antes de aplicar**
+(foi ele que apontou os erros de dependência entre perguntas). Clicar no
+formulário é onde se erra: os grupos de rádio ficam duplicados no DOM e é fácil
+desmarcar a pergunta principal sem ver — duas vezes cheguei a uma prévia
+dizendo "este app não coleta dados do usuário", que é falso e motivo de remoção.
+O CSV preenchido de 2026-08-12 está versionado em
+`store/play-data-safety.csv`; na próxima mudança de coleta, edite e reimporte.
+**Sempre confira o Preview antes de salvar.** (Em `store/` também mora o
+`play-icon-512.png` já sangrado para o Play.)
+
+> ⚠️ **Existe conta e dado fictício EM PRODUÇÃO por causa das lojas.**
+> `revisao.loja@agsurbrasil.app` (uid `a4d4a9a8-…b546`) foi criada em
+> 2026-08-12 como credencial para os revisores da Apple e do Google, e está
+> com perfil **Admin Master** — o Play exige declarar que a credencial dá
+> acesso total, e Vendedor não dava. Junto vieram 4 leads, 3 propostas, 3
+> financiamentos e 3 empresas fictícios (CPF `111.111.111-11`, e-mails
+> `@exemplo.com.br`), porque as telas vazias não rendiam screenshot nem
+> revisão. **Não é dado de cliente e não deve ser tratado como tal.** Depois da
+> aprovação, decidir: rebaixar/excluir a conta (`admin_delete_app_user`) e
+> marcar o dado como `is_deleted`, ou manter como ambiente de demonstração.
 
 ### Workflow de schema (Supabase)
 
@@ -141,23 +261,36 @@ histórico, e o nome da pasta do design system quase colide com o do `agsur-app`
   `contract/` foge um pouco (`contracts/`, `view_contract/`,
   `create_contract_terms/`, `view_edit_contract_terms/`).
 - **Telas herdadas do FlutterFlow → `lib/pages/`.** `aircrafts`, `tracking`,
-  `users`, `chat`, `guarantes` (sic), `profile`, `items`, `parts_quote`,
-  `service_offering`, `authentication` e os `modal_*`. Procurar uma tela do
-  funil aqui não acha nada.
+  `users/pilot`, `chat`, `guarantes` (sic), `profile`, `items`, `parts_quote`,
+  `service_offering`, `authentication`, `home/home_page` (o **dashboard**) e 4
+  `modal_*` de raiz (`modal_create_available_aircraft`, `modal_edit_company`,
+  `modal_register_company`, `modal_tracking`). Procurar uma tela do funil aqui
+  não acha nada.
+- **⚠️ `lib/pages/shared/` é onde mora quase tudo que este doc cita pelo nome.**
+  Antes de sair procurando um `modal_*` na raiz de `pages/`, olhe aqui: `menu/`
+  (o menu por perfil), os diálogos (`confirm_delete_dialog`,
+  `cancel_contract_dialog`, `edit_email_dialog`, `alert_dialog`,
+  `custom_snac_bar`), os cadastros (`modal_create_client`,
+  `modal_register_pilot/seller/collab/lead/note/address`, `register_oficina`,
+  `modal_certificate*`, `modal_services_offering`), os seletores
+  (`client_multi_select`, `aircraft_multi_select`, `linked_clients_section`) e
+  os empty states.
 - **Design system: `lib/core_ui/`** — ⚠️ **no `agsur-app` é `lib/core/ui/`.**
   São projetos e pastas diferentes; ao pular de um app para o outro é fácil
   importar/procurar no caminho errado. Aqui ficam `AppModal`,
   `AppListScaffold`, `AppDetailsScaffold`, `ResponsiveRow`, `app_shell.dart`
-  (`kSidebarBreakpoint`) e `app_responsive.dart` (`kStackBreakpoint`).
+  (`kSidebarBreakpoint`), `app_responsive.dart` (`kStackBreakpoint`) e o
+  `query_cache.dart` (ver "FutureBuilder" em Convenções).
 - **`lib/security/` guarda mais do que o nome sugere** — além de
   `access_control.dart`, `jwt_utils.dart` e `password_utils.dart`, mora ali o
   cross-cutting de UX/fluxo: `action_feedback.dart` (padrão de feedback de
   escrita), `credentials_email.dart` (chamada da Edge Function) e
   `stuck_email.dart` (autocura do 422). Antes de escrever helper novo desse
   tipo, olhe aqui.
-- **Gerado/intocável:** `lib/flutter_flow/` e `lib/backend/supabase/database/`
-  (ver "Stack"). `lib/custom_code/actions/` são as actions custom do
-  FlutterFlow — é onde vive o `abrir_pdf_gerado.dart`.
+- **Gerado/intocável:** `lib/flutter_flow/`, `lib/backend/supabase/database/` e
+  `lib/backend/schema/` (structs/enums/util do FlutterFlow) — ver "Stack".
+  `lib/custom_code/actions/` são as actions custom do FlutterFlow — é onde vive
+  o `abrir_pdf_gerado.dart`. `lib/components/` tem só o widget de notificações.
 
 ### Backend Supabase
 
@@ -166,21 +299,15 @@ camada de API própria além de algumas chamadas REST diretas em
 `lib/backend/api_requests/api_calls.dart` (ex.: `signup` chamando `/auth/v1/signup`
 para criar usuários sem deslogar o admin; `ViaCepCall` para autofill de CEP).
 
-> ✅ **RESOLVIDO 2026-07-22 — e-mails presos no auth (422 na conversão).**
-> Duas causas com o mesmo sintoma: (a) soft-delete legado — excluídos antes do
-> tombstone (`20260622120000`) seguraram o e-mail no `auth.users`; (b) conta de
-> auth **órfã** (signup criou a conta, o insert em `public.users` falhou e o
-> rollback não rodou — aconteceu até em 17-18/07). O backfill
-> `20260722200000` tombstoneou+baniu todos (51 legados + órfãs), e a RPC
-> **`admin_release_stuck_email`** (`20260722201000`) tornou o fluxo
-> auto-curativo: quando o signup recusa e não há cadastro ativo para reusar, o
-> painel chama a RPC (libera SÓ conta excluída/órfã; ativa retorna `'ativo'` e
-> não é tocada) e repete o signup UMA vez — na conversão
-> (`view_edit_proposal`) e na criação manual (`modal_create_client`), via
-> `lib/security/stuck_email.dart`. O `catch` da conversão também ganhou
-> rollback best-effort (`admin_purge_orphan_auth_user`) para não deixar órfã
-> nova. `20260722202000` revogou EXECUTE de `anon` nas 5 RPCs admin (default
-> privileges do Supabase davam o grant direto; o gate interno já segurava).
+**E-mail preso no auth — o fluxo é auto-curativo, não reimplemente.** Quando o
+signup recusa um e-mail e não há cadastro ativo para reusar,
+`lib/security/stuck_email.dart` chama a RPC `admin_release_stuck_email`
+(`20260722201000`, libera SÓ conta excluída ou órfã — ativa retorna `'ativo'` e
+não é tocada) e repete o signup **uma vez**. Já ligado na conversão
+(`view_edit_proposal`) e na criação manual (`modal_create_client`); fluxo novo
+que crie usuário deve passar por ele. O `catch` da conversão faz rollback
+best-effort com `admin_purge_orphan_auth_user` para não deixar órfã nova.
+Diagnóstico quando ainda assim falhar: `RUNBOOK.md` §13.
 
 **Criar/excluir usuário (armadilhas).** O signup (`/auth/v1/signup`, anon) cria a
 conta no auth e o painel insere a linha em `public.users` em seguida. Para
@@ -226,11 +353,6 @@ e-mail nativo do Supabase, limitado a 2/hora, ficou só para "esqueci a senha").
 **E-mail editável no funil (2026-07-17/18).** Decisão de UX do cliente: **UMA
 forma de editar por tela** — sem lápis avulso ao lado do texto; o e-mail vive
 dentro do formulário/modal que a tela já tem.
-
-> ✅ **Status (2026-07-20):** código em produção e **as migrations
-> `20260717120000` e `20260717130000` foram APLICADAS** (`db push` junto com a
-> do cancelamento de contrato). Troca de e-mail pós-contrato e "Reenviar senha"
-> saíram da inércia em que estavam desde 17/07 — funcionam de verdade agora.
 
 - **Proposta (antes da conversão):** as modais de empresa
   (`modal_register_company`/`modal_edit_company`) ganharam o campo "E-mail do
@@ -280,6 +402,11 @@ dentro do formulário/modal que a tela já tem.
   (era `readOnly` com fill claro `0x72FFFFFF` + texto `primaryText` preto —
   nesta tela cinza claro = travado; ao destravar um campo, troque fill para o
   padrão e texto para `secondaryBackground`).
+- **Oficina e Piloto NÃO têm troca de e-mail.** A RPC atômica
+  `admin_update_client_email` **recusa perfil que não seja Cliente**, e gravar
+  só em `public.users` desligaria a pessoa do próprio login. Por isso o campo é
+  somente leitura em `oficina_details` — não o destrave sem antes estender a
+  RPC; campo editável prometeria o que o save não pode cumprir.
 - **Dados cadastrais do cliente (2026-07-18, `view_edit_client`):** Nome,
   Sobrenome, CPF e Empresa também editáveis para `canEditFunil` (cinza
   travado para os demais — fill/cor condicionais no padrão do e-mail). O
@@ -311,9 +438,8 @@ dentro do formulário/modal que a tela já tem.
 
 ### Schema versionado em `supabase/migrations/`
 
-DDL agora vive **versionado no git** em `supabase/migrations/` (47 arquivos em
-2026-07-15; todos aplicados em produção e registrados no histórico do Supabase,
-exceto o enforcement da Fase 7 — ver RBAC abaixo). Em 2026-07-14 o histórico
+DDL agora vive **versionado no git** em `supabase/migrations/` (**60 arquivos**,
+último `20260728123000`). Em 2026-07-14 o histórico
 foi **reparado** via `migration repair` (4 migrations tinham sido aplicadas por
 fora sem registro); desde então `db push --dry-run` reflete a realidade e o
 CLI recusa aplicar a Fase 7 fora de ordem sem `--include-all`. O batch de
@@ -335,6 +461,8 @@ endurecimento (2026-05-08 a 2026-05-26) cobre:
   para Admin Master sem `aal=aal2`. **Pendente ativação no Studio**
   (Auth → Hooks). Defesa em camadas client-side já no painel.
 - **Storage hardening:** buckets com `file_size_limit` + `allowed_mime_types`.
+  ⚠️ As policies `all_access` permissivas ficaram para trás nesse batch e só
+  saíram em `20260728122000` — ver o lote de 2026-07-28 abaixo.
 
 Lotes posteriores (fora do batch inicial):
 
@@ -366,6 +494,25 @@ Lotes posteriores (fora do batch inicial):
   (`security_invoker`) e a `get_proposal_details` versionada pela primeira vez,
   com os itens de série filtrados pelo avião da proposta (antes o JOIN era
   `ON item_type='series'` — todo item entraria em toda proposta).
+- **Achados da auditoria de 2026-07-28 (4 migrations).** Vale ler os cabeçalhos:
+  cada uma traz o rollback comentado e o roteiro de validação.
+  - `20260728120000` (baixo risco): **`chat_participants.thread_id` virou
+    imutável** — a policy de UPDATE só validava `user_id = auth.uid()` e, como a
+    PK é `(thread_id, user_id)`, dava para mover a própria participação para a
+    DM alheia. **RLS não expressa "coluna imutável"** → a correção é *grant por
+    coluna* (só `last_read_at` é atualizável). Também: revoke de `anon` em 6
+    funções esquecidas, `get_proposal_details` recuperando
+    `SECURITY`/`search_path` perdidos num `CREATE OR REPLACE`, e
+    `security_barrier` nas 5 views definer de autorização.
+  - `20260728121000` (**muda autorização**): armou o UPDATE da
+    `tg_users_block_privilege_escalation` — ver RBAC abaixo.
+  - `20260728122000`: derrubou as **5 policies `all_access` residuais** de
+    `storage.objects`. Uma delas era `SELECT TO public` com `USING (true)`, o
+    que tornava `chat-attachments` e `pdfs` (ambos `public=false`) baixáveis
+    **sem login** com a anon key — policy permissiva se combina por OR, então
+    bucket privado não fechava nada enquanto ela existisse.
+  - `20260728123000`: as 2 funções que o revoke de `...120000` não pegou — ver
+    "as DUAS metades do revoke" logo abaixo.
 
 Status atual completo + smoke tests em `supabase/README.md`. Pendências
 manuais do dashboard em `supabase/DASHBOARD_TIER2_TODO.md`.
@@ -404,34 +551,24 @@ select p.proname, has_function_privilege('anon', p.oid, 'EXECUTE') as anon,
 falha com "function does not exist". Confira a assinatura na migration de origem
 antes de revogar.
 
-### ⚠️ Endurecimento de segurança 2026-06-22 — handoff (VALIDAR)
+### Endurecimento de 2026-06-22 — o que ainda condiciona código novo
 
-Várias mudanças foram aplicadas **direto em produção** via Management API (e
-versionadas em `supabase/migrations/`). Registro vivo: `SECURITY_AUDIT.md`. Se
-algo aparecer quebrado, comece por aqui.
+O registro vivo (o que foi aplicado, o que falta validar em cada app, rollback
+de cada view) é o **`SECURITY_AUDIT.md`** — leia lá antes de mexer em view,
+policy ou bucket. O que precisa estar na cabeça ao escrever código:
 
-- **Validar no painel** (logar como **Admin** e como **Vendedor**): listas de
-  clientes, pilotos, contratos, tracking, notas e o dashboard carregam normal?
-  (flips de `security_invoker`). Rollback de qualquer view:
-  `alter view public.<v> set (security_invoker = off);`
-- **Validar no app cliente** (**Cliente / Piloto / Oficina**): "minhas aeronaves"
-  e os detalhes carregam? (predicado de authz nas `vw_my_aircraft*` —
-  migration `..._my_aircraft_views_authz_predicate`). Se vier vazio, reverter
-  removendo o predicado do `WHERE` das duas views.
-- **Buckets / signed URLs:** leituras dos 2 apps já convertidas para
-  `app_storage.dart` (fallback-safe). **NÃO** privar os buckets até a versão
-  mobile com signed URLs estar **adotada** (quebra clientes antigos). Flip
-  (reversível): `update storage.buckets set public=false where id in ('AGSur','service-letters');`.
-- **Política de senha:** servidor com `password_min_length=8` +
-  `password_hibp_enabled=true` (bloqueia senha vazada); validadores do painel já
-  em 8. **Pendente do dono:** trocar a senha fraca do Admin Master
-  (`vicenteroriz003`) e **rotacionar** o `SUPABASE_ACCESS_TOKEN` exposto em chat.
-- **MFA:** descartado por decisão de produto (implementação revertida); infra
-  server-side (`custom_access_token_hook` + flag `ENFORCE_MFA_ADMIN_MASTER`)
-  segue **OFF**.
-- **Reauditar:** skills `agsur-security-audit` / `db-migration-security-review` e
-  agentes `supabase-security-auditor` / `flutter-client-security-reviewer` /
-  `security-remediation-engineer` em `.claude/` (rodar de dentro de `agsur-main/`).
+- **Buckets:** as leituras dos 2 apps já passam por `app_storage.dart`
+  (signed URL, fallback-safe) — use-o em ponto de leitura novo. **NÃO** privar
+  `AGSur`/`service-letters` até a versão mobile com signed URLs estar adotada
+  (quebra cliente antigo). Isso é a flag `storage.buckets.public`; a camada de
+  **policy** de `storage.objects` é outra coisa e já foi fechada por
+  `20260728122000` — quem protege `chat-attachments`/`pdfs` são as policies.
+- **MFA:** descartado por decisão de produto; a infra server-side
+  (`custom_access_token_hook` + `ENFORCE_MFA_ADMIN_MASTER`) segue **OFF**.
+- **Reauditar:** skills `agsur-security-audit` / `db-migration-security-review`
+  e agentes `supabase-security-auditor` / `flutter-client-security-reviewer` /
+  `security-remediation-engineer` em `.claude/` (rodar de dentro de
+  `agsur-main/`).
 
 ### Auth
 
@@ -479,12 +616,20 @@ retornava true para qualquer chamador; só a RLS segurava as escritas. O fix
 (`20260715120000_fix_trigger_service_role_bypass`) cria
 `auth_is_service_request()` (usa `session_user`, imune a definer) e troca a
 checagem nas 5 funções de guarda (`tg_require_admin/seller_or_admin/
-documentacao/funil`, `tg_block_edit_when_soft_deleted`). **Seguem
-deliberadamente neutralizadas** (bypass antigo; RLS é o guarda):
-`tg_users_block_privilege_escalation` e as `tg_*_ownership` — armar exige
-reconciliar as regras com os fluxos reais (vendedor cria cliente na conversão;
-recepção cadastra piloto/oficina); `tg_require_service_role` (gate do audit
-log) precisa do bypass por current_user. ⚠️ Personificação via Management
+documentacao/funil`, `tg_block_edit_when_soft_deleted`).
+
+**`tg_users_block_privilege_escalation`: UPDATE armado em `20260728121000`.**
+Enquanto ela ficou neutralizada, nada guardava as colunas de privilégio: a
+policy `user_security_update` libera a própria linha sem restrição de coluna,
+então um Cliente/Piloto/Oficina logado no app fazia
+`PATCH /rest/v1/users?id=eq.<próprio> {"profile_type":"Admin Master"}` e virava
+master na requisição seguinte (precedente real: `20260508120700`). Hoje a
+função usa `auth_is_service_request()` no ramo de UPDATE — auto-edição não muda
+nenhum campo de privilégio, editar terceiro exige papel de painel e só master
+mexe em `profile_type`/`is_admin`/`access_level`. **O bypass antigo continua de
+propósito em INSERT/DELETE** (fluxos de criação ainda não reconciliados), assim
+como nas `tg_*_ownership`; `tg_require_service_role` (gate do audit log)
+precisa do bypass por `current_user`. ⚠️ Personificação via Management
 API/psql NÃO testa as triggers (session_user = postgres → bypass): valide com
 JWT real via PostgREST. No client-side, `AccessControl.canEditFunil`
 (master+documentação) decide o `typeAccess=edit` das listagens de
@@ -508,32 +653,10 @@ bug do `company` passou meses invisível). Regras ao escrever no banco:
   de alertar quem não clicou em nada. Escrita por clique fica ruidosa.
 - Nem todo bloqueio deve abortar: se a escrita anterior JÁ persistiu (delete de
   item + sync de total), early-return deixaria a tela inconsistente — reporte e
-  siga. Todos os 26 update/delete das telas do funil estão cobertos
-  (2026-07-14).
-
-### Telas que escrevem sem guarda — varredura de 2026-07-28
-
-A cobertura do `write_guard`/`action_feedback` tinha um furo: `oficina_details`
-(o "Atualizar dados") chamava `UsersTable().update` **sem `returnRows` e sem
-guarda**, abrindo o diálogo de sucesso incondicionalmente — bloqueio de RLS
-virava "salvo com sucesso". Corrigido. Das 22 telas de escrita do funil, era a
-única descoberta; as outras 4 que não importam o helper usam `checkWrite`.
-
-No mesmo arquivo, o campo **e-mail virou somente leitura**: ele é o login no
-auth, e gravá-lo só em `public.users` desliga a oficina do próprio acesso. A RPC
-que faz a troca atômica (`admin_update_client_email`) **recusa perfil que não
-seja Cliente** — ou seja, **não existe fluxo de troca de e-mail para
-Oficina/Piloto hoje**. Campo editável prometia o que o save não podia cumprir.
-
-**Null-check no caminho do PDF (2 casos, ambos corrigidos).** O botão "Gerar
-PDF" de `view_edit_proposal` usava `containerProposalFinancingRow!` num bloco
-onde todo o resto usa `?.` — nas 21 de 48 propostas sem financiamento o clique
-estourava e, sem `try/catch` no callback assíncrono, **não acontecia nada**: sem
-PDF e sem mensagem (o sintoma "não sai daí"). O botão gêmeo do `view_contract`
-já tinha a guarda desde 22/07. `generate_proposal_pdf` tinha o mesmo problema com
-`dataCredito!` — único campo nullable do struct, que o arquivo já degradava na
-exibição e não no cálculo. Ao mexer nesses dois arquivos, **procure `!` isolado
-em meio a `?.`**: é a assinatura do bug.
+  siga.
+- **Cobertura:** as 26 escritas das telas do funil (2026-07-14) e as 22 telas de
+  escrita varridas em 2026-07-28 estão cobertas — 4 delas por `checkWrite` em
+  vez do `guardWrite`. Tela nova de escrita entra nessa conta.
 
 ### Feedback ao usuário — `action_feedback` (2026-07-20)
 
@@ -715,6 +838,24 @@ escrita à mão). Mapa do fluxo:
 - Criar/editar/excluir unidade seguem o padrão `action_feedback`/`guardWrite`
   (a tela ficou fora da varredura de 2026-07-20 e foi coberta em 2026-07-22).
 
+### Chat interno do painel (`20260628120000_panel_chat.sql`)
+
+DM 1:1 **entre usuários do painel apenas** (`Admin Master`/`Admin`/`Vendedor`
+ou `is_admin`); Cliente/Piloto/Oficina estão fora de escopo. Telas em
+`lib/pages/chat/{chat,chat_detail}`, no menu para quem tem acesso.
+
+- Tabelas: `chat_threads`, `chat_participants` (membros + `last_read_at`),
+  `chat_messages` (texto e/ou anexo).
+- **Thread e participante só nascem pela RPC `chat_get_or_create_dm(uuid)`**
+  (definer) — não há policy de INSERT nessas duas tabelas.
+- Leitura via helper `chat_is_member(thread)` (definer, evita recursão de RLS)
+  combinado com `auth_is_seller_or_admin()`.
+- Anexos no bucket privado `chat-attachments` (image/* + PDF), com a **pasta =
+  `thread_id`** e as policies de storage amarradas à participação.
+- ⚠️ O UPDATE de `chat_participants` é **grant por coluna** (só `last_read_at`)
+  desde `20260728120000` — ao mexer nessa tabela, não tente expressar a
+  imutabilidade do `thread_id` em RLS; ela não sabe fazer isso.
+
 ### Observabilidade
 
 Sentry está integrado em `lib/observability/sentry.dart`:
@@ -794,6 +935,12 @@ duplicadas). "% TOTAL DE ENTRADA" deriva de sinal+depósito — o campo
 - Lints usam `package:flutter_lints/flutter.yaml` com `unnecessary_string_escapes: false`.
 - Rodar `flutter analyze` antes de propor mudanças não-triviais — alguns
   arquivos gerados têm warnings tolerados, mas erros novos devem ser corrigidos.
+- **Procure `!` isolado em meio a `?.`** — é assinatura de bug nas telas e nos
+  geradores de PDF. Num callback assíncrono sem `try/catch`, o null-check
+  estoura e **não acontece nada** (sem PDF, sem mensagem: o sintoma "não sai
+  daí"). Já mordeu duas vezes: `containerProposalFinancingRow!` no "Gerar PDF"
+  de `view_edit_proposal` e `dataCredito!` em `generate_proposal_pdf` — campos
+  que o resto do arquivo já tratava como nullable.
 - **Versões de dependência são pinadas.** Bumpar manualmente arrisca quebrar a
   próxima regeneração FlutterFlow. Só mexa com motivo claro e teste auth +
   queries depois.
@@ -805,6 +952,14 @@ duplicadas). "% TOTAL DE ENTRADA" deriva de sinal+depósito — o campo
   `create_proposal`). Memoize o future no model (`_model.algumFuture ??= ...`,
   ou `Map` por chave) e limpe no `dispose`. Os helpers `FutureRequestManager`
   (`propostaFinanceiro`, `aircraft`) já fazem isso para as RPCs do topo.
+- **Dado que sobrevive à tela → `QueryCache`** (`lib/core_ui/query_cache.dart`):
+  `QueryCache.fetch(key:, ttl:, fetcher:)` cacheia por TTL (padrão 2 min) e faz
+  dedupe de requests concorrentes na mesma key. É o certo para dropdown/lista
+  repetida entre telas (clientes, vendedores, categorias) — já usado por
+  `contracts`, `proposals`, `home_page`, `menu`, `available_aircrafts` e
+  `lead_conversion`. Memoizar no model resolve só um `build`; isto atravessa
+  navegação. Ao gravar algo que muda o resultado, chame
+  `QueryCache.invalidate(key)` (é o que `LeadConversion.invalidate()` faz).
 
 ### Flutter web — armadilhas conhecidas
 
@@ -850,6 +1005,33 @@ quebrou produção:
   no ar, o build injeta o short-SHA (`__AGSUR_BUILD_ID__`) no `index.html`
   publicado — `curl -s painel-agsur.vercel.app/index.html | grep -o '<short-sha>'`.
 
+### Mobile de verdade — o que o web escondia (2026-08-12)
+
+Rodar no simulador iOS pela primeira vez expôs dois problemas que **não
+aparecem no web**, porque dependem de barra de status e de tela estreita de
+celular. Ao mexer em layout, teste no device, não só no Chrome.
+
+- ✅ **Corrigido — topo desenhava sob a barra de status.** O `body` do
+  `AppShell` não tinha `SafeArea`, então o título da página saía escrito por
+  cima do relógio do iOS em **todas** as telas. A correção é no `AppShell` (um
+  ponto, cobre as 42 telas que usam `AppListScaffold`/`AppDetailsScaffold`) e é
+  no-op no web, onde não há inset. Não replique `SafeArea` nas telas.
+- ✅ **Corrigido — `AppModal` ignorava o teclado.** O `maxHeight` era
+  `size.height * 0.9`, ou seja, a tela **inteira**: com o teclado aberto no
+  celular o modal era dimensionado como se ele não existisse, e os campos de
+  baixo ficavam atrás do teclado sem rolagem que os alcançasse. Agora desconta
+  `MediaQuery.viewInsetsOf(context).bottom` da altura e soma ao padding
+  inferior. Atinge os **28 usos de AppModal** (todo cadastro e edição do
+  funil). No web é no-op — não há inset de teclado.
+- 🔎 **`AppDataTable` no celular: funciona, mas parece quebrado no print.**
+  Abaixo de `kStackBreakpoint` a tabela entra num `SingleChildScrollView`
+  horizontal com `minWidth`, então as colunas além da primeira ou segunda
+  ficam fora da área visível — o print sugere que a listagem está cortada. Não
+  está: **a linha inteira é clicável** (`_HoverRow.onTap` → `onRowTap`, que as
+  4 listagens do funil passam navegando para o detalhe) e o resto das colunas
+  aparece rolando de lado. Melhoria possível (não urgente): virar cartões no
+  mobile, para não depender de rolagem horizontal nem de descoberta.
+
 ### Responsividade (mobile / tablet)
 
 O painel é usado em desktop, tablet e celular. O design system em `lib/core_ui/`
@@ -878,12 +1060,10 @@ já trata a casca; ao mexer em telas/conteúdo, mantenha o padrão:
 
 - **Domínio `painel.agsurbrasil.app`:** DNS no GoDaddy (nameservers
   `domaincontrol.com`), CNAME `painel` → `52bd46848322ad47.vercel-dns-017.com`
-  (projeto Vercel `painel-agsur`). O MESMO domínio tem os registros de e-mail
-  do Resend (`send.painel...`, `resend._domainkey.painel...`) — ao mexer num
-  conjunto, não tocar no outro. Incidente 2026-07-15: na configuração do
-  Resend o CNAME do site foi removido sem querer no GoDaddy e o painel saiu
-  do ar (diagnóstico: `dig painel.agsurbrasil.app A/CNAME` vazio + serial SOA
-  do dia). E-mail transacional sai pela Edge Function `send-credentials-email`
+  (projeto Vercel `painel-agsur`). ⚠️ O MESMO domínio tem os registros de
+  e-mail do Resend (`send.painel...`, `resend._domainkey.painel...`) — ao mexer
+  num conjunto, **não tocar no outro** (já derrubou o painel; `RUNBOOK.md`
+  §12.2). E-mail transacional sai pela Edge Function `send-credentials-email`
   (remetente `acesso@painel.agsurbrasil.app`).
 - Antes de subir uma migration nova, sempre fazer `npx supabase db push --dry-run`.
 - Buscar problemas de RLS via smoke test: `gh workflow run rls-smoke.yml`.

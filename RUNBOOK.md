@@ -303,3 +303,111 @@ Marcar no calendário:
 - [ ] **Trimestral:** rotacionar `SUPABASE_ACCESS_TOKEN` (item 7).
 - [ ] **Anual:** revisar lista de Admins/Admin Master ativos. Remover quem
       não trabalha mais com Agsur.
+
+---
+
+## 12. Painel fora do ar (`painel.agsurbrasil.app`)
+
+### 12.1. 404 — deployment vazio roubou o alias de produção
+
+**Sintoma:** o painel inteiro responde **404 com `x-vercel-error: NOT_FOUND`**
+(e *não* `DEPLOYMENT_NOT_FOUND` — essa distinção é o diagnóstico: o deployment
+existe, mas está vazio, sem `index.html`).
+
+**Causa:** a integração Git nativa do Vercel estava conectada ao projeto. Como
+o `vercel.json` tem `buildCommand: null` (o Vercel não builda Flutter), o
+deploy disparado pelo push sai vazio — e mesmo assim assume o alias de
+produção.
+
+**Confirmar:**
+
+```bash
+vercel inspect https://painel.agsurbrasil.app
+# se o deployment servindo produção tiver "source": "git" → é isso
+```
+
+**Conserto (segundos):** `vercel promote <dpl_ do último CI verde>`.
+
+**Prevenção — já versionada:** `"git": {"deploymentEnabled": false}` no
+`vercel.json`. Sobrevive a mexida no dashboard e **não** afeta o
+`vercel deploy --prebuilt` do CI, só o auto-deploy por push. **Não remover.**
+
+**Histórico (4 ocorrências):** 2026-06-25 (a integração apontava para o repo
+errado e publicou outro site por cima), 06-30, 07-02 e 2026-07-15. Na última a
+integração estava ligada desde 02/07 e ficava escondida: o deploy do CI rodava
+logo após cada push e re-aliasava por cima, mascarando o problema. Um commit
+**só de `.md`** — que o `deploy-vercel.yml` pula via `paths-ignore` — deixou o
+deployment vazio sozinho no alias e derrubou o painel.
+
+### 12.2. Domínio não resolve — CNAME removido no GoDaddy
+
+**Sintoma:** `dig painel.agsurbrasil.app A` / `CNAME` volta vazio; o serial SOA
+da zona mudou no dia.
+
+**Causa (2026-07-15):** ao configurar os registros de e-mail do **Resend**, o
+CNAME do site foi removido sem querer. O mesmo domínio carrega os dois
+conjuntos de registros:
+
+- site: `painel` → `52bd46848322ad47.vercel-dns-017.com` (projeto `painel-agsur`)
+- e-mail: `send.painel...` e `resend._domainkey.painel...`
+
+**Regra:** ao mexer num conjunto, não tocar no outro. DNS fica no GoDaddy
+(nameservers `domaincontrol.com`).
+
+### 12.3. "O Vercel está na versão antiga" (quase sempre falso alarme)
+
+Confirmar qual commit está no ar antes de investigar — o build injeta o
+short-SHA no `index.html` publicado:
+
+```bash
+# o placeholder de web/flutter_bootstrap.js é inlined no index.html e trocado
+# pelo short-sha no passo "Inject build id" do deploy-vercel.yml
+curl -s painel-agsur.vercel.app/index.html | grep -o 'BUILD_ID = "[^"]*"'
+```
+
+Se o SHA é o esperado, o servidor está certo e o navegador é que serve o
+service worker velho. Isso já foi resolvido em duas pontas (`skipWaiting` no
+`deploy-vercel.yml` + reload no `controllerchange` do `web/index.html`); se
+voltar a acontecer, verifique se alguma das duas foi removida.
+
+---
+
+## 13. E-mail preso no `auth` (422 ao criar cliente / converter proposta)
+
+**Sintoma:** o signup recusa um e-mail com **422 `user_already_exists`** (ou
+devolve **200 "ofuscado", com `identities` vazio**) mesmo não havendo cadastro
+ativo com aquele e-mail no painel.
+
+**Causas (as duas dão o mesmo sintoma):**
+
+1. **Soft-delete legado** — usuários excluídos antes do tombstone
+   (`20260622120000`) seguraram o e-mail em `auth.users`.
+2. **Conta de auth órfã** — o signup criou a conta, o insert em `public.users`
+   falhou e o rollback não rodou (ocorreu em 17-18/07/2026).
+
+**Hoje o fluxo se autocura** (`lib/security/stuck_email.dart`): quando o signup
+recusa e não há cadastro ativo para reusar, o painel chama
+`admin_release_stuck_email` e repete o signup **uma vez**. A RPC libera
+**somente** conta excluída ou órfã — cadastro ativo retorna `'ativo'` e não é
+tocado. Vale na conversão (`view_edit_proposal`) e na criação manual
+(`modal_create_client`).
+
+**Se ainda assim falhar**, inspecionar antes de agir:
+
+```bash
+npx supabase db query --linked "
+  select u.id, u.email, u.banned_until, p.id as public_user, p.is_deleted
+    from auth.users u
+    left join public.users p on p.id = u.id
+   where lower(u.email) = lower('<email>');"
+```
+
+- Sem linha em `public.users` → órfã: `admin_purge_orphan_auth_user('<email>')`.
+- Com linha `is_deleted = true` → `admin_release_stuck_email` deveria ter
+  resolvido; verificar se o chamador tem perfil de painel (a RPC recusa `anon`
+  desde `20260722202000`).
+- Com linha ativa → **não é caso de liberar**: a pessoa já tem cadastro; o
+  fluxo correto é reusar o cliente (ver `client_reuse.dart`).
+
+**Backfill já feito:** `20260722200000` tombstoneou e baniu 51 contas legadas +
+as órfãs existentes.

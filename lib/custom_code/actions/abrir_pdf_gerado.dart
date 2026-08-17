@@ -6,7 +6,12 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:printing/printing.dart';
-import 'package:web/web.dart' as web;
+
+// `package:web` é web-only e quebra o build de Android/iOS. A detecção de
+// WebKit fica atrás de import condicional: no mobile entra o stub que
+// devolve false (e nem chega a ser consultado, porque kIsWeb é false).
+import 'webkit_detect_io.dart'
+    if (dart.library.js_interop) 'webkit_detect_web.dart';
 
 /// Entrega o PDF gerado do jeito que o navegador aguenta.
 ///
@@ -20,20 +25,14 @@ import 'package:web/web.dart' as web;
 /// Em WebKit, portanto, o PDF é baixado via `Printing.sharePdf` (âncora com
 /// atributo `download`, que não passa pelo bloqueador de popup). Nos demais
 /// navegadores o fluxo continua o de sempre.
+///
+/// No mobile (app das lojas) `kIsWeb` é false e o fluxo cai direto no
+/// `Printing.layoutPdf`, que abre o diálogo nativo de impressão/compartilhar
+/// do Android e do iOS.
 Future<void> abrirPdfGerado(Uint8List bytes, String nomeArquivo) async {
-  if (kIsWeb && _ehWebKit) {
+  if (kIsWeb && ehWebKit) {
     await Printing.sharePdf(bytes: bytes, filename: nomeArquivo);
     return;
   }
   await Printing.layoutPdf(onLayout: (_) async => bytes);
-}
-
-// Todo navegador de iOS e o Safari de macOS têm "Safari" no userAgent sem
-// "Chrome"/"Chromium" (Chrome de iOS se identifica como "CriOS"). O Chrome
-// real sempre inclui "Chrome" — mesma heurística usada pelo pacote printing.
-bool get _ehWebKit {
-  final ua = web.window.navigator.userAgent;
-  return ua.contains('Safari') &&
-      !ua.contains('Chrome') &&
-      !ua.contains('Chromium');
 }

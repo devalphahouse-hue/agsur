@@ -225,6 +225,15 @@ npx supabase db push             # aplicar
 (dry-run) e `rls-smoke.yml` (smoke daily anon). DDL fora do PR vira drift e
 o smoke detecta.
 
+⚠️ **Só confie nesse check depois de conferir que os secrets existem.** De
+2026-07-11 a 08-06 os dois jobs de banco ficaram **verdes sem executar nada**
+(faziam `exit 0` com warning quando faltava secret); depois passaram a falhar
+de propósito, e seguiram vermelhos porque `SUPABASE_ACCESS_TOKEN` e
+`SUPABASE_DB_PASSWORD` continuavam não cadastrados. Foi nessa janela que duas
+migrations críticas ficaram três semanas sem aplicar sem ninguém notar. Confira
+com `gh secret list --repo devalphahouse-hue/agsur` — enquanto os dois não
+estiverem lá, **o `db push --dry-run` local é a única validação real**.
+
 **SQL ad-hoc (leitura e correção pontual de dados) sem Studio:** com o projeto
 linkado, `npx supabase db query --linked "<sql>"` (ou `-f arquivo.sql`) roda via
 Management API usando a auth já configurada da CLI — **não precisa colar token
@@ -438,8 +447,8 @@ dentro do formulário/modal que a tela já tem.
 
 ### Schema versionado em `supabase/migrations/`
 
-DDL agora vive **versionado no git** em `supabase/migrations/` (**60 arquivos**,
-último `20260728123000`). Em 2026-07-14 o histórico
+DDL agora vive **versionado no git** em `supabase/migrations/` (**63 arquivos**,
+último `20260817140000`). Em 2026-07-14 o histórico
 foi **reparado** via `migration repair` (4 migrations tinham sido aplicadas por
 fora sem registro); desde então `db push --dry-run` reflete a realidade e o
 CLI recusa aplicar a Fase 7 fora de ordem sem `--include-all`. O batch de
@@ -513,6 +522,57 @@ Lotes posteriores (fora do batch inicial):
     bucket privado não fechava nada enquanto ela existisse.
   - `20260728123000`: as 2 funções que o revoke de `...120000` não pegou — ver
     "as DUAS metades do revoke" logo abaixo.
+
+> 🚨 **Escrita neste doc não é prova de aplicação — confira no banco.** Este
+> texto descrevia as 4 acima como aplicadas desde julho. **Duas não estavam.**
+> Descoberto em 2026-08-17, quando um `db push --dry-run` acusou
+> "migrations to be inserted before the last migration on remote": o histórico
+> remoto tinha `...120000` e `...123000`, e **pulava `...121000` e
+> `...122000`**. Não era drift de registro — o DDL nunca rodou. Ou seja,
+> durante três semanas, com o doc afirmando o contrário:
+>
+> - qualquer usuário logado no app (Cliente/Piloto/Oficina) podia fazer
+>   `PATCH /rest/v1/users?id=eq.<próprio> {"profile_type":"Admin Master"}` e
+>   virar master — a policy `user_security_update` libera a própria linha sem
+>   restrição de coluna e a trigger seguia na versão no-op;
+> - a policy `all_access` (`ALL` para `authenticated`, `USING (true)`) anulava
+>   por OR a `chat_attachments_select`, deixando todo anexo e PDF legível — e
+>   apagável — por qualquer conta autenticada.
+>
+> As duas foram aplicadas e **verificadas no banco** em 2026-08-17. Como
+> conferir de verdade, sem acreditar em documentação:
+>
+> ```sql
+> -- guarda armada? (false = neutralizada)
+> select prosrc like '%auth_is_service_request%'
+>   from pg_proc where proname = 'tg_users_block_privilege_escalation';
+> -- sobrou all_access? (o esperado é nenhuma linha)
+> select policyname from pg_policies
+>  where schemaname='storage' and tablename='objects'
+>    and policyname like 'all_access%';
+> ```
+>
+> E rode `npx supabase migration list --linked` de vez em quando: `remote`
+> vazio numa linha = migration local que nunca foi aplicada.
+
+⚠️ **Migration que faz DML em tabela guardada precisa desarmar a trigger.**
+As 62 primeiras migrations eram só DDL, e trigger não dispara em DDL — por
+isso isso nunca apareceu antes. O `db push` conecta com o **login role da CLI**
+("Initialising login role..."), que **não** está no bypass de
+`auth_is_service_request()` (`postgres`/`supabase_admin`/`service_role`) e não
+carrega JWT: `auth.uid()` é nulo e a guarda recusa com
+`ERROR: public.<t>: anonymous writes blocked (42501)`. O padrão está em
+`20260817140000`:
+
+```sql
+alter table public.sales disable trigger hardening_require_funil;
+update public.sales ... ;
+alter table public.sales enable trigger hardening_require_funil;
+```
+
+Desarme **só a guarda de autorização** e deixe a trigger de auditoria ligada —
+é o que faz a mudança aparecer no `security_audit_log`. Cada migration roda em
+transação, então uma falha no meio reverte o `disable` junto.
 
 Status atual completo + smoke tests em `supabase/README.md`. Pendências
 manuais do dashboard em `supabase/DASHBOARD_TIER2_TODO.md`.
@@ -654,6 +714,11 @@ bug do `company` passou meses invisível). Regras ao escrever no banco:
 - Nem todo bloqueio deve abortar: se a escrita anterior JÁ persistiu (delete de
   item + sync de total), early-return deixaria a tela inconsistente — reporte e
   siga.
+- ⚠️ **A lista abaixo não é garantia — o insert de lead escapou dela.** Em
+  2026-08-17 o `LeadsTable().insert` de `leads_widget` ainda era cru: exceção
+  subia pelo callback assíncrono, o `Navigator.pop` não rodava e a modal ficava
+  girando sem mensagem. Coberto por `guardInsert`. Ao mexer numa tela de
+  escrita, confira o ponto em vez de confiar na contagem.
 - **Cobertura:** as 26 escritas das telas do funil (2026-07-14) e as 22 telas de
   escrita varridas em 2026-07-28 estão cobertas — 4 delas por `checkWrite` em
   vez do `guardWrite`. Tela nova de escrita entra nessa conta.
@@ -747,6 +812,72 @@ múltipla, exclusão em lote) + `AppPagination`, com paginação **no servidor**
   Clientes) e reporta o resultado honesto — "3 excluído(s), 2 sem permissão"
   em vez de sucesso falso.
 
+### Comissão de venda e indicação (2026-08-17)
+
+**A régua vive em `lib/backend/commission.dart`, num lugar só.** Antes os
+percentuais estavam chumbados no meio do `view_edit_proposal_widget` (25% AGSur
+/ 5% vendedor), e mudá-los significava caçar literais num widget de 6 mil
+linhas. Régua vigente:
+
+| | Venda direta | Venda por indicação |
+|---|---|---|
+| **AGSur** | 2% do contrato | 2% do contrato (não muda) |
+| **Vendedor** | US$ 7.500 | US$ 4.500 |
+| **Indicador** | — | US$ 3.000 |
+
+Três coisas que o número esconde:
+
+- **O valor do vendedor é fixo e não escala com o avião** — US$ 7.500 numa
+  venda de 50 mil ou de 9 milhões. E é um **bolo, não o pagamento de uma
+  pessoa**: "7500, eu divido entre eles" (Thiago). O rateio é feito fora do
+  sistema, então `sales.seller_id` (que recebe quem CRIOU a proposta) é
+  atribuição informativa, e o card "Comissão vendedores" é o total a
+  distribuir.
+- **Quem banca a indicação é o bolo dos vendedores, não a AGSur.** Os 2% saem
+  inteiros; os US$ 3.000 do indicador saem dos US$ 7.500. O rateio é fixo, não
+  negociado por venda — `leads.referral_agreed_value` é **registro** do que foi
+  combinado, não variável de cálculo (se um dia passar a variar, é aí que a
+  régua muda e `calcularComissao` precisa recebê-lo).
+- **A comissão é congelada na conversão** e não recalcula se o preço da
+  proposta mudar depois. As vendas antigas (régua 25%/5%) **foram
+  reprocessadas** por `20260817140000` — hoje não existe venda gravada com a
+  régua velha.
+
+**A indicação é marcada no LEAD, não no cliente** (`leads.is_referral` +
+`referral_name/phone/email/agreed_value`, migration `20260817120000`). O pedido
+original foi "no cadastro do cliente", mas o cliente nasce DENTRO da conversão,
+na mesma sequência em que `sales` é gravada com a comissão já calculada —
+marcar depois exigiria recalcular uma venda existente. No lead o dado chega a
+tempo.
+
+⚠️ **`is_referral` decide dinheiro e a policy de `leads` libera escrita a
+Vendedor.** Sem guarda, um `PATCH /rest/v1/leads?id=eq.<x> {"is_referral":false}`
+direto no PostgREST subia a própria comissão em US$ 3.000. A trigger
+`hardening_leads_referral_guard` (`20260817121000`) restringe as 5 colunas a
+master/documentação, com `auth_is_service_request()`. **INSERT sem indicação
+segue livre** — senão todo cadastro de lead travaria, já que todos nascem com
+`is_referral=false`. A UI esconde a caixa de quem não pode gravar (mesma lição
+do e-mail somente-leitura da oficina: campo editável que o save recusa é pior
+que campo ausente).
+
+Captura: `modal_register_lead` (cadastro) e `lead_referral_section.dart` (tela
+do lead, seção própria fora do código gerado, no padrão do
+`contract_aircraft_unit_section`).
+
+### Cadastro de lead — só 4 campos obrigatórios (2026-08-17)
+
+Captura em feira precisa de segundos. Barram o cadastro apenas **nome,
+sobrenome, e-mail e telefone**; CPF, empresa, cargo, CEP, cidade e UF são
+completados depois em `view_edit_lead`. Mas **o formato de quem for preenchido
+continua validado** (CPF pela metade, CEP de 3 dígitos e UF de 1 letra seguem
+recusados) — só o vazio passou a ser aceito.
+
+- **Empresa em branco grava o nome do lead.** `company_name` é uma das colunas
+  que a busca da listagem varre (`orIlike`); vazia, o lead fica inencontrável.
+- **CPF vazio grava `''`, nunca `NULL`.** `leads.cpf` é `NOT NULL` no banco
+  (verificado; não há CHECK de formato), e os getters gerados em `leads.dart`
+  usam `!` — um null estouraria na leitura.
+
 ### Lead vira cliente (2026-07-20)
 
 Quando a proposta vira contrato, o lead passa a ser cliente e **sai da lista de
@@ -800,6 +931,27 @@ escrita à mão). Mapa do fluxo:
   chave (`itemsByCategory`), como em `create_proposal`.
 - `qty` e `created_by` de `aircraft_items` são NOT NULL **sem default** —
   inserts novos têm que mandá-los (`active`/`deleted` têm default).
+
+### Dados Empresariais da proposta — cadastrar vs editar (2026-08-17)
+
+O placeholder de UUID mordeu de novo, e junto faltava um caminho inteiro.
+Proposta criada **sem empresa** (o fluxo permite) tinha dois problemas em
+`view_edit_proposal`:
+
+1. **Não havia como cadastrar a empresa depois.** Só o `create_proposal` tinha
+   o botão **"+"**; a tela de edição só tinha o lápis. O usuário ficava sem
+   saída — reportado em vídeo pelo dono em 14/08 ("não dá para alterar").
+2. **O lápis aparecia mesmo sem empresa e travava.** Ele abria a
+   `ModalEditCompanyWidget` com `"Não cadastrado"` no lugar do id; o
+   `queryRows` morria em **22P02**, a exceção subia dentro do
+   `addPostFrameCallback` e o `_loading` nunca virava `false` — modal girando
+   para sempre, sem mensagem.
+
+Hoje: **"+" quando `proposalCompany.id` não é UUID válido** (abre
+`ModalRegisterCompanyWidget`, gravando `company.lead_id` — a empresa é do
+LEAD), **lápis quando é**. E a `modal_edit_company` tem `try/catch/finally` na
+carga, então id ruim abre vazia com o erro no Sentry em vez de travar. Ao criar
+seção nova que dependa de id vindo de RPC, valide com regex de UUID antes.
 
 ### Contrato (`view_contract`) — preenchimento e exibição
 

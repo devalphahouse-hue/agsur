@@ -22,8 +22,14 @@
 /// proposta→contrato: o resultado vai para `sales.company_commission` e
 /// `sales.seller_commission` e não é recalculado depois. Editar o preço da
 /// proposta mais tarde não mexe na comissão já gravada — é registro histórico
-/// do que foi combinado. Por decisão do dono, as vendas anteriores a 17/08
-/// **continuam com a régua antiga**; nada foi reprocessado.
+/// do que foi combinado.
+///
+/// As vendas anteriores a 17/08 **foram reprocessadas** com esta régua pela
+/// migration `20260817140000_recalc_sale_commissions` (o dono pediu o acerto
+/// depois de ter decidido o contrário — o dashboard mostrava número que não
+/// correspondia mais ao combinado). Ou seja: hoje NÃO existe venda gravada com
+/// a régua antiga de 25%/5%. Se um dia a régua mudar de novo, decida
+/// explicitamente entre reprocessar ou não, e registre aqui.
 ///
 /// Cálculo puro (sem I/O) para ser testável; quem aplica é a conversão em
 /// `view_edit_proposal_widget.dart`.

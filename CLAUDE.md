@@ -221,6 +221,16 @@ npx supabase db push --dry-run   # validar
 npx supabase db push             # aplicar
 ```
 
+> ⚠️ **Token novo (`sbp_v0_...`) NÃO funciona no CLI.** Os PATs que o dashboard
+> emite hoje têm esse prefixo, e o CLI valida o formato antigo (`sbp_` + 40
+> hex):
+> qualquer comando com `SUPABASE_ACCESS_TOKEN` exportado morre em
+> `Invalid access token format` / `LegacyInvalidAccessTokenError`, antes de
+> tocar na rede. O caminho que funciona é `unset SUPABASE_ACCESS_TOKEN` +
+> `npx -y supabase@latest login` (fluxo de browser, grava sessão válida).
+> Colar token no chat continua sendo o padrão de vazamento recorrente aqui —
+> o `login` evita o valor em texto em qualquer lugar.
+
 **Toda mudança de schema/RLS via PR.** CI valida com `supabase-db-check.yml`
 (dry-run) e `rls-smoke.yml` (smoke daily anon). DDL fora do PR vira drift e
 o smoke detecta.
@@ -447,8 +457,8 @@ dentro do formulário/modal que a tela já tem.
 
 ### Schema versionado em `supabase/migrations/`
 
-DDL agora vive **versionado no git** em `supabase/migrations/` (**63 arquivos**,
-último `20260817140000`). Em 2026-07-14 o histórico
+DDL agora vive **versionado no git** em `supabase/migrations/` (**64 arquivos**,
+último `20260825210000`). Em 2026-07-14 o histórico
 foi **reparado** via `migration repair` (4 migrations tinham sido aplicadas por
 fora sem registro); desde então `db push --dry-run` reflete a realidade e o
 CLI recusa aplicar a Fase 7 fora de ordem sem `--include-all`. O batch de
@@ -952,6 +962,64 @@ Hoje: **"+" quando `proposalCompany.id` não é UUID válido** (abre
 LEAD), **lápis quando é**. E a `modal_edit_company` tem `try/catch/finally` na
 carga, então id ruim abre vazia com o erro no Sentry em vez de travar. Ao criar
 seção nova que dependa de id vindo de RPC, valide com regex de UUID antes.
+
+### Taxas de financiamento — o zero que passa por número (2026-08-25)
+
+O PDF da proposta saiu com **`TAXA DE JUROS 0.0000%`, SOFR `0.0000%` e juros
+`$ 0.00` nas 14 parcelas**, com o premium correto. Não é tela em branco nem
+erro: é um plano de financiamento internamente coerente e **falso**. O premium
+não zerou junto porque é calculado no cliente a partir do prazo — foi o que
+disfarçou o resto.
+
+**O mecanismo, que vale para muito além desta tela.** `create_proposal` lê
+`financing_rates` para gravar `sofr_rate`/`interest_rate` em
+`proposal_financing`, e gravava com
+`valueOrDefault(_model.getRates?.firstOrNull?.sofrRate, 0.0)`. Como
+`queryRows` **propaga exceção** (diferente de `querySingleRow`, que engole erro
+no `.catchError`), falha de rede teria abortado a criação inteira pelo
+`try/catch` — logo, quando o zero aparece, **a consulta respondeu com sucesso e
+veio vazia**. `valueOrDefault` transforma esse vazio num número plausível.
+**Regra: leitura que alimenta dinheiro ou taxa nunca cai em default 0 — ou vem
+com valor, ou bloqueia.**
+
+**Duas formas de a leitura vir vazia, as duas fechadas:**
+
+1. **RLS.** `financing_rates` era `admin_only` (`FOR ALL USING auth_is_admin()`),
+   e RLS que filtra devolve **zero linhas, não erro** — então todo Vendedor
+   criaria proposta zerada. Bug real que nunca chegou a disparar. A migration
+   `20260825210000` separa: `SELECT` para admin + vendedor, escrita só admin, e
+   o trigger `hardening_require_documentacao` continua exigindo
+   documentação/master.
+2. **Cadastro de Taxas vazio** na hora da criação.
+
+**O caso que motivou (proposta `590546`, 22/08) não é explicado por nenhuma das
+duas** — foi criada por Admin Master, com as taxas cadastradas desde 14/08. A
+leitura voltou vazia sem deixar rastro: nem audit log, nem Sentry, nem o schema
+guardam isso. Por isso as guardas não dependem de saber a causa:
+
+- **`create_proposal`** aborta a criação com mensagem em vez de gravar `0.0`.
+- **`c_t_csrd_aircraft`** (modal de editar financiamento) reaplica as taxas
+  vigentes no save. Antes gravava só `premium_rate`, então proposta nascida
+  zerada **seguia zerada por mais que se editasse** — o conserto pela UI não
+  existia. Se a leitura falhar, não escreve (zero gravado é pior que taxa velha).
+- **`view_edit_proposal` e `view_contract`** recusam gerar PDF com taxa zerada,
+  no padrão da guarda de proposta sem financiamento que já existia ali.
+
+**Detalhes que economizam tempo na próxima:**
+
+- `financing_rates` é **linha única**, id fixo
+  `ce659e4b-caee-4b88-8d99-46f15c7e9b69`, chumbado em 4 lugares do `lib/`
+  (`create_rates` ×2, `view_edit_rates`, `create_proposal`). A tela de Taxas
+  faz `update`, nunca `insert`.
+- As taxas são gravadas **como fração** (`0.038` = 3,8%). O dado fictício da
+  revisão das lojas (propostas `1` e `2`) tem `4.25`/`7.45` — percentual cru,
+  inserido à mão, que renderiza como 425%/745%.
+- A taxa fica **congelada na proposta** por design: contrato antigo com SOFR
+  `0.042` não é bug — é a taxa do dia em que foi fechado. Não "corrija".
+- **Pendência da mesma família:** `premium_rate` continua calculado no cliente
+  (`prazo == '5' ? 5% : 7%`) e ignora `premium_rate_five`/`premium_rate_seven`
+  de `financing_rates` — o Admin edita esses campos na tela de Taxas e **nada
+  acontece**. Mesmo erro silencioso, esperando decisão de negócio.
 
 ### Contrato (`view_contract`) — preenchimento e exibição
 

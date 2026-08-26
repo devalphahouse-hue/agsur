@@ -5635,6 +5635,25 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                             'Preencha o financiamento na edição da proposta antes de gerar o PDF.');
                                         return;
                                       }
+                                      // Taxa zerada = PDF com "TAXA DE JUROS
+                                      // 0.0000%" e juros $ 0.00 em todas as
+                                      // parcelas — o cliente recebe um plano de
+                                      // financiamento que não existe. Aconteceu
+                                      // de verdade na proposta 590546
+                                      // (22/08/2026), que já virou contrato.
+                                      // Prefira não emitir a emitir errado.
+                                      if ((containerProposalFinancingRow
+                                                  .sofrRate +
+                                              containerProposalFinancingRow
+                                                  .interestRate) <=
+                                          0) {
+                                        showWriteError(
+                                            context,
+                                            'As taxas de financiamento desta proposta estão zeradas '
+                                            '(SOFR e juros). Abra o financiamento da proposta, salve '
+                                            'novamente para reaplicar as taxas vigentes e gere o PDF.');
+                                        return;
+                                      }
                                       // Re-fetch proposal data before generating PDF
                                       final freshData = await GetProposalDetailsCall.call(
                                         pProposalId: widget!.proposalId,

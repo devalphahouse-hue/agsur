@@ -6366,6 +6366,53 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                           'ce659e4b-caee-4b88-8d99-46f15c7e9b69',
                                                         ),
                                                       );
+                                                      // TAXA ZERADA NO PDF (2026-08-25).
+                                                      // SOFR e juros do plano de
+                                                      // financiamento saem DESTA
+                                                      // leitura, e o insert abaixo
+                                                      // gravava 0.0 via
+                                                      // valueOrDefault sempre que
+                                                      // ela não trouxesse número —
+                                                      // sem erro, sem exceção. O PDF
+                                                      // saía com "TAXA DE JUROS
+                                                      // 0.0000%" e juros $ 0.00 nas
+                                                      // 14 parcelas: número errado
+                                                      // apresentado como certo
+                                                      // (proposta 590546, 22/08).
+                                                      // Duas formas de não vir
+                                                      // número: RLS bloqueando a
+                                                      // leitura (era admin-only até
+                                                      // a migration 20260825210000,
+                                                      // que liberou o Vendedor) ou
+                                                      // o cadastro de Taxas zerado
+                                                      // no momento da criação.
+                                                      // Melhor não criar a proposta
+                                                      // do que criá-la com taxa
+                                                      // zerada.
+                                                      final ratesRow = _model
+                                                          .getRates?.firstOrNull;
+                                                      if (ratesRow == null ||
+                                                          (ratesRow.sofrRate +
+                                                                  ratesRow
+                                                                      .interestRate) <=
+                                                              0) {
+                                                        Navigator.of(dialogContext)
+                                                            .maybePop();
+                                                        if (!context.mounted)
+                                                          return;
+                                                        showWriteError(
+                                                          context,
+                                                          ratesRow == null
+                                                              ? 'Não foi possível ler as taxas de financiamento '
+                                                                  '(SOFR e juros). Peça a um Admin para abrir '
+                                                                  'Taxas e conferir o cadastro — sem elas a '
+                                                                  'proposta sairia com juros zerados.'
+                                                              : 'As taxas de financiamento estão zeradas no '
+                                                                  'cadastro (Taxas). Preencha SOFR e juros '
+                                                                  'antes de criar a proposta.',
+                                                        );
+                                                        return;
+                                                      }
                                                       _model.insertProposal =
                                                           await ProposalTable()
                                                               .insert({
@@ -6515,23 +6562,10 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                                 ? (5 / 100)
                                                                 : (7 / 100),
                                                         'sofr_rate':
-                                                            valueOrDefault<
-                                                                double>(
-                                                          _model
-                                                              .getRates
-                                                              ?.firstOrNull
-                                                              ?.sofrRate,
-                                                          0.0,
-                                                        ),
+                                                            ratesRow.sofrRate,
                                                         'interest_rate':
-                                                            valueOrDefault<
-                                                                double>(
-                                                          _model
-                                                              .getRates
-                                                              ?.firstOrNull
-                                                              ?.interestRate,
-                                                          0.0,
-                                                        ),
+                                                            ratesRow
+                                                                .interestRate,
                                                       });
                                                       while (_model
                                                               .countController <

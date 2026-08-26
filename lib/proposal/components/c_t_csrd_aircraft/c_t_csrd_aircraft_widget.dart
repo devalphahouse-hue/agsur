@@ -829,6 +829,25 @@ class _CTCsrdAircraftWidgetState extends State<CTCsrdAircraftWidget> {
                               'premium_rate': _model.dPDLengthValue == '5'
                                   ? (5 / 100)
                                   : (7 / 100),
+                              // Este update gravava só o premium_rate e deixava
+                              // sofr_rate/interest_rate como estavam — então
+                              // proposta que nasceu com taxa zerada (ver
+                              // create_proposal: leitura vazia ou cadastro de
+                              // taxas zerado no momento da criação) continuava
+                              // zerada por mais que se editasse o financiamento,
+                              // e o PDF seguia com juros $ 0.00. Reaplica as taxas
+                              // vigentes aqui; se a leitura falhar, NÃO escreve
+                              // (zero gravado é pior que taxa velha).
+                              if (cTCsrdAircraftFinancingRatesRow != null &&
+                                  (cTCsrdAircraftFinancingRatesRow.sofrRate +
+                                          cTCsrdAircraftFinancingRatesRow
+                                              .interestRate) >
+                                      0) ...{
+                                'sofr_rate':
+                                    cTCsrdAircraftFinancingRatesRow.sofrRate,
+                                'interest_rate':
+                                    cTCsrdAircraftFinancingRatesRow.interestRate,
+                              },
                             },
                             matchingRows: (rows) => rows.eqOrNull(
                               'id',

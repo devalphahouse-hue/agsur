@@ -45,9 +45,9 @@ class _ModalCreateClientWidgetState extends State<ModalCreateClientWidget> {
     super.dispose();
   }
 
-  // Senha aleatória forte (16 chars, Random.secure) — na prática nunca consta
+  // Senha aleatória forte (8 chars, Random.secure) — na prática nunca consta
   // em vazamentos, então não dispara o 422 weak_password do servidor.
-  String _generatePassword() => generateStrongPassword();
+  String _generatePassword() => generateAppUserPassword();
 
   Future<void> _submit() async {
     if (_busy) return;

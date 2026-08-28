@@ -5,8 +5,14 @@ import 'dart:math';
 /// O servidor (GoTrue/Supabase) exige senha forte: mínimo de 8 caracteres
 /// **mais** checagem contra vazamentos conhecidos (HIBP/"pwned"). Esse "pwned"
 /// só é verificável no servidor, então a única forma de garantir que o cadastro
-/// nunca caia no erro 422 `weak_password` é enviar uma senha aleatória longa —
-/// que na prática nunca aparece no corpus de vazamentos. Daí o gerador abaixo.
+/// nunca caia no erro 422 `weak_password` é enviar uma senha aleatória — que na
+/// prática nunca aparece no corpus de vazamentos. Daí o gerador abaixo.
+///
+/// **Dois comprimentos, de propósito** (ver [kAppUserPasswordLength]):
+/// usuário de app (Cliente/Piloto/Oficina) recebe 8 caracteres, porque ele
+/// digita essa senha no celular a partir de um e-mail; staff do painel
+/// (Admin/Admin Master/Vendedor) continua em 16, porque essa credencial abre o
+/// painel inteiro — com o PII de todos os clientes. Não unifique os dois.
 
 /// Texto único da regra de senha, exibido nos formulários (helper) para casar
 /// com o que [strongPasswordValidator] exige. Mantenha os dois em sincronia.
@@ -20,8 +26,26 @@ const String _upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 const String _digits = '23456789';
 const String _symbols = '!@#\$%&*?-_';
 
-/// Gera uma senha aleatória forte (16 caracteres, com ao menos uma minúscula,
-/// uma maiúscula, um dígito e um símbolo). Usa [Random.secure].
+/// Comprimento da senha inicial de usuário do **app** (Cliente/Piloto/Oficina).
+///
+/// 8 é o mínimo aceito pelo GoTrue e pelo [strongPasswordValidator] — não
+/// reduza mais. Pedido do cliente (2026-08-26): a senha de 16 do e-mail de
+/// credenciais era grande demais para digitar no celular. Mesmo com 8, o
+/// alfabeto abaixo tem 66 símbolos (~3,6e14 combinações), então o risco de
+/// bater no corpus do HIBP e tomar 422 `weak_password` segue desprezível.
+const int kAppUserPasswordLength = 8;
+
+/// Gera a senha inicial de um usuário do app, no comprimento reduzido de
+/// [kAppUserPasswordLength]. Use nos cadastros de Cliente, Piloto e Oficina;
+/// para staff do painel use [generateStrongPassword] (16).
+String generateAppUserPassword() =>
+    generateStrongPassword(length: kAppUserPasswordLength);
+
+/// Gera uma senha aleatória forte (16 caracteres por padrão, com ao menos uma
+/// minúscula, uma maiúscula, um dígito e um símbolo). Usa [Random.secure].
+///
+/// O default de 16 é para **staff do painel**. Para usuário de app, chame
+/// [generateAppUserPassword].
 String generateStrongPassword({int length = 16}) {
   final rng = Random.secure();
   const all = _lower + _upper + _digits + _symbols;

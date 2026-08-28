@@ -74,7 +74,7 @@ class _RegisterOficinaWidgetState extends State<RegisterOficinaWidget> {
   }
 
   void _fillStrongPassword() {
-    final pwd = generateStrongPassword();
+    final pwd = generateAppUserPassword();
     setState(() {
       _model.tFEditPasswordTextController?.text = pwd;
       _pwd = pwd;

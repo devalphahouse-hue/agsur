@@ -5937,7 +5937,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                         ),
                                                       );
                                                       final clientPassword =
-                                                          generateStrongPassword();
+                                                          generateAppUserPassword();
                                                       _model.createUserAuth =
                                                           await CreateAccountAnotherUserCall
                                                               .call(

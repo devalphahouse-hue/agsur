@@ -74,7 +74,7 @@ class _ModalRegisterPilotWidgetState extends State<ModalRegisterPilotWidget> {
   }
 
   void _fillStrongPassword() {
-    final pwd = generateStrongPassword();
+    final pwd = generateAppUserPassword();
     setState(() {
       _model.tFPasswordUserTextController?.text = pwd;
       _pwd = pwd;

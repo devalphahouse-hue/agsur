@@ -89,6 +89,39 @@ class _ViewTrackingWidgetState extends State<ViewTrackingWidget> {
     return TrackingExtras(byId, aircraftRows.firstOrNull);
   }
 
+  /// Etapas que só fazem sentido no fluxo de financiamento: Aprovação de
+  /// Crédito (order 10), Pré-contrato (11) e Assinatura de Contrato Final (17).
+  static const Set<int> _financingOnlyOrders = {10, 11, 17};
+
+  /// Esconde as etapas de financiamento quando a Formalização de Pagamento
+  /// (order 9) está como **à vista**.
+  ///
+  /// Pedido do cliente (2026-08-26). Não apaga nada: as linhas de `tracking`
+  /// continuam no banco e voltam a aparecer se a forma de pagamento mudar para
+  /// `financiamento`. Enquanto os detalhes não carregaram (`extras == null`)
+  /// mostramos tudo — some depois, não pisca ao contrário.
+  ///
+  /// O app faz o mesmo recorte em `applyPaymentMethodFilter`
+  /// (`agsur-app/lib/pages/tracking/tracking_widget.dart`). Mudou aqui, mude lá.
+  List<TrackingStruct> _visibleTracking(
+    List<TrackingStruct> tracking,
+    TrackingExtras? extras,
+  ) {
+    if (extras == null) return tracking;
+    String? method;
+    for (final t in tracking) {
+      if (int.tryParse(t.order) == 9) {
+        method = extras.detailsByTrackingId[t.id]?.paymentMethod?.trim();
+        break;
+      }
+    }
+    if (method != 'vista') return tracking;
+    return tracking
+        .where((t) =>
+            !_financingOnlyOrders.contains(int.tryParse(t.order) ?? -1))
+        .toList();
+  }
+
   // Só master e documentação editam/checam etapas. Vendedor vê em modo
   // somente-leitura (view-only); recepção nem acessa a tela.
   bool get _isAdmin => AccessControl.canEditTracking(
@@ -133,53 +166,58 @@ class _ViewTrackingWidgetState extends State<ViewTrackingWidget> {
                   ?.idRef ??
               '#000000';
 
-          final completed =
-              tracking.where((t) => t.isCheck == true).length;
-          final progress =
-              tracking.isEmpty ? 0.0 : completed / tracking.length;
-
           _model.extrasFuture ??= _loadExtras();
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _ProgressHeader(
-                clientName: clientName,
-                refId: refId,
-                completed: completed,
-                total: tracking.length,
-                progress: progress,
-              ).appFade(),
-              const SizedBox(height: 16),
-              LayoutBuilder(
-                builder: (context, c) {
-                  final crossAxis = c.maxWidth > 1200
-                      ? 3
-                      : c.maxWidth > 760
-                          ? 2
-                          : 1;
-                  const spacing = 16.0;
-                  return FutureBuilder<TrackingExtras>(
-                    future: _model.extrasFuture,
-                    builder: (context, extrasSnap) {
-                      final extras = extrasSnap.data;
+          // Cabeçalho e grade compartilham o MESMO FutureBuilder porque a
+          // filtragem "à vista" (ver [_visibleTracking]) depende dos detalhes:
+          // se o contador ficasse fora, ele continuaria somando as etapas
+          // escondidas e o progresso nunca fecharia em 100%.
+          return FutureBuilder<TrackingExtras>(
+            future: _model.extrasFuture,
+            builder: (context, extrasSnap) {
+              final extras = extrasSnap.data;
+              final visible = _visibleTracking(tracking, extras);
+              final completed =
+                  visible.where((t) => t.isCheck == true).length;
+              final progress =
+                  visible.isEmpty ? 0.0 : completed / visible.length;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _ProgressHeader(
+                    clientName: clientName,
+                    refId: refId,
+                    completed: completed,
+                    total: visible.length,
+                    progress: progress,
+                  ).appFade(),
+                  const SizedBox(height: 16),
+                  LayoutBuilder(
+                    builder: (context, c) {
+                      final crossAxis = c.maxWidth > 1200
+                          ? 3
+                          : c.maxWidth > 760
+                              ? 2
+                              : 1;
+                      const spacing = 16.0;
                       // Grade manual em linhas de ALTURA IGUAL: dentro de cada
                       // linha os cards esticam para a altura do mais alto
                       // (IntrinsicHeight + stretch), pra não sobrar espaço vazio
                       // embaixo do card mais curto.
                       Widget cell(int index) {
-                        if (index >= tracking.length) {
+                        if (index >= visible.length) {
                           return const SizedBox.shrink();
                         }
                         return _TrackingCard(
-                          item: tracking[index],
+                          item: visible[index],
                           refId: refId,
                           clientName: clientName,
                           isAdmin: _isAdmin,
                           userAircraftId: widget.userAircraftId,
                           onChanged: _refresh,
                           details:
-                              extras?.detailsByTrackingId[tracking[index].id],
+                              extras?.detailsByTrackingId[visible[index].id],
                           aircraft: extras?.aircraft,
                         ).appStagger(index);
                       }
@@ -188,7 +226,7 @@ class _ViewTrackingWidgetState extends State<ViewTrackingWidget> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           for (var row = 0;
-                              row < tracking.length;
+                              row < visible.length;
                               row += crossAxis) ...[
                             if (row > 0) const SizedBox(height: spacing),
                             IntrinsicHeight(
@@ -207,10 +245,10 @@ class _ViewTrackingWidgetState extends State<ViewTrackingWidget> {
                         ],
                       );
                     },
-                  );
-                },
-              ),
-            ],
+                  ),
+                ],
+              );
+            },
           );
         },
       ),
@@ -549,6 +587,12 @@ class _TrackingCard extends StatelessWidget {
     background: Color(0xFF243B36),
     border: Color(0x804FBFA9),
   );
+  /// Amarelo = "respondido, mas com ressalva" — não é pendência (vermelho) nem
+  /// tudo certo (verde). Hoje só a etapa 7 (Status Fiscal) usa; ver [_cardTone].
+  static const ({Color background, Color border}) _amberTone = (
+    background: Color(0xFF3B3626),
+    border: Color(0x80F9CF58),
+  );
 
   /// Preenchimento dos campos da etapa: `touched` = mexeu em algo,
   /// `allDone` = tudo preenchido. `null` para etapas sem campos (só
@@ -664,6 +708,23 @@ class _TrackingCard extends StatelessWidget {
       if (cl.checked < cl.total) return _redTone; // parcial
       return _greenTone; // completo
     }
+    // Status Fiscal (etapa 7 na tela, order 6): "Não" é resposta legítima do
+    // cliente — não tem benefício fiscal / não tem RADAR —, não é tarefa
+    // pendente. Por isso a etapa usa `answer()` em [_completion] e cairia em
+    // verde, sugerindo "tudo certo". Pedido do cliente (2026-08-26): deixar
+    // **amarelo** quando houver algum "Não", como marcação de observação e
+    // questionamento. Verde só quando os dois forem "Sim".
+    if (_orderInt == 6) {
+      final d = details;
+      if (d == null || (d.fiscalBenefitActive == null && d.hasRadar == null)) {
+        return null; // nada respondido → neutro
+      }
+      if (d.fiscalBenefitActive == false || d.hasRadar == false) {
+        return _amberTone;
+      }
+      return _greenTone;
+    }
+
     final comp = _completion;
     if (comp != null) {
       if (!comp.touched) return null; // nunca preenchido → neutro

@@ -164,6 +164,9 @@ String mensagemDeErro(Object e, {required String fallback}) {
       case '42501': // insufficient_privilege — RLS ou trigger de guarda
         return kWriteBlockedMessage;
       case '23505': // unique_violation
+        if (e.message.contains('uq_available_aircrafts_serial')) {
+          return 'Já existe uma aeronave no estoque com este número de série.';
+        }
         return 'Já existe um registro com esses dados.';
       case '23503': // foreign_key_violation
         return 'Este registro está vinculado a outros e não pode ser alterado.';
@@ -173,6 +176,11 @@ String mensagemDeErro(Object e, {required String fallback}) {
         return 'Há um campo com formato inválido nesta tela.';
       case 'PGRST116': // 0 linhas onde se esperava 1
         return 'Registro não encontrado. Atualize a página e tente de novo.';
+      // RAISE de regra de negócio (P0001) e "não encontrado" (P0002) das
+      // funções de estoque (20260922120000) — texto já escrito para humanos.
+      case 'P0001':
+      case 'P0002':
+        return e.message;
     }
     // Mensagens que a RPC levanta com RAISE EXCEPTION e são escritas para
     // humanos — repassar é melhor que esconder atrás do genérico.

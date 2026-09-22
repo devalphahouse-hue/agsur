@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '/auth/supabase_auth/auth_util.dart';
+import '/backend/stock.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
@@ -31,6 +32,9 @@ class ModalCreateAvailableAircraftWidget extends StatefulWidget {
     String status,
     String updateBy,
     String id,
+    // Prefixo/matrícula (migration 20260922120000). Só o editar manda; null
+    // no create, que hoje é feito pela entrada de estoque.
+    String? prefixo,
   )? btnAction;
   final String? type;
   final String? aircraftId;
@@ -56,12 +60,15 @@ class _ModalCreateAvailableAircraftWidgetState
     '2025', '2026', '2027', '2028', '2029', '2030',
     '2031', '2032', '2033', '2034', '2035',
   ];
+  // Create legado (a tela de estoque usa a entrada de estoque). No editar, as
+  // opções vêm de `stockStatusOptions`, que separa em-estoque de fora dele.
   static const _statuses = [
     'Disponível',
     'Em negociação',
     'Entregue',
     'Vendido',
   ];
+  final _prefix = TextEditingController();
 
   bool get _isCreate => widget.type == 'create';
   bool get _isView => widget.type == 'view' && !_model.editar;
@@ -88,6 +95,7 @@ class _ModalCreateAvailableAircraftWidgetState
 
   @override
   void dispose() {
+    _prefix.dispose();
     _model.maybeDispose();
     super.dispose();
   }
@@ -154,6 +162,7 @@ class _ModalCreateAvailableAircraftWidgetState
         _model.dPDStatusValue!,
         currentUserUid,
         '',
+        null,
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -195,6 +204,7 @@ class _ModalCreateAvailableAircraftWidgetState
         _model.dPDEditStatusValue!,
         currentUserUid,
         widget.id ?? '',
+        _prefix.text.trim(),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -407,6 +417,7 @@ class _ModalCreateAvailableAircraftWidgetState
           _model.dPDEditAircraftsValue ??= widget.aircraftId ?? row.aircraftModel;
           _model.dPDEditEntryYearValue ??= row.entryYear;
           _model.dPDEditStatusValue ??= row.status;
+          _prefix.text = row.registrationPrefix ?? '';
           _model.tFViewSerialNumberTextController!.text = row.serialNumber ?? '';
           _model.tFViewEntryYearTextController!.text = row.entryYear ?? '';
           _model.tFViewStatusTextController!.text = row.status ?? '';
@@ -540,6 +551,13 @@ class _ModalCreateAvailableAircraftWidgetState
                     ?.call(context, v),
               ),
               const SizedBox(height: 14),
+              AppFormField(
+                controller: _prefix,
+                label: 'Prefixo (matrícula)',
+                placeholder: 'Ex.: PR-ABC — vazio se ainda não tem',
+                icon: Icons.badge_outlined,
+              ),
+              const SizedBox(height: 14),
               _DateField(
                 label: 'Data de fabricação',
                 date: _model.datePicked2 ?? row.manufactureDate,
@@ -571,7 +589,8 @@ class _ModalCreateAvailableAircraftWidgetState
                       icon: Icons.flag_rounded,
                       required: true,
                       value: _model.dPDEditStatusValue,
-                      options: _statuses,
+                      options: stockStatusOptions(
+                          inStock: row.inStock, current: row.status),
                       labelOf: (s) => s,
                       errorText: _statusError,
                       onChanged: (s) => setState(() {

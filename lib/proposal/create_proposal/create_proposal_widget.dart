@@ -29,6 +29,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:provider/provider.dart';
 import '/core_ui/core_ui.dart';
+import '/pages/shared/stock_unit_picker/stock_unit_picker.dart';
 import 'create_proposal_model.dart';
 export 'create_proposal_model.dart';
 
@@ -94,6 +95,36 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
     WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {
           _model.tFDownPaymentTextController?.text = '5%';
         }));
+
+    // Quantas aeronaves vendáveis cada modelo tem — alimenta o filtro
+    // "Disponíveis no estoque" e o rótulo do seletor. Falha aqui não pode
+    // travar a criação: sem o número, o seletor segue funcionando.
+    loadSellableCountByModel().then((m) {
+      if (mounted) safeSetState(() => _model.sellableByModel = m);
+    }).catchError((Object e, StackTrace st) {
+      Sentry.captureException(e,
+          stackTrace: st,
+          withScope: (s) => s.setTag('acao', 'proposta.estoque_contagem'));
+    });
+  }
+
+  /// Escolha da aeronave do estoque. Escolher uma aeronave de outro modelo
+  /// troca o modelo do seletor — o usuário confirma no botão, como sempre.
+  Future<void> _pickStockUnit() async {
+    final current = _model.dpdAircraftValue;
+    final u = await pickStockUnit(
+      context,
+      aircraftId: (current == null || current.isEmpty) ? null : current,
+      currentUnitId: _model.stockUnit?.id,
+    );
+    if (u == null || !mounted) return;
+    safeSetState(() {
+      _model.stockUnit = u;
+      if (_model.dpdAircraftValue != u.aircraftId) {
+        _model.dpdAircraftValue = u.aircraftId;
+        _model.dpdAircraftValueController?.value = u.aircraftId;
+      }
+    });
   }
 
   @override
@@ -2882,7 +2913,12 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                 }
                                 List<AircraftsRow>
                                     cTCsrdAircraftAircraftsRowList =
-                                    snapshot.data!;
+                                    applyAircraftQuickFilter(
+                                  snapshot.data!,
+                                  _model.aircraftQuickFilter,
+                                  _model.sellableByModel,
+                                  keepId: _model.dpdAircraftValue,
+                                );
 
                                 return Container(
                                   width: MediaQuery.sizeOf(context).width * 1.0,
@@ -2933,6 +2969,21 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                           thickness: 2.0,
                                           color: Color(0x74FFFFFF),
                                         ),
+                                        // Filtro rápido do catálogo (destaque
+                                        // / com aeronave no estoque).
+                                        Padding(
+                                          padding: EdgeInsets.only(top: 12.0),
+                                          child: Align(
+                                            alignment:
+                                                AlignmentDirectional(-1.0, 0.0),
+                                            child: AircraftQuickFilterChips(
+                                              value: _model.aircraftQuickFilter,
+                                              onChanged: (f) => safeSetState(
+                                                  () => _model
+                                                      .aircraftQuickFilter = f),
+                                            ),
+                                          ),
+                                        ),
                                         Padding(
                                           padding:
                                               EdgeInsetsDirectional.fromSTEB(
@@ -2950,14 +3001,22 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                             optionLabels:
                                                 cTCsrdAircraftAircraftsRowList
                                                     .map((e) =>
-                                                        valueOrDefault<String>(
-                                                          e.aircraftModel,
-                                                          'Modelo da Aeronave',
-                                                        ))
+                                                        aircraftOptionLabel(e,
+                                                            _model
+                                                                .sellableByModel))
                                                     .toList(),
-                                            onChanged: (val) => safeSetState(
-                                                () => _model.dpdAircraftValue =
-                                                    val),
+                                            onChanged: (val) =>
+                                                safeSetState(() {
+                                              _model.dpdAircraftValue = val;
+                                              // Aeronave do estoque é de UM
+                                              // modelo: trocar o modelo solta
+                                              // a escolha (o banco recusaria).
+                                              if (_model.stockUnit
+                                                      ?.aircraftId !=
+                                                  val) {
+                                                _model.stockUnit = null;
+                                              }
+                                            }),
                                             height: 50.0,
                                             searchHintTextStyle:
                                                 FlutterFlowTheme.of(context)
@@ -3073,6 +3132,40 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                             isOverButton: false,
                                             isSearchable: true,
                                             isMultiSelect: false,
+                                          ),
+                                        ),
+                                        // Aeronave física do estoque
+                                        // (opcional). Sai do estoque quando a
+                                        // proposta virar contrato.
+                                        Padding(
+                                          padding: EdgeInsets.only(top: 18.0),
+                                          // Largura total: a Column do card
+                                          // centraliza filhos estreitos (bug
+                                          // visual achado no QA de 2026-09-22).
+                                          child: SizedBox(
+                                            width: double.infinity,
+                                            child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Aeronave do estoque',
+                                                style: GoogleFonts.roboto(
+                                                  fontSize: 15.0,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                              SizedBox(height: 8.0),
+                                              StockUnitField(
+                                                unit: _model.stockUnit,
+                                                onPick: _pickStockUnit,
+                                                onClear: () => safeSetState(
+                                                    () => _model.stockUnit =
+                                                        null),
+                                              ),
+                                            ],
+                                          ),
                                           ),
                                         ),
                                         Align(
@@ -6353,6 +6446,30 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                         );
                                                         return;
                                                       }
+                                                      // Aeronave do estoque tem que ser do
+                                                      // modelo CONFIRMADO (o botão abaixo do
+                                                      // seletor carrega os detalhes). Trocar o
+                                                      // modelo sem confirmar deixaria a proposta
+                                                      // com um avião e a unidade de outro — o
+                                                      // banco recusaria o insert no meio.
+                                                      final stockUnit =
+                                                          _model.stockUnit;
+                                                      if (stockUnit != null &&
+                                                          stockUnit.aircraftId !=
+                                                              FFAppState()
+                                                                  .asGetAircraftProposal
+                                                                  .id) {
+                                                        Navigator.of(
+                                                                dialogContext)
+                                                            .pop();
+                                                        showWriteError(
+                                                          context,
+                                                          'A aeronave do estoque escolhida é de outro '
+                                                          'modelo. Confirme o modelo no seletor '
+                                                          '(botão abaixo dele) ou troque a aeronave.',
+                                                        );
+                                                        return;
+                                                      }
                                                       // Os inserts abaixo (proposta, financiamento e itens) rodavam
                                                       // crus: falha em qualquer um travava o diálogo e podia deixar
                                                       // a proposta gravada sem financiamento.
@@ -6460,6 +6577,8 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                         'aircraft_id': FFAppState()
                                                             .asGetAircraftProposal
                                                             .id,
+                                                        'available_aircraft_id':
+                                                            stockUnit?.id,
                                                         'id_ref':
                                                             valueOrDefault<
                                                                 String>(

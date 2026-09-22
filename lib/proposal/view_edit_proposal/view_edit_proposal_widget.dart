@@ -35,6 +35,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:provider/provider.dart';
 import '/core_ui/core_ui.dart';
+import 'proposal_stock_unit_section.dart';
 import 'view_edit_proposal_model.dart';
 export 'view_edit_proposal_model.dart';
 
@@ -4152,6 +4153,13 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                             },
                           ),
                         ),
+                        // Aeronave física do estoque escolhida para esta
+                        // proposta (migration 20260922120000). Some depois
+                        // da conversão — no contrato a seção é outra.
+                        ProposalStockUnitSection(
+                          proposalId: widget.proposalId ?? '',
+                          canEdit: widget.typeAccess == 'edit',
+                        ),
                         Padding(
                           padding: EdgeInsetsDirectional.fromSTEB(
                               16.0, 0.0, 16.0, 16.0),
@@ -5771,6 +5779,33 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                   child: Builder(
                                     builder: (context) => FFButtonWidget(
                                       onPressed: () async {
+                                        // Aeronave do estoque que já saiu
+                                        // (vendida noutro contrato ou baixada)
+                                        // faria o banco recusar o CONTRATO —
+                                        // depois de o cliente já ter sido
+                                        // criado. Barra aqui, antes de tudo.
+                                        // Falha na checagem também bloqueia:
+                                        // seguir "no escuro" é o que ela evita.
+                                        String? bloqueioEstoque;
+                                        try {
+                                          bloqueioEstoque =
+                                              await stockConversionBlocker(
+                                                  widget.proposalId ?? '');
+                                        } catch (e, st) {
+                                          Sentry.captureException(e,
+                                              stackTrace: st,
+                                              withScope: (s) => s.setTag('acao',
+                                                  'proposta.converter_estoque'));
+                                          bloqueioEstoque =
+                                              'Não foi possível conferir a aeronave do '
+                                              'estoque. Tente de novo.';
+                                        }
+                                        if (!context.mounted) return;
+                                        if (bloqueioEstoque != null) {
+                                          showWriteError(
+                                              context, bloqueioEstoque);
+                                          return;
+                                        }
                                         // O acesso do cliente no app (auth +
                                         // credenciais por e-mail) é criado com
                                         // o e-mail do lead — confirmar/corrigir

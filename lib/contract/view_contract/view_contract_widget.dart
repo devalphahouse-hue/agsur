@@ -24,6 +24,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'contract_aircraft_unit_section.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'view_contract_model.dart';
 export 'view_contract_model.dart';
 
@@ -47,6 +48,17 @@ class ViewContractWidget extends StatefulWidget {
 }
 
 class _ViewContractWidgetState extends State<ViewContractWidget> {
+  /// Avião do contrato, lido pela proposta (não pelo FFAppState, que pode
+  /// estar com o contrato anterior enquanto a tela carrega).
+  late final Future<String?> _contractAircraftId = ProposalTable()
+      .queryRows(queryFn: (q) => q.eqOrNull('id', widget.proposalId))
+      .then((rows) {
+    final id = rows.firstOrNull?.aircraftId;
+    return (id != null && RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(id))
+        ? id
+        : null;
+  });
+
   late ViewContractModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
@@ -4215,13 +4227,29 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                                     .fromSTEB(
                                                         0.0, 12.0, 0.0, 12.0),
                                                 child: FutureBuilder<
-                                                    List<AircraftItemsRow>>(
+                                                    List<
+                                                        VwAircraftItemsByAircraftRow>>(
                                                   future: _model
                                                           .optionalItemsByCategory[
                                                       lVCategoriesCategoryRow
-                                                          .id] ??= AircraftItemsTable()
-                                                      .queryRows(
+                                                          .id] ??= _contractAircraftId
+                                                      .then((aircraftId) =>
+                                                          VwAircraftItemsByAircraftTable()
+                                                              .queryRows(
+                                                    // Só os opcionais vinculados
+                                                    // ao avião DESTE contrato
+                                                    // (mesma regra da proposta).
+                                                    // O id vem da proposta pelo
+                                                    // proposalId — o FFAppState
+                                                    // pode ainda ter o contrato
+                                                    // aberto antes, e o cache por
+                                                    // categoria guardaria o
+                                                    // filtro errado.
                                                     queryFn: (q) => q
+                                                        .eqOrNull(
+                                                          'aircraft_id',
+                                                          aircraftId,
+                                                        )
                                                         .eqOrNull(
                                                           'category_id',
                                                           lVCategoriesCategoryRow
@@ -4241,7 +4269,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                                         )
                                                         .order('item_name',
                                                             ascending: true),
-                                                  ),
+                                                  )),
                                                   builder: (context, snapshot) {
                                                     // Customize what your widget looks like when it's loading.
                                                     if (!snapshot.hasData) {
@@ -4258,7 +4286,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                                         ),
                                                       );
                                                     }
-                                                    List<AircraftItemsRow>
+                                                    List<VwAircraftItemsByAircraftRow>
                                                         lVOptionalItemsAircraftItemsRowList =
                                                         snapshot.data!;
 
@@ -5683,6 +5711,26 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                           ),
                                         );
                                       }
+                                      // Nº de série / prefixo / ano da
+                                      // aeronave do estoque vinculada.
+                                      // Falhou a leitura → não gera: minuta
+                                      // sem o serial do avião vendido é pior
+                                      // que minuta nenhuma.
+                                      actions.ContractPdfUnit? stockUnit;
+                                      try {
+                                        stockUnit = await loadContractPdfUnit(
+                                            widget.proposalId ?? '');
+                                      } catch (e, st) {
+                                        Sentry.captureException(e,
+                                            stackTrace: st,
+                                            withScope: (s) => s.setTag('acao',
+                                                'contrato.pdf_unidade'));
+                                        if (context.mounted) {
+                                          showWriteError(context,
+                                              'Não foi possível ler a aeronave do estoque para a minuta. Tente de novo.');
+                                        }
+                                        return;
+                                      }
                                       await actions.generateContractPdf(
                                         FFAppState().asGetProposalDetails,
                                         GetFinancialProposalStruct(
@@ -5726,6 +5774,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                         ),
                                         _composeTerms(),
                                         _model.tFInstructionTextController.text,
+                                        stockUnit: stockUnit,
                                       );
                                     },
                                     text: 'Gerar PDF',

@@ -11,6 +11,7 @@ class AlertDialogWidget extends StatefulWidget {
     super.key,
     required this.confirmBtnAction,
     required this.title,
+    this.description,
     Color? iconColor,
     Color? btnColor,
   })  : iconColor = iconColor ?? const Color(0xFFC2D51C),
@@ -18,6 +19,10 @@ class AlertDialogWidget extends StatefulWidget {
 
   final Future Function()? confirmBtnAction;
   final String? title;
+
+  /// Texto opcional abaixo do título. Em exclusão, diga QUEM/O QUÊ será
+  /// excluído — sem isso o diálogo não deixa conferir a linha clicada.
+  final String? description;
   final Color iconColor;
   final Color btnColor;
 
@@ -64,6 +69,7 @@ class _AlertDialogWidgetState extends State<AlertDialogWidget> {
           ? Icons.warning_amber_rounded
           : Icons.help_outline_rounded,
       title: widget.title ?? 'Deseja confirmar esta ação?',
+      description: widget.description,
       iconTone: tone,
       maxWidth: 460,
       footer: Row(

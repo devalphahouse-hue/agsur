@@ -199,6 +199,20 @@ class _ClientsWidgetState extends State<ClientsWidget> {
           },
           child: AlertDialogWidget(
             title: 'Deseja excluir este cliente?',
+            // Nome e empresa: o diálogo não dizia quem seria excluído (QA de
+            // 2026-09-22) — com nomes parecidos na lista, era fácil errar.
+            description: [
+              (item.clientFullname ?? '').trim().isEmpty
+                  ? 'Cliente sem nome'
+                  : item.clientFullname!.trim(),
+              // Empresa em branco no cadastro grava o nome do lead — não
+              // repetir "Fulano · Fulano".
+              if ((item.companyName ?? '').trim().isNotEmpty &&
+                  item.companyName!.trim().toLowerCase() !=
+                      (item.clientFullname ?? '').trim().toLowerCase())
+                item.companyName!.trim(),
+            ].join(' · ') +
+                '\nEle perde o acesso ao app. Contratos e propostas ficam no histórico.',
             iconColor: const Color(0xFFFF5963),
             btnColor: const Color(0xFFFF5963),
             confirmBtnAction: () async {

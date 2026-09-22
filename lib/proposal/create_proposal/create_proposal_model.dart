@@ -3,6 +3,7 @@ import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/form_field_controller.dart';
 import '/index.dart';
+import '/pages/shared/stock_unit_picker/stock_unit_picker.dart';
 import 'create_proposal_widget.dart' show CreateProposalWidget;
 import 'package:flutter/material.dart';
 
@@ -38,6 +39,13 @@ class CreateProposalModel extends FlutterFlowModel<CreateProposalWidget> {
       optionalItemsByCategory = {};
   // Itens de série do avião selecionado (exibição na etapa de opcionais).
   Future<List<VwAircraftItemsByAircraftRow>>? seriesItemsFuture;
+
+  // Estoque (migration 20260922120000): filtro rápido do seletor de modelo,
+  // quantas unidades vendáveis cada modelo tem, e a aeronave do estoque
+  // escolhida para a proposta (opcional — o contrato herda na conversão).
+  AircraftQuickFilter aircraftQuickFilter = AircraftQuickFilter.todos;
+  Map<String, int> sellableByModel = {};
+  VwStockUnitsRow? stockUnit;
 
   List<String> listIds = [];
   void addToListIds(String item) => listIds.add(item);

@@ -4,6 +4,8 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
+import '/custom_code/actions/index.dart' show ContractPdfUnit;
+import '/pages/shared/stock_unit_picker/stock_unit_picker.dart';
 import '/security/action_feedback.dart';
 import '/security/write_guard.dart';
 
@@ -13,6 +15,13 @@ import '/security/write_guard.dart';
 /// cliente, 2026-07-21: "abre uma lista de aeronaves e coloca pra ele").
 /// Grava em `contract.available_aircraft_id` (migration 20260722130000);
 /// o banco garante uma unidade por contrato ativo via índice único parcial.
+///
+/// Desde o controle de estoque (migration 20260922120000) o vínculo MOVIMENTA
+/// o estoque, por trigger: vincular dá saída ("Venda (contrato)"), trocar
+/// devolve a antiga e dá saída na nova, remover/cancelar devolve. Na
+/// conversão o contrato já nasce com a aeronave escolhida na proposta. O
+/// seletor só oferece aeronaves do MODELO da proposta que estão no estoque —
+/// o banco recusa as demais.
 ///
 /// Regras de exibição:
 ///  * Sem contrato (proposta ainda não convertida) → a seção não aparece:
@@ -38,8 +47,8 @@ class ContractAircraftUnitSection extends StatefulWidget {
 class _ContractAircraftUnitSectionState
     extends State<ContractAircraftUnitSection> {
   ContractRow? _contract;
-  AvailableAircraftsRow? _unit;
-  String? _unitModelName;
+  VwStockUnitsRow? _unit;
+  String? _proposalAircraftId;
   bool _loading = true;
   bool _busy = false;
 
@@ -55,23 +64,22 @@ class _ContractAircraftUnitSectionState
         queryFn: (q) => q.eqOrNull('proposal_id', widget.proposalId),
       );
       final contract = contracts.firstOrNull;
-      AvailableAircraftsRow? unit;
-      String? modelName;
+      VwStockUnitsRow? unit;
       final unitId = contract?.availableAircraftId;
       if (unitId != null && unitId.isNotEmpty) {
-        final units = await AvailableAircraftsTable().queryRows(
+        final units = await VwStockUnitsTable().queryRows(
           queryFn: (q) => q.eqOrNull('id', unitId),
         );
         unit = units.firstOrNull;
-        if (unit != null) {
-          modelName = await _resolveModelName(unit.aircraftModel);
-        }
       }
+      final proposals = await ProposalTable().queryRows(
+        queryFn: (q) => q.eqOrNull('id', widget.proposalId),
+      );
       if (!mounted) return;
       setState(() {
         _contract = contract;
         _unit = unit;
-        _unitModelName = modelName;
+        _proposalAircraftId = proposals.firstOrNull?.aircraftId;
         _loading = false;
       });
     } catch (e, st) {
@@ -81,17 +89,6 @@ class _ContractAircraftUnitSectionState
           withScope: (s) => s.setTag('acao', 'contrato.unidade_load'));
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  /// `available_aircrafts.aircraft_model` guarda o id do catálogo; unidades
-  /// legadas podem ter gravado o nome direto (mesma tolerância do modal do
-  /// estoque).
-  Future<String?> _resolveModelName(String stored) async {
-    if (stored.isEmpty) return null;
-    final rows = await AircraftsTable().queryRows(
-      queryFn: (q) => q.eqOrNull('id', stored),
-    );
-    return rows.firstOrNull?.aircraftModel ?? stored;
   }
 
   Future<void> _saveLink(String? unitId) async {
@@ -110,7 +107,12 @@ class _ContractAircraftUnitSectionState
         return;
       }
       showActionSuccess(
-          context, unitId == null ? 'Vínculo removido' : 'Unidade vinculada');
+          context,
+          unitId == null
+              ? 'Vínculo removido — aeronave de volta ao estoque'
+              : 'Aeronave vinculada — saída registrada no estoque');
+      // O seletor cacheia o estoque; o vínculo acabou de movimentá-lo.
+      QueryCache.invalidate('stock.units');
       await _load();
     } on PostgrestException catch (e, st) {
       if (!mounted) return;
@@ -137,15 +139,13 @@ class _ContractAircraftUnitSectionState
   }
 
   Future<void> _openPicker() async {
-    final picked = await showDialog<AvailableAircraftsRow>(
-      context: context,
-      builder: (dialogContext) => Dialog(
-        elevation: 0,
-        insetPadding: EdgeInsets.zero,
-        backgroundColor: Colors.transparent,
-        alignment: Alignment.center,
-        child: _UnitPickerModal(currentUnitId: _unit?.id),
-      ),
+    final picked = await pickStockUnit(
+      context,
+      aircraftId: _proposalAircraftId,
+      currentUnitId: _unit?.id,
+      title: 'Vincular aeronave do estoque',
+      description: 'Aeronaves do modelo desta proposta que estão no estoque. '
+          'Ao vincular, a aeronave sai do estoque.',
     );
     if (picked != null) await _saveLink(picked.id);
   }
@@ -163,8 +163,8 @@ class _ContractAircraftUnitSectionState
           iconTone: AppModalTone.danger,
           title: 'Remover vínculo',
           description:
-              'A unidade volta a ficar livre para ser vinculada a outro contrato. '
-              'O status dela no estoque não muda.',
+              'A aeronave volta para o estoque como Disponível e fica livre '
+              'para outra proposta. A devolução fica no histórico do estoque.',
           maxWidth: 480,
           footer: Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -246,7 +246,9 @@ class _ContractAircraftUnitSectionState
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _unitModelName ?? 'Modelo não informado',
+                  unit.aircraftModelName.isEmpty
+                      ? 'Modelo não informado'
+                      : unit.aircraftModelName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.inter(
@@ -259,7 +261,11 @@ class _ContractAircraftUnitSectionState
                 Text(
                   [
                     if (unit.serialNumber.isNotEmpty) 'S/N ${unit.serialNumber}',
-                    if (unit.entryYear.isNotEmpty) 'Ano ${unit.entryYear}',
+                    (unit.registrationPrefix ?? '').isNotEmpty
+                        ? 'Prefixo ${unit.registrationPrefix}'
+                        : 'Prefixo a definir',
+                    if (unit.manufactureDate != null)
+                      'Fab. ${unit.manufactureDate!.year}',
                   ].join(' · '),
                   style: GoogleFonts.inter(
                     fontSize: 12,
@@ -332,204 +338,23 @@ AppStatusTone _toneFor(String status) {
   return AppStatusTone.brand;
 }
 
-/// Seletor de unidade: lista o estoque com busca, resolve o nome do modelo e
-/// marca as unidades já presas a outro contrato ativo (não selecionáveis —
-/// o índice único do banco é o backstop).
-class _UnitPickerModal extends StatefulWidget {
-  const _UnitPickerModal({this.currentUnitId});
-
-  final String? currentUnitId;
-
-  @override
-  State<_UnitPickerModal> createState() => _UnitPickerModalState();
-}
-
-class _PickerUnit {
-  _PickerUnit(this.row, this.modelName, this.takenByOther);
-  final AvailableAircraftsRow row;
-  final String modelName;
-  final bool takenByOther;
-}
-
-class _UnitPickerModalState extends State<_UnitPickerModal> {
-  List<_PickerUnit>? _units;
-  String _query = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final results = await Future.wait([
-        AvailableAircraftsTable().queryRows(queryFn: (q) => q),
-        AircraftsTable().queryRows(queryFn: (q) => q),
-        ContractTable().queryRows(
-          queryFn: (q) =>
-              q.not('available_aircraft_id', 'is', null).isFilter(
-                    'cancelled_at',
-                    null,
-                  ),
-        ),
-      ]);
-      final units = results[0] as List<AvailableAircraftsRow>;
-      final catalog = results[1] as List<AircraftsRow>;
-      final activeLinks = results[2] as List<ContractRow>;
-      final nameById = {for (final a in catalog) a.id: a.aircraftModel};
-      final takenIds = activeLinks
-          .map((c) => c.availableAircraftId)
-          .whereType<String>()
-          .toSet();
-      if (!mounted) return;
-      setState(() {
-        _units = units
-            .map((u) => _PickerUnit(
-                  u,
-                  nameById[u.aircraftModel] ?? u.aircraftModel,
-                  takenIds.contains(u.id) && u.id != widget.currentUnitId,
-                ))
-            .toList()
-          ..sort((a, b) => a.modelName.compareTo(b.modelName));
-      });
-    } catch (e, st) {
-      Sentry.captureException(e, stackTrace: st,
-          withScope: (s) => s.setTag('acao', 'contrato.unidade_picker'));
-      if (mounted) setState(() => _units = []);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final q = _query.trim().toLowerCase();
-    final visible = (_units ?? [])
-        .where((u) =>
-            q.isEmpty ||
-            u.modelName.toLowerCase().contains(q) ||
-            u.row.serialNumber.toLowerCase().contains(q))
-        .toList();
-
-    return AppModal(
-      icon: Icons.flight_takeoff_rounded,
-      title: 'Vincular unidade do estoque',
-      description:
-          'Selecione a unidade física vendida neste contrato. Unidades já '
-          'vinculadas a outro contrato ativo aparecem bloqueadas.',
-      maxWidth: 640,
-      footer: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          AppSecondaryButton(
-            label: 'Cancelar',
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AppSearchInput(
-            value: _query,
-            placeholder: 'Buscar por modelo ou serial...',
-            width: double.infinity,
-            onChanged: (v) => setState(() => _query = v),
-          ),
-          const SizedBox(height: 12),
-          if (_units == null)
-            Column(
-              children: List.generate(
-                3,
-                (_) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: AppSkeleton.box(height: 56),
-                ),
-              ),
-            )
-          else if (visible.isEmpty)
-            const AppEmptyState(
-              icon: Icons.flight_outlined,
-              title: 'Nenhuma unidade encontrada',
-            )
-          else
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 380),
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: visible.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (context, i) => _unitTile(visible[i]),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _unitTile(_PickerUnit u) {
-    final isCurrent = u.row.id == widget.currentUnitId;
-    final blocked = u.takenByOther;
-    return Opacity(
-      opacity: blocked ? 0.45 : 1,
-      child: AppCard(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        onTap: (blocked || isCurrent)
-            ? null
-            : () => Navigator.of(context).pop(u.row),
-        child: Row(
-          children: [
-            Icon(
-              blocked ? Icons.lock_outline_rounded : Icons.flight_outlined,
-              color: blocked
-                  ? const Color(0x99FFFFFF)
-                  : const Color(0xFFC2D51C),
-              size: 22,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    u.modelName.isEmpty ? 'Modelo não informado' : u.modelName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    [
-                      if (u.row.serialNumber.isNotEmpty)
-                        'S/N ${u.row.serialNumber}',
-                      if (u.row.entryYear.isNotEmpty) 'Ano ${u.row.entryYear}',
-                      if (isCurrent) 'vinculada a este contrato',
-                      if (blocked) 'em outro contrato ativo',
-                    ].join(' · '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
-                      fontSize: 11.5,
-                      color: const Color(0xB3FFFFFF),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            AppStatusBadge(
-              label: u.row.status.isEmpty ? '—' : u.row.status,
-              tone: _toneFor(u.row.status),
-              dense: true,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+/// Aeronave do estoque do contrato desta proposta, no formato da minuta.
+/// `null` = contrato sem aeronave vinculada (a minuta sai como antes).
+/// Propaga erro de leitura: o "Gerar PDF" não deve seguir sem saber.
+Future<ContractPdfUnit?> loadContractPdfUnit(String proposalId) async {
+  final contracts = await ContractTable().queryRows(
+    queryFn: (q) => q.eqOrNull('proposal_id', proposalId),
+  );
+  final unitId = contracts.firstOrNull?.availableAircraftId;
+  if (unitId == null || unitId.isEmpty) return null;
+  final units = await VwStockUnitsTable().queryRows(
+    queryFn: (q) => q.eqOrNull('id', unitId),
+  );
+  final u = units.firstOrNull;
+  if (u == null) return null;
+  return ContractPdfUnit(
+    serialNumber: u.serialNumber,
+    registrationPrefix: u.registrationPrefix,
+    manufactureYear: u.manufactureDate?.year,
+  );
 }

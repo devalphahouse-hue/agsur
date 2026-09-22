@@ -54,3 +54,6 @@ export 'tables/chat_participants.dart';
 export 'tables/vw_chat_my_threads.dart';
 export 'tables/aircraft_item_links.dart';
 export 'tables/vw_aircraft_items_by_aircraft.dart';
+export 'tables/vw_stock_units.dart';
+export 'tables/vw_stock_movements.dart';
+export 'tables/available_aircraft_logs.dart';

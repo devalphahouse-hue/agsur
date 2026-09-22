@@ -39,8 +39,11 @@ class ViewContractModel extends FlutterFlowModel<ViewContractWidget> {
   // chamadas repetidas ao abrir/usar a página. Memoizamos: categorias uma vez,
   // itens por id de categoria.
   Future<List<CategoryRow>>? optionalCategoriesFuture;
-  final Map<String, Future<List<AircraftItemsRow>>> optionalItemsByCategory =
-      {};
+  // Opcionais vêm de vw_aircraft_items_by_aircraft filtrada pelo avião do
+  // contrato — igual à proposta. Antes lia aircraft_items direto e listava
+  // opcionais de TODOS os modelos (achado do QA de 2026-09-22).
+  final Map<String, Future<List<VwAircraftItemsByAircraftRow>>>
+      optionalItemsByCategory = {};
 
   ///  State fields for stateful widgets in this page.
 

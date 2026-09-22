@@ -221,15 +221,13 @@ npx supabase db push --dry-run   # validar
 npx supabase db push             # aplicar
 ```
 
-> ⚠️ **Token novo (`sbp_v0_...`) NÃO funciona no CLI.** Os PATs que o dashboard
-> emite hoje têm esse prefixo, e o CLI valida o formato antigo (`sbp_` + 40
-> hex):
-> qualquer comando com `SUPABASE_ACCESS_TOKEN` exportado morre em
-> `Invalid access token format` / `LegacyInvalidAccessTokenError`, antes de
-> tocar na rede. O caminho que funciona é `unset SUPABASE_ACCESS_TOKEN` +
-> `npx -y supabase@latest login` (fluxo de browser, grava sessão válida).
-> Colar token no chat continua sendo o padrão de vazamento recorrente aqui —
-> o `login` evita o valor em texto em qualquer lugar.
+> ✅ **Token novo (`sbp_v0_...`) funciona com `npx -y supabase@latest`**
+> (verificado em 2026-09-22: `migration list`, `db push --dry-run` e `db push`
+> passaram com `SUPABASE_ACCESS_TOKEN=sbp_v0_...`). Versões antigas do CLI
+> validavam só o formato `sbp_` + 40 hex e morriam em `Invalid access token
+> format` — se aparecer, é CLI velho: use `@latest`. `npx supabase login`
+> (browser) continua sendo o caminho que não expõe o token; se ele for colado
+> no chat, revogue depois em supabase.com/dashboard/account/tokens.
 
 **Toda mudança de schema/RLS via PR.** CI valida com `supabase-db-check.yml`
 (dry-run) e `rls-smoke.yml` (smoke daily anon). DDL fora do PR vira drift e
@@ -457,8 +455,8 @@ dentro do formulário/modal que a tela já tem.
 
 ### Schema versionado em `supabase/migrations/`
 
-DDL agora vive **versionado no git** em `supabase/migrations/` (**64 arquivos**,
-último `20260825210000`). Em 2026-07-14 o histórico
+DDL agora vive **versionado no git** em `supabase/migrations/` (**65 arquivos**,
+último `20260922120000`). Em 2026-07-14 o histórico
 foi **reparado** via `migration repair` (4 migrations tinham sido aplicadas por
 fora sem registro); desde então `db push --dry-run` reflete a realidade e o
 CLI recusa aplicar a Fase 7 fora de ordem sem `--include-all`. O batch de
@@ -1043,20 +1041,93 @@ guardam isso. Por isso as guardas não dependem de saber a causa:
   código FF) grava `contract.available_aircraft_id` (migration
   `20260722130000`). Regras: uma unidade por contrato ATIVO (índice único
   parcial; cancelamento libera), `ON DELETE SET NULL`, botões gated por
-  `typeAccess == 'edit'` (canEditFunil), status da unidade no estoque segue
-  manual. Proposta sem contrato não mostra a seção. Violação 23505 é traduzida
-  para "unidade já vinculada a outro contrato ativo".
+  `typeAccess == 'edit'` (canEditFunil). Proposta sem contrato não mostra a
+  seção. Violação 23505 é traduzida para "unidade já vinculada a outro
+  contrato ativo". **Desde `20260922120000` o vínculo movimenta o estoque**
+  (ver "Estoque de aeronaves" abaixo) e o seletor só oferece aeronaves do
+  modelo da proposta que estão no estoque. A minuta (PDF) sai com nº de série,
+  prefixo e ano de fabricação da aeronave vinculada — parâmetro nomeado
+  `stockUnit` escrito à mão na custom action `generateContractPdf` (uma regen
+  do FlutterFlow o apaga).
 
-### Estoque de unidades (`available_aircrafts`)
+### Estoque de aeronaves (`20260922120000_stock_movements`)
 
-- **A coluna `aircraft_model` guarda o ID do catálogo (`aircrafts.id`), não o
-  nome** — é o que o create insere e o que `fn_available_aircrafts` resolve
-  para nome na listagem. Um comentário antigo no modal dizia o contrário e
-  causou o bug de 2026-07-21: o dropdown de modelo abria vazio no editar e
-  salvar sem re-selecionar morria em null-check. O modal agora pré-carrega da
-  própria row e casa por id OU nome (tolerância a dado legado).
-- Criar/editar/excluir unidade seguem o padrão `action_feedback`/`guardWrite`
-  (a tela ficou fora da varredura de 2026-07-20 e foi coberta em 2026-07-22).
+Pedido do cliente de 2026-09-22 ("Gestão de Aeronaves em Estoque & Vínculo
+Contratual"). **Catálogo** (`aircrafts`) = modelos que a AGSur vende;
+**estoque** (`available_aircrafts`) = aviões físicos que ela tem. Estoque de
+verdade: entradas e saídas registradas, quantidade por modelo, histórico que
+ninguém apaga.
+
+- **Avião é item serializado.** Cada unidade é uma linha com nº de série
+  **obrigatório e único** (índice em `lower(btrim(serial_number))`). A
+  "quantidade" de um modelo = unidades com `in_stock = true`. A conta do saldo
+  mora em `lib/backend/stock.dart` (pura, testada em `test/stock_test.dart`),
+  junto com os motivos de lançamento — **eles espelham o CHECK de
+  `stock_movements.reason`; mexeu num, mexa no outro**.
+- **Livro-razão `stock_movements` é imutável** — sem policy de escrita para
+  ninguém. Nasce só por: RPC `stock_entry` (entrada em lote: modelo + N
+  seriais), `stock_exit` (baixa/devolução ao fabricante/ajuste), `stock_reentry`
+  e os triggers de `contract`. Correção = lançamento inverso com motivo
+  `ajuste_inventario` (a tela exige observação). `available_aircraft_logs`
+  guarda o diff de campo de cada UPDATE da unidade (trigger).
+- **`in_stock` não se grava direto** — nem Admin documentação. A guarda
+  `tg_available_aircrafts_guard` (substituiu a `hardening_require_documentacao`
+  SÓ nesta tabela) recusa INSERT direto ("use a entrada de estoque"), DELETE
+  ("registre uma saída") e mudança de `in_stock`. O cadastro antigo por
+  `AvailableAircraftsTable().insert` **não funciona mais**; a exclusão também
+  não (o modal de criação ficou só com o modo editar em uso).
+- **Saída por venda = conversão da proposta em contrato.** A proposta pode
+  escolher a aeronave (`proposal.available_aircraft_id`, várias propostas podem
+  disputar a mesma); o `BEFORE INSERT` de `contract` herda da proposta, valida
+  modelo igual ao da proposta e unidade em estoque, e o `AFTER` lança a saída
+  ("Venda (contrato)") e marca `Vendido`. Trocar a unidade no contrato devolve
+  a antiga; cancelar o contrato devolve (estorno automático). Tudo no banco —
+  vale para qualquer caminho de conversão.
+- ⚠️ **O ponto delicado de permissão.** Escrita no estoque é de
+  documentação/master, mas o contrato pode ser escrito pelo funil. As funções
+  de estoque são `SECURITY DEFINER` e ligam a flag transacional
+  `agsur.stock_sync`; com ela a guarda aceita a escrita, mas para quem não é
+  documentação **só `in_stock`/`status`/`update_by` podem mudar**. PostgREST
+  não expõe `set_config`, então o cliente não liga a flag. Não crie RPC que
+  exponha `set_config` ou SQL dinâmico — abriria o estoque.
+- **Conversão com aeronave que já saiu:** o banco recusaria o CONTRATO depois
+  de o cliente já ter sido criado (a conversão são 7 escritas encadeadas). Por
+  isso `view_edit_proposal` chama `stockConversionBlocker` antes de tudo —
+  e falha da checagem também bloqueia.
+- **Status** é o estado comercial: em estoque Disponível / Em negociação /
+  Reservado (manual); fora, Vendido (trigger), Entregue (manual) ou Baixado
+  (saída manual). `stockStatusOptions` separa os dois grupos no dropdown.
+- **"Em proposta" é calculado, não é status** (pedido do usuário, 2026-09-22):
+  aeronave no estoque escolhida em proposta ativa (`available_aircraft_id`
+  preenchido, `is_contract=false`, `is_deleted=false`, `active=true`). No
+  saldo, em estoque = Disponíveis + Em proposta + Reservadas (reserva manual
+  sem proposta); proposta vence o status manual. "Outras saídas" = fora do
+  estoque sem contrato ativo (baixa, devolução ao fabricante, ajuste).
+- **Destaque** (`aircrafts.featured`) é marcado na estrela do card do
+  catálogo e alimenta o filtro rápido "★ Em destaque / Disponíveis no estoque"
+  do seletor de modelo em `create_proposal`.
+- **Telas:** `lib/pages/aircrafts/available_aircrafts/` (abas Saldo /
+  Aeronaves / Movimentações + modais de entrada, saída/reentrada e histórico);
+  seletor compartilhado em `lib/pages/shared/stock_unit_picker/` (cacheia
+  `vw_stock_units` na key `stock.units` — invalide ao movimentar);
+  `proposal_stock_unit_section.dart` na proposta; `contract_aircraft_unit_section.dart`
+  no contrato. Permissão na UI: `AccessControl.canManageStock`.
+- `aircraft_model` guarda o **id** do catálogo, não o nome (bug de
+  2026-07-21 — o modal de edição casa por id OU nome para dado legado).
+- **QA de 2026-09-22 (fluxo lead → proposta → contrato):** o seletor de
+  aeronave esconde as de modelo que **saiu do catálogo** (`deleted=true`) —
+  escolher uma quebrava a proposta, cujo seletor de modelo não lista o
+  removido. Dois acertos fora do estoque vieram junto e **são edição à mão em
+  código FlutterFlow**: `view_contract` passou a ler os opcionais de
+  `vw_aircraft_items_by_aircraft` filtrados pelo avião do contrato (lia
+  `aircraft_items` cru e listava opcionais de todos os modelos; o id do avião
+  vem da proposta via `widget.proposalId`, não do `FFAppState`, que pode estar
+  com o contrato anterior durante o load), e `flutter_flow_drop_down.dart`
+  fecha a lista pesquisável no Esc (o campo de busca engolia a tecla).
+- Classes das tabelas/views novas (`vw_stock_units`, `vw_stock_movements`,
+  `available_aircraft_logs`) e os getters novos de `aircrafts`/`available_aircrafts`/
+  `proposal` foram **escritos à mão** em `lib/backend/supabase/database/` —
+  uma regen do FlutterFlow os apaga.
 
 ### Chat interno do painel (`20260628120000_panel_chat.sql`)
 

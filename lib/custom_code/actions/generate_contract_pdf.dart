@@ -199,12 +199,30 @@ pw.Widget _tableRow(String label, String value, {bool boldLabel = true}) {
   );
 }
 
+/// Aeronave física do estoque vinculada ao contrato (migration
+/// 20260922120000). Os dados técnicos e o preço continuam vindo do catálogo
+/// (decisão do cliente, 2026-09-22); a unidade só identifica QUAL avião é.
+class ContractPdfUnit {
+  const ContractPdfUnit({
+    required this.serialNumber,
+    this.registrationPrefix,
+    this.manufactureYear,
+  });
+
+  final String serialNumber;
+  final String? registrationPrefix;
+  final int? manufactureYear;
+}
+
 // ===================== GERAR PDF =====================
+// `stockUnit` é parâmetro nomeado escrito à mão — uma regen do FlutterFlow
+// desta custom action o apaga e a minuta volta a sair sem nº de série.
 Future<void> generateContractPdf(
     GetProposalDetailsStruct asGetProposalDetails,
     GetFinancialProposalStruct asGetFinancialProposal,
     String terms,
-    String instructions) async {
+    String instructions,
+    {ContractPdfUnit? stockUnit}) async {
   final pdf = pw.Document();
 
   // Load logo
@@ -268,8 +286,18 @@ Future<void> generateContractPdf(
   // Forma de pagamento
   final formaPagamento = 'FINANCIADO - $prazo ANOS';
 
-  // Aircraft title
-  final aircraftTitle = '$year ${aircraft.aircraftModel}';
+  // Aircraft title — com aeronave do estoque, o ano é o de fabricação DELA
+  // (o do catálogo é do modelo, não do avião vendido).
+  final aircraftTitle =
+      '${stockUnit?.manufactureYear ?? year} ${aircraft.aircraftModel}';
+  final unitLine = stockUnit == null
+      ? null
+      : _pdfSafe([
+          'Numero de serie: ${stockUnit.serialNumber}',
+          'Prefixo: ${(stockUnit.registrationPrefix ?? '').trim().isEmpty ? 'a definir' : stockUnit.registrationPrefix!.trim()}',
+          if (stockUnit.manufactureYear != null)
+            'Ano de fabricacao: ${stockUnit.manufactureYear}',
+        ].join('   |   '));
   final aircraftDescription = _pdfSafe(aircraft.aircraftDescription);
 
   // Calculate optionals total
@@ -443,6 +471,12 @@ Future<void> generateContractPdf(
                     child: pw.Text(aircraftTitle,
                         style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
                   ),
+                  if (unitLine != null)
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.only(top: 2),
+                      child: pw.Text(unitLine,
+                          style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)),
+                    ),
                   pw.SizedBox(height: 4),
                   pw.Row(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,

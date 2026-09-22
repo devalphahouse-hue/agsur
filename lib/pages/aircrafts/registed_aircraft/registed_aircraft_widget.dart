@@ -5,6 +5,8 @@ import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
+import '/security/action_feedback.dart';
+import '/security/write_guard.dart';
 import 'registed_aircraft_model.dart';
 export 'registed_aircraft_model.dart';
 
@@ -85,6 +87,8 @@ class _RegistedAircraftWidgetState extends State<RegistedAircraftWidget> {
           .select('*')
           .eq('deleted', false)
           .ilike('aircraft_model', '%$_query%')
+          // Destaques primeiro (migration 20260922120000).
+          .order('featured', ascending: false)
           .order('aircraft_model', ascending: true)
           .range(from, from + _perPage - 1)
           .count(CountOption.exact);
@@ -398,6 +402,38 @@ class _RegistedAircraftWidgetState extends State<RegistedAircraftWidget> {
                       ],
                     ),
                   ),
+                  // Destaque no catálogo interno: alimenta o filtro rápido da
+                  // proposta. Grava direto; a guarda do banco
+                  // (documentação/master) decide, o guardWrite avisa.
+                  Positioned(
+                    top: 10,
+                    left: 10,
+                    child: Tooltip(
+                      message: item.featured
+                          ? 'Remover destaque'
+                          : 'Marcar como destaque',
+                      child: Material(
+                        color: const Color(0x73000000),
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: () => _toggleFeatured(item),
+                          child: Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Icon(
+                              item.featured
+                                  ? Icons.star_rounded
+                                  : Icons.star_outline_rounded,
+                              size: 18,
+                              color: item.featured
+                                  ? const Color(0xFFFFC857)
+                                  : const Color(0xCCFFFFFF),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                   // Botão remover (com confirmação)
                   Positioned(
                     top: 10,
@@ -432,6 +468,12 @@ class _RegistedAircraftWidgetState extends State<RegistedAircraftWidget> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
+                        if (item.featured)
+                          const AppStatusBadge(
+                            label: 'Destaque',
+                            icon: Icons.star_rounded,
+                            tone: AppStatusTone.warning,
+                          ),
                         AppStatusBadge(
                           label: '${_thousands(item.hopper.round())} L',
                           icon: Icons.water_drop_outlined,
@@ -586,6 +628,32 @@ class _RegistedAircraftWidgetState extends State<RegistedAircraftWidget> {
         ],
       ),
     );
+  }
+
+  // ─────────────────────────── Destaque ──────────────────────────────
+  Future<void> _toggleFeatured(AircraftsRow item) async {
+    final next = !item.featured;
+    var gravou = false;
+    await runAction(
+      context,
+      contexto: 'catalogo.destaque',
+      failure: 'Não foi possível alterar o destaque.',
+      action: () async {
+        gravou = await guardWrite(
+          context,
+          () => AircraftsTable().update(
+            data: {'featured': next},
+            matchingRows: (rows) => rows.eqOrNull('id', item.id),
+            returnRows: true,
+          ),
+          contexto: 'catalogo.destaque',
+        );
+      },
+    );
+    if (!mounted || !gravou) return;
+    showActionSuccess(context,
+        next ? 'Modelo marcado como destaque' : 'Destaque removido');
+    _load();
   }
 
   // ──────────────────────── Delete (confirm) ─────────────────────────

@@ -115,4 +115,10 @@ class AccessControl {
   /// perfil lá.
   static bool canEditFunil(PanelRole role) =>
       role == PanelRole.adminMaster || role == PanelRole.adminDocumentacao;
+
+  /// Entrada/saída/edição de unidades do estoque. Espelha a guarda do banco
+  /// (`tg_available_aircrafts_guard` + RPCs `stock_*`, migration
+  /// 20260922120000), que exige `auth_is_admin_documentacao()`.
+  static bool canManageStock(PanelRole role) =>
+      role == PanelRole.adminMaster || role == PanelRole.adminDocumentacao;
 }

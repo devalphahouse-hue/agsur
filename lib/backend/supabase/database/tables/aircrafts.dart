@@ -48,4 +48,9 @@ class AircraftsRow extends SupabaseDataRow {
 
   String get createdBy => getField<String>('created_by')!;
   set createdBy(String value) => setField<String>('created_by', value);
+
+  // Escrito à mão (migration 20260922120000) — revalidar após regen do
+  // FlutterFlow. Destaque do modelo no catálogo interno.
+  bool get featured => getField<bool>('featured') ?? false;
+  set featured(bool value) => setField<bool>('featured', value);
 }

@@ -2,6 +2,7 @@ import 'package:dropdown_button2/dropdown_button2.dart';
 
 import 'form_field_controller.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class FlutterFlowDropDown<T> extends StatefulWidget {
   const FlutterFlowDropDown({
@@ -339,7 +340,19 @@ class _FlutterFlowDropDownState<T> extends State<FlutterFlowDropDown<T>> {
                   right: 8,
                   left: 8,
                 ),
-                child: TextFormField(
+                // Editado à mão (2026-09-22): o campo de busca fica com o
+                // foco e engolia o Esc, deixando a lista aberta. Uma regen do
+                // FlutterFlow desfaz isto.
+                child: Builder(
+                  builder: (menuContext) => CallbackShortcuts(
+                    bindings: {
+                      const SingleActivator(LogicalKeyboardKey.escape): () =>
+                          Navigator.of(menuContext).maybePop(),
+                    },
+                    child: TextFormField(
+                  // Foco já no campo: dá para digitar e filtrar direto, e o
+                  // Esc funciona sem clicar antes.
+                  autofocus: true,
                   expands: true,
                   maxLines: null,
                   controller: _textEditingController,
@@ -356,6 +369,8 @@ class _FlutterFlowDropDownState<T> extends State<FlutterFlowDropDown<T>> {
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
+                  ),
+                ),
                   ),
                 ),
               ),

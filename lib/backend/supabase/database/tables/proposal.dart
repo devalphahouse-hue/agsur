@@ -43,4 +43,11 @@ class ProposalRow extends SupabaseDataRow {
 
   String get idRef => getField<String>('id_ref')!;
   set idRef(String value) => setField<String>('id_ref', value);
+
+  // Escrito à mão (migration 20260922120000) — revalidar após regen do
+  // FlutterFlow. Unidade do estoque escolhida na proposta; o contrato herda
+  // na conversão (trigger) e aí ela sai do estoque.
+  String? get availableAircraftId => getField<String>('available_aircraft_id');
+  set availableAircraftId(String? value) =>
+      setField<String>('available_aircraft_id', value);
 }

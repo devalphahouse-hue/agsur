@@ -51,4 +51,13 @@ class AvailableAircraftsRow extends SupabaseDataRow {
 
   String get entryYear => getField<String>('entry_year')!;
   set entryYear(String value) => setField<String>('entry_year', value);
+
+  // Escritos à mão (migration 20260922120000) — revalidar após regen do
+  // FlutterFlow. `in_stock` é espelho do livro-razão (stock_movements): não
+  // se grava direto, a guarda do banco recusa.
+  String? get registrationPrefix => getField<String>('registration_prefix');
+  set registrationPrefix(String? value) =>
+      setField<String>('registration_prefix', value);
+
+  bool get inStock => getField<bool>('in_stock') ?? true;
 }

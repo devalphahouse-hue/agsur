@@ -455,8 +455,8 @@ dentro do formulário/modal que a tela já tem.
 
 ### Schema versionado em `supabase/migrations/`
 
-DDL agora vive **versionado no git** em `supabase/migrations/` (**65 arquivos**,
-último `20260922120000`). Em 2026-07-14 o histórico
+DDL agora vive **versionado no git** em `supabase/migrations/` (**66 arquivos**,
+último `20260922160000`). Em 2026-07-14 o histórico
 foi **reparado** via `migration repair` (4 migrations tinham sido aplicadas por
 fora sem registro); desde então `db push --dry-run` reflete a realidade e o
 CLI recusa aplicar a Fase 7 fora de ordem sem `--include-all`. O batch de
@@ -1114,6 +1114,35 @@ ninguém apaga.
   no contrato. Permissão na UI: `AccessControl.canManageStock`.
 - `aircraft_model` guarda o **id** do catálogo, não o nome (bug de
   2026-07-21 — o modal de edição casa por id OU nome para dado legado).
+- **Reunião com o cliente de 2026-09-22 (`20260922160000`):** entrega estimada
+  = **fabricação + 60 dias**, calculada na tela (`estimateStockDelivery`) e no
+  banco (`stock_delivery_offset_days()` dentro de `stock_entry`) — mudou um,
+  mude o outro; `configuration_deadline` virou opcional (a planilha do cliente
+  só traz Modelo/Série/Fabricação) e o modal de entrada ganhou o modo **"colar
+  da planilha"** (`parseStockSheet`, aceita tab/;/, e três formatos de data).
+  A proposta passa a oferecer só aeronave **Disponível ou Em negociação**
+  (`isStockUnitSellable(status:)`, comparação sem acento — há linha gravada
+  como "em negociacao"). **Vendedor vê o estoque em leitura**: a rota
+  `AvailableAircrafts` entrou no `allowedRoutes` dele e o menu passou a guardar
+  cada subitem de Aeronaves pela própria permissão (antes o grupo só aparecia
+  para quem tinha o catálogo). A minuta preenche o campo "Previsão de Entrega"
+  do cabeçalho (existia e vinha vazio) e, em SOLD TO/SHIP TO, mostra a **razão
+  social** com "Contato" para a pessoa.
+- **Financiamento: dois zeros silenciosos (achados em 2026-09-22).** O "Valor
+  total do depósito" era lido do campo da tela, preenchido só no `onChanged` do
+  depósito inicial — quem não digitava ali gravava `total_deposit = 0` (2 das 6
+  propostas em produção). E o **prêmio** era `prazo == '5' ? 5% : 7%` chumbado
+  em `create_proposal` e em `c_t_csrd_aircraft`, ignorando
+  `financing_rates.premium_rate_five/seven` (o cadastro diz 4,8% para 5 anos —
+  editar Taxas não tinha efeito). As duas contas agora vivem em
+  `lib/backend/financing.dart` (`totalDepositFraction`, `premiumRateForTerm`,
+  testadas em `test/financing_test.dart`) e são aplicadas **na hora de
+  salvar**, nas duas telas. ⚠️ Propostas novas passam a usar o prêmio do
+  cadastro: o valor muda em relação às antigas.
+- **Inscrição estadual** (`company.state_registration`) existia no banco e já
+  saía na minuta, mas não aparecia na tela do cliente — seção própria
+  `client_company_section.dart` (razão social, CNPJ/CPF e IE, somente
+  leitura; a empresa continua sendo editada nas modais do funil).
 - **QA de 2026-09-22 (fluxo lead → proposta → contrato):** o seletor de
   aeronave esconde as de modelo que **saiu do catálogo** (`deleted=true`) —
   escolher uma quebrava a proposta, cujo seletor de modelo não lista o

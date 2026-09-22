@@ -32,7 +32,9 @@ Future<Map<String, int>> loadSellableCountByModel() async {
   final map = <String, int>{};
   for (final u in units) {
     if (isStockUnitSellable(
-        inStock: u.inStock, hasActiveContract: u.contractId != null)) {
+        inStock: u.inStock,
+        hasActiveContract: u.contractId != null,
+        status: u.status)) {
       map[u.aircraftId] = (map[u.aircraftId] ?? 0) + 1;
     }
   }
@@ -190,7 +192,14 @@ class _StockUnitPickerModalState extends State<StockUnitPickerModal> {
           .where((u) =>
               (widget.aircraftId == null || u.aircraftId == widget.aircraftId) &&
               (u.id == widget.currentUnitId ||
-                  (u.inStock && !removed.contains(u.aircraftId))))
+                  (u.inStock &&
+                      !removed.contains(u.aircraftId) &&
+                      // Reunião de 2026-09-22: a proposta escolhe aeronave
+                      // Disponível ou Em negociação. Reservado fica de fora.
+                      isStockUnitSellable(
+                          inStock: true,
+                          hasActiveContract: u.contractId != null,
+                          status: u.status))))
           .toList()
         ..sort((a, b) {
           if (a.featured != b.featured) return a.featured ? -1 : 1;
@@ -210,8 +219,8 @@ class _StockUnitPickerModalState extends State<StockUnitPickerModal> {
       icon: Icons.flight_takeoff_rounded,
       title: widget.title,
       description: widget.description ??
-          'Só aparecem aeronaves que estão no estoque. As que já estão num '
-              'contrato ativo aparecem bloqueadas.',
+          'Aparecem as aeronaves em estoque com status Disponível ou Em '
+              'negociação. As que estão em contrato ativo aparecem bloqueadas.',
       maxWidth: 640,
       footer: Row(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -305,7 +314,9 @@ class _StockUnitPickerModalState extends State<StockUnitPickerModal> {
     final isCurrent = u.id == widget.currentUnitId;
     final blocked = !isCurrent &&
         !isStockUnitSellable(
-            inStock: u.inStock, hasActiveContract: u.contractId != null);
+            inStock: u.inStock,
+            hasActiveContract: u.contractId != null,
+            status: u.status);
     return Opacity(
       opacity: blocked ? 0.45 : 1,
       child: AppCard(

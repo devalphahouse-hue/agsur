@@ -1,5 +1,6 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/api_requests/api_calls.dart';
+import '/backend/financing.dart';
 import '/backend/lead_conversion.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/schema/structs/index.dart';
@@ -6646,40 +6647,41 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                           0.0,
                                                         ),
                                                         'total_deposit':
-                                                            valueOrDefault<
-                                                                double>(
-                                                          (String
-                                                              totalDeposit) {
-                                                            return double.parse(
-                                                                    totalDeposit
-                                                                        .replaceAll(
-                                                                            '%',
-                                                                            '')) /
-                                                                100;
-                                                          }(functions
-                                                              .parsePriceToDouble(
-                                                                  valueOrDefault<
-                                                                      String>(
-                                                                _model
-                                                                    .tFTotalDepositTextController
-                                                                    .text,
-                                                                '0.0',
-                                                              ))!
-                                                              .toString()),
-                                                          0.0,
-                                                        ),
-                                                        'created_at': supaSerialize<
-                                                                DateTime>(
-                                                            getCurrentTimestamp),
-                                                        'created_by':
-                                                            currentUserUid,
-                                                        'proposal_id': _model
-                                                            .insertProposal?.id,
+                                                            // Calculado aqui a
+                                                            // partir do sinal e
+                                                            // do depósito: o
+                                                            // campo da tela só
+                                                            // era preenchido no
+                                                            // onChanged do
+                                                            // depósito inicial e
+                                                            // gravava 0 quando
+                                                            // ninguém digitava
+                                                            // nele (2 das 6
+                                                            // propostas em
+                                                            // produção).
+                                                            totalDepositFraction(
+                                                                  sinal: _model
+                                                                      .tFDownPaymentTextController
+                                                                      .text,
+                                                                  depositoInicial: _model
+                                                                      .tFInitialDepositTextController
+                                                                      .text,
+                                                                ) ??
+                                                                0.0,
+                                                        // Prêmio do CADASTRO de
+                                                        // Taxas (era 5%/7%
+                                                        // chumbado aqui, e o
+                                                        // Admin editava Taxas sem
+                                                        // efeito).
                                                         'premium_rate':
-                                                            _model.dPDLengthValue ==
-                                                                    '5'
-                                                                ? (5 / 100)
-                                                                : (7 / 100),
+                                                            premiumRateForTerm(
+                                                          termYears:
+                                                              int.parse(prazo),
+                                                          premiumRateFive: ratesRow
+                                                              .premiumRateFive,
+                                                          premiumRateSeven: ratesRow
+                                                              .premiumRateSeven,
+                                                        ),
                                                         'sofr_rate':
                                                             ratesRow.sofrRate,
                                                         'interest_rate':

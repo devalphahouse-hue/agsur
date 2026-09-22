@@ -87,7 +87,11 @@ class AccessControl {
           ..._aeronaves, ..._cartaServico, ..._garantias, ..._taxas, ..._termos,
         };
       case PanelRole.vendedor:
-        return {..._common, ..._funil, ..._rastreio};
+        // Estoque em leitura (reunião de 2026-09-22: "all sales reps gain full
+        // visibility into the aircraft stock"). Entrada/saída/edição seguem
+        // com documentação/master — quem decide é a guarda do banco
+        // (canManageStock).
+        return {..._common, ..._funil, ..._rastreio, 'AvailableAircrafts'};
       case PanelRole.none:
         return _common;
     }

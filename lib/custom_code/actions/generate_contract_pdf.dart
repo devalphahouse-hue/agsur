@@ -207,11 +207,17 @@ class ContractPdfUnit {
     required this.serialNumber,
     this.registrationPrefix,
     this.manufactureYear,
+    this.deliveryDate,
   });
 
   final String serialNumber;
   final String? registrationPrefix;
   final int? manufactureYear;
+
+  /// Entrega estimada da aeronave (fabricação + 60 dias por padrão). Vai para
+  /// o campo "Previsão de entrega" do cabeçalho — pedido do cliente em
+  /// 2026-09-22, para o banco ver o prazo.
+  final DateTime? deliveryDate;
 }
 
 // ===================== GERAR PDF =====================
@@ -257,8 +263,16 @@ Future<void> generateContractPdf(
   final date = proposal.createdAt != null && proposal.createdAt!.isNotEmpty
       ? DateFormat('dd/MM/yyyy').format(DateTime.parse(proposal.createdAt!))
       : '';
-  final clientName = lead.fullname;
-  final previsaoEntrega = '';
+  // SOLD TO / SHIP TO identificam o COMPRADOR: com empresa cadastrada, a
+  // razão social é quem assina (o cabeçalho antes trazia só o nome da pessoa,
+  // e o cliente notou a falta na reunião de 2026-09-22). Sem empresa, cai no
+  // nome da pessoa.
+  final companyName = _normalizeTypeDoc(company.companyName);
+  final clientName = companyName.isNotEmpty ? companyName : lead.fullname;
+  final contactName = companyName.isNotEmpty ? lead.fullname : '';
+  final previsaoEntrega = stockUnit?.deliveryDate != null
+      ? DateFormat('dd/MM/yyyy').format(stockUnit!.deliveryDate!)
+      : '';
 
   // Document info
   final typeDoc = _normalizeTypeDoc(company.typeDoc);
@@ -353,6 +367,8 @@ Future<void> generateContractPdf(
                             crossAxisAlignment: pw.CrossAxisAlignment.start,
                             children: [
                               pw.Text(clientName, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                              if (contactName.isNotEmpty)
+                                pw.Text('Contato.: ${_pdfSafe(contactName)}', style: pw.TextStyle(fontSize: 7)),
                               pw.Text('$docLabel.: $docValue', style: pw.TextStyle(fontSize: 7)),
                               pw.Text('IE.: $ie', style: pw.TextStyle(fontSize: 7)),
                               pw.Text('Endereço.: $fullAddress', style: pw.TextStyle(fontSize: 7)),
@@ -393,6 +409,8 @@ Future<void> generateContractPdf(
                             crossAxisAlignment: pw.CrossAxisAlignment.start,
                             children: [
                               pw.Text(clientName, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                              if (contactName.isNotEmpty)
+                                pw.Text('Contato.: ${_pdfSafe(contactName)}', style: pw.TextStyle(fontSize: 7)),
                               pw.Text('$docLabel.: $docValue', style: pw.TextStyle(fontSize: 7)),
                               pw.Text('IE.: $ie', style: pw.TextStyle(fontSize: 7)),
                               pw.Text('Endereço.: $fullAddress', style: pw.TextStyle(fontSize: 7)),

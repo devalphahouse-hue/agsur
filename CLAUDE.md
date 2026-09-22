@@ -455,8 +455,8 @@ dentro do formulário/modal que a tela já tem.
 
 ### Schema versionado em `supabase/migrations/`
 
-DDL agora vive **versionado no git** em `supabase/migrations/` (**66 arquivos**,
-último `20260922160000`). Em 2026-07-14 o histórico
+DDL agora vive **versionado no git** em `supabase/migrations/` (**67 arquivos**,
+último `20260922180000`). Em 2026-07-14 o histórico
 foi **reparado** via `migration repair` (4 migrations tinham sido aplicadas por
 fora sem registro); desde então `db push --dry-run` reflete a realidade e o
 CLI recusa aplicar a Fase 7 fora de ordem sem `--include-all`. O batch de
@@ -1153,6 +1153,22 @@ ninguém apaga.
   vem da proposta via `widget.proposalId`, não do `FFAppState`, que pode estar
   com o contrato anterior durante o load), e `flutter_flow_drop_down.dart`
   fecha a lista pesquisável no Esc (o campo de busca engolia a tecla).
+- **Captura das RPCs de produção + status fechado (`20260922180000`).** Duas
+  funções lidas pelo painel (`get_aircraft_details_by_proposal`, chamada em
+  `api_calls.dart`, e `fn_available_aircrafts`, a listagem antiga do estoque)
+  **nunca estiveram no git** — editá-las era cego, sem diff e sem histórico.
+  Os corpos de produção foram extraídos com `pg_get_functiondef` e
+  versionados **sem mudança de comportamento**, só com `search_path = public`
+  e `revoke` de `anon` (as duas eram executáveis por anon pela herança do
+  default ACL; não havia vazamento, porque são SECURITY INVOKER e as policies
+  de `proposal`/`available_aircrafts` são todas `TO authenticated`). A mesma
+  migration fecha o vocabulário de `available_aircrafts.status` no CHECK
+  `ck_available_aircrafts_status` — **espelho de `stockStatusOptions`; mexeu
+  num, mexa no outro**. Antes dela a listagem antiga filtrava por `Reservado`
+  e o cadastro nunca gravava esse valor, e nada impedia um status novo entrar
+  por fora da UI. ⚠️ `fn_available_aircrafts` não é mais usada pela tela
+  (que lê `vw_stock_units`), mas segue em `api_calls.dart` — versionada para
+  poder ser removida com segurança depois.
 - Classes das tabelas/views novas (`vw_stock_units`, `vw_stock_movements`,
   `available_aircraft_logs`) e os getters novos de `aircrafts`/`available_aircrafts`/
   `proposal` foram **escritos à mão** em `lib/backend/supabase/database/` —

@@ -278,7 +278,7 @@ class _ContractAircraftUnitSectionState
           const SizedBox(width: 12),
           AppStatusBadge(
             label: unit.status.isEmpty ? '—' : unit.status,
-            tone: _toneFor(unit.status),
+            tone: stockStatusTone(unit.status, inStock: unit.inStock),
             dense: true,
           ),
           if (widget.canEdit) ...[
@@ -327,16 +327,6 @@ class _ContractAircraftUnitSectionState
   }
 }
 
-AppStatusTone _toneFor(String status) {
-  final s = status.toLowerCase();
-  if (s.contains('vendido')) return AppStatusTone.danger;
-  if (s.contains('reserv') || s.contains('negocia')) {
-    return AppStatusTone.warning;
-  }
-  if (s.contains('dispon')) return AppStatusTone.success;
-  if (s.contains('entreg')) return AppStatusTone.teal;
-  return AppStatusTone.brand;
-}
 
 /// Aeronave do estoque do contrato desta proposta, no formato da minuta.
 /// `null` = contrato sem aeronave vinculada (a minuta sai como antes).

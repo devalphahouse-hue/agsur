@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
-import '/core_ui/core_ui.dart';
 import '/security/action_feedback.dart';
 import '/security/write_guard.dart';
+
+// `stockStatusTone` mora no seletor compartilhado (proposta e contrato também
+// pintam o selo); reexportado aqui para a tela de estoque não precisar saber
+// disso.
+export '/pages/shared/stock_unit_picker/stock_unit_picker.dart' show stockStatusTone;
 
 // Peças compartilhadas pelos modais do estoque (entrada, saída/reentrada,
 // histórico). Widgets próprios, fora do código gerado pelo FlutterFlow.
@@ -42,19 +46,6 @@ Future<DateTime?> pickStockDate(BuildContext context, DateTime? initial) async {
     ),
   );
   return picked == null ? null : DateTime(picked.year, picked.month, picked.day);
-}
-
-AppStatusTone stockStatusTone(String status, {required bool inStock}) {
-  final s = status.toLowerCase();
-  if (!inStock) {
-    if (s.contains('entreg')) return AppStatusTone.teal;
-    if (s.contains('baix')) return AppStatusTone.neutral;
-    return AppStatusTone.danger;
-  }
-  if (s.contains('reserv') || s.contains('negocia')) {
-    return AppStatusTone.warning;
-  }
-  return AppStatusTone.success;
 }
 
 /// Campo de data no visual do `AppFormField` (clicável, abre o picker).

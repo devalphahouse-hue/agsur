@@ -356,5 +356,6 @@ Future<ContractPdfUnit?> loadContractPdfUnit(String proposalId) async {
     serialNumber: u.serialNumber,
     registrationPrefix: u.registrationPrefix,
     manufactureYear: u.manufactureDate?.year,
+    deliveryDate: u.deliveryDate,
   );
 }

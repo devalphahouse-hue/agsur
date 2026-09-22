@@ -90,10 +90,76 @@ void main() {
     });
   });
 
-  test('só unidade no estoque e sem contrato ativo é vendável', () {
-    expect(isStockUnitSellable(inStock: true, hasActiveContract: false), isTrue);
-    expect(isStockUnitSellable(inStock: true, hasActiveContract: true), isFalse);
-    expect(isStockUnitSellable(inStock: false, hasActiveContract: false), isFalse);
+  group('aeronave que a proposta pode escolher', () {
+    test('no estoque e sem contrato ativo', () {
+      expect(isStockUnitSellable(inStock: true, hasActiveContract: false), isTrue);
+      expect(isStockUnitSellable(inStock: true, hasActiveContract: true), isFalse);
+      expect(isStockUnitSellable(inStock: false, hasActiveContract: false), isFalse);
+    });
+
+    test('com status: só Disponível e Em negociação (reunião de 22/09/2026)', () {
+      for (final ok in ['Disponível', 'Em negociação', 'em negociacao ']) {
+        expect(
+            isStockUnitSellable(
+                inStock: true, hasActiveContract: false, status: ok),
+            isTrue,
+            reason: ok);
+      }
+      for (final no in ['Reservado', 'Vendido', 'Baixado', '']) {
+        expect(
+            isStockUnitSellable(
+                inStock: true, hasActiveContract: false, status: no),
+            isFalse,
+            reason: no);
+      }
+    });
+  });
+
+  group('entrega estimada', () {
+    test('fabricação + 60 dias', () {
+      expect(estimateStockDelivery(DateTime(2026, 3, 10)), DateTime(2026, 5, 9));
+      expect(kStockDeliveryOffsetDays, 60);
+    });
+
+    test('vira o ano e o mês sem erro', () {
+      expect(estimateStockDelivery(DateTime(2026, 11, 20)), DateTime(2027, 1, 19));
+    });
+  });
+
+  group('planilha do estoque', () {
+    test('lê serial e data de fabricação em vários formatos e separadores', () {
+      final p = parseStockSheet('402B-1560\t10/03/2026\n'
+          '402B-1561;2026-04-01\n'
+          '402B-1562, 15-05-26\n');
+      expect(p.problems, isEmpty);
+      expect(p.units.map((u) => u.serialNumber),
+          ['402B-1560', '402B-1561', '402B-1562']);
+      expect(p.units[0].manufacture, DateTime(2026, 3, 10));
+      expect(p.units[1].manufacture, DateTime(2026, 4, 1));
+      expect(p.units[2].manufacture, DateTime(2026, 5, 15));
+    });
+
+    test('aponta linha sem data, data inválida e serial repetido', () {
+      final p = parseStockSheet('402B-1560\n'
+          '402B-1561;31/02/2026\n'
+          '402B-1562;01/01/2026\n'
+          '402b-1562;02/01/2026');
+      expect(p.units.map((u) => u.serialNumber), ['402B-1562']);
+      expect(p.problems, hasLength(3));
+      expect(p.problems[0], contains('nº de série e a data'));
+      expect(p.problems[1], contains('inválida'));
+      expect(p.problems[2], contains('repetido'));
+    });
+
+    test('ignora o cabeçalho da planilha e linhas vazias', () {
+      final p = parseStockSheet('Serial;Data de fabricação\n\n402B-1;01/01/2026\n');
+      expect(p.problems, isEmpty);
+      expect(p.units, hasLength(1));
+    });
+
+    test('nada colado vira um aviso, não uma lista vazia silenciosa', () {
+      expect(parseStockSheet('   ').problems, hasLength(1));
+    });
   });
 
   test('todo motivo das RPCs tem rótulo', () {

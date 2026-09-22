@@ -114,6 +114,7 @@ class _MenuWidgetState extends State<MenuWidget> {
         can(EmployeesWidget.routeName);
     final showOperacao = can(TrackingsWidget.routeName) ||
         can(RegistedAircraftWidget.routeName) ||
+        can(AvailableAircraftsWidget.routeName) ||
         can(ServicesOfferingWidget.routeName) ||
         can(PartQuoteWidget.routeName) ||
         can(GuaranteesWidget.routeName) ||
@@ -238,7 +239,10 @@ class _MenuWidgetState extends State<MenuWidget> {
                   active: _isActive(TrackingsWidget.routePath),
                   onTap: () => context.pushNamed(TrackingsWidget.routeName),
                 ),
-              if (can(RegistedAircraftWidget.routeName))
+              // O vendedor vê só "Estoque (unidades)" (leitura); cada
+              // subitem é guardado pela própria permissão.
+              if (can(RegistedAircraftWidget.routeName) ||
+                  can(AvailableAircraftsWidget.routeName))
                 _MenuExpandable(
                   icon: Icons.flight_outlined,
                   label: 'Aeronaves',
@@ -247,6 +251,7 @@ class _MenuWidgetState extends State<MenuWidget> {
                   onToggle: () =>
                       safeSetState(() => _model.avioes = !_model.avioes),
                   children: [
+                  if (can(RegistedAircraftWidget.routeName))
                   _MenuSubItem(
                     icon: Icons.menu_book_outlined,
                     label: 'Catálogo',
@@ -255,6 +260,7 @@ class _MenuWidgetState extends State<MenuWidget> {
                     onTap: () =>
                         context.pushNamed(RegistedAircraftWidget.routeName),
                   ),
+                  if (can(AvailableAircraftsWidget.routeName))
                   _MenuSubItem(
                     icon: Icons.warehouse_outlined,
                     label: 'Estoque (unidades)',
@@ -262,6 +268,7 @@ class _MenuWidgetState extends State<MenuWidget> {
                     onTap: () =>
                         context.pushNamed(AvailableAircraftsWidget.routeName),
                   ),
+                  if (can(CreateCategoryWidget.routeName))
                   _MenuSubItem(
                     icon: Icons.category_outlined,
                     label: 'Categorias',

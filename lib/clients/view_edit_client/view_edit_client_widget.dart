@@ -20,6 +20,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import '/core_ui/core_ui.dart';
+import 'client_company_section.dart';
 import 'view_edit_client_model.dart';
 export 'view_edit_client_model.dart';
 
@@ -4256,6 +4257,10 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                             );
                           },
                         ),
+                        // Dados da empresa do cliente, com a inscrição
+                        // estadual (reunião de 2026-09-22: a IE existia no
+                        // banco e na minuta, mas não aparecia aqui).
+                        ClientCompanySection(leadId: widget.leadId ?? ''),
                         Padding(
                           padding: EdgeInsetsDirectional.fromSTEB(
                               16.0, 0.0, 16.0, 0.0),

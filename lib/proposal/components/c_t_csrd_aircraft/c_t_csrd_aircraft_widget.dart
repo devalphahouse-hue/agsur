@@ -1,3 +1,4 @@
+import '/backend/financing.dart';
 import '/auth/supabase_auth/auth_util.dart';
 import '/security/action_feedback.dart';
 import '/backend/supabase/supabase.dart';
@@ -812,23 +813,34 @@ class _CTCsrdAircraftWidgetState extends State<CTCsrdAircraftWidget> {
                                     .toString()),
                                 0.0,
                               ),
-                              'total_deposit': valueOrDefault<double>(
-                                (String totalDeposit) {
-                                  return double.parse(
-                                          totalDeposit.replaceAll('%', '')) /
-                                      100;
-                                }(functions
-                                    .parsePriceToDouble(_model
-                                        .tFTotalDepositTextController.text)
-                                    .toString()),
-                                0.0,
-                              ),
+                              // Calculado do sinal + depósito, não lido do
+                              // campo da tela: aquele campo só é preenchido no
+                              // onChanged do depósito inicial e gravava 0
+                              // quando ninguém digitava nele.
+                              'total_deposit': totalDepositFraction(
+                                    sinal: _model
+                                        .tFDownPaymentTextController.text,
+                                    depositoInicial: _model
+                                        .tFInitialDepositTextController.text,
+                                  ) ??
+                                  0.0,
                               'created_at':
                                   supaSerialize<DateTime>(getCurrentTimestamp),
                               'created_by': currentUserUid,
-                              'premium_rate': _model.dPDLengthValue == '5'
-                                  ? (5 / 100)
-                                  : (7 / 100),
+                              // Prêmio do CADASTRO de Taxas (era 5%/7%
+                              // chumbado aqui). Sem cadastro legível, o
+                              // fallback é o valor histórico.
+                              'premium_rate': premiumRateForTerm(
+                                termYears:
+                                    int.tryParse(_model.dPDLengthValue ?? '') ??
+                                        5,
+                                premiumRateFive:
+                                    cTCsrdAircraftFinancingRatesRow
+                                        ?.premiumRateFive,
+                                premiumRateSeven:
+                                    cTCsrdAircraftFinancingRatesRow
+                                        ?.premiumRateSeven,
+                              ),
                               // Este update gravava só o premium_rate e deixava
                               // sofr_rate/interest_rate como estavam — então
                               // proposta que nasceu com taxa zerada (ver

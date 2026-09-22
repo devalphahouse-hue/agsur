@@ -41,6 +41,22 @@ Future<Map<String, int>> loadSellableCountByModel() async {
   return map;
 }
 
+/// Cor do selo de status da aeronave. Ficava duplicado em duas telas
+/// (estoque e contrato) e os dois mapas já divergiam — agora mora aqui, junto
+/// das outras regras de escolha de unidade.
+AppStatusTone stockStatusTone(String status, {required bool inStock}) {
+  final s = status.toLowerCase();
+  if (!inStock) {
+    if (s.contains('entreg')) return AppStatusTone.teal;
+    if (s.contains('baix')) return AppStatusTone.neutral;
+    return AppStatusTone.danger;
+  }
+  if (s.contains('reserv') || s.contains('negocia')) {
+    return AppStatusTone.warning;
+  }
+  return AppStatusTone.success;
+}
+
 // ── Filtro rápido do seletor de modelo ─────────────────────────────────────
 
 enum AircraftQuickFilter { todos, destaque, disponiveis }

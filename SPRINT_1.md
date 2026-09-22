@@ -4,6 +4,26 @@
 > trabalho. Início previsto: **quinta-feira, 2026-09-10**.
 > Duração: 1 mês · Parcela 1 (R$ 2.300,00).
 
+> **Estado em 2026-09-22.** O bloco de **estoque** deste plano está entregue e
+> em produção (migrations `20260922120000`, `20260922160000` e
+> `20260922180000`); o de **WhatsApp** (item 1.1) segue parado esperando o
+> cliente escolher entre Meta, Evolution e Twilio — o levantamento das três
+> está no PDF entregue em 22/09. Três divergências em relação ao que este
+> plano previa, todas deliberadas:
+>
+> - **O CHECK de status tem 6 valores, não 5.** O preflight no banco achou
+>   `Baixado` gravado (2 linhas, de saída manual), então ele entrou na união.
+>   Nenhum `UPDATE` de normalização foi necessário — e, sem DML, a migration
+>   também não precisou desarmar trigger nenhuma.
+> - **Não existe `lib/backend/aircraft_status.dart`.** O mapa de tom único
+>   virou `stockStatusTone`, dentro de `lib/pages/shared/stock_unit_picker/` —
+>   junto das outras regras de escolha de unidade, que é quem já era
+>   compartilhado entre proposta e contrato. As duas cópias morreram.
+> - **A seção de unidade não foi generalizada** num
+>   `aircraft_unit_section` comum: proposta e contrato compartilham o seletor e
+>   o `stockConversionBlocker`, mas cada tela mantém a sua seção, porque o que
+>   elas mostram é diferente (a proposta oferece, o contrato registra).
+
 ---
 
 ## ⚡ Quinta-feira — arranque (nesta ordem)

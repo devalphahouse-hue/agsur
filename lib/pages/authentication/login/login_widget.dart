@@ -22,13 +22,27 @@ class LoginWidget extends StatefulWidget {
   State<LoginWidget> createState() => _LoginWidgetState();
 }
 
-/// MFA obrigatório para Admin Master. Default OFF até todos os Admin Masters
-/// cadastrarem TOTP no Studio (Auth → Multi-Factor). Quando estiverem
-/// cadastrados, build com:
-///   --dart-define=ENFORCE_MFA_ADMIN_MASTER=true
+/// MFA obrigatório para Admin Master. **Default OFF — não ligue ainda.**
 ///
-/// Em paralelo, ativar o hook server-side `custom_access_token_hook` no Studio
-/// (Auth → Hooks). Aí mesmo sem essa flag, o JWT já volta rejeitado.
+/// 🚨 O PRÉ-REQUISITO NÃO EXISTE. Este gate exige `aal2`, e o painel não tem
+/// tela de desafio TOTP: `signInWithPassword` emite `aal1`, e subir para
+/// `aal2` exige `auth.mfa.challengeAndVerify()`, que não é chamado em lugar
+/// nenhum do `lib/`. Cadastrar o fator no Studio (Auth → Multi-Factor)
+/// registra o fator mas NÃO sobe o AAL da sessão — necessário, longe de
+/// suficiente.
+///
+/// Consequência: buildar hoje com `--dart-define=ENFORCE_MFA_ADMIN_MASTER=true`
+/// tranca TODO Admin Master fora do painel, inclusive quem cadastrou TOTP
+/// corretamente. No iOS o conserto custa build novo + ciclo de revisão da App
+/// Store.
+///
+/// O hook server-side `custom_access_token_hook` (migration
+/// `20260508121400_mfa_enforcement_hook.sql`, ativado em Auth → Hooks) tem o
+/// mesmo efeito e é pior: rejeita a emissão do JWT em todas as plataformas de
+/// uma vez e não tem flag de cliente para desligar — a saída é desativar o
+/// hook no Studio.
+///
+/// Antes de ligar qualquer um dos dois: implementar a tela de desafio TOTP.
 const bool _kEnforceMfaAdminMaster =
     bool.fromEnvironment('ENFORCE_MFA_ADMIN_MASTER', defaultValue: false);
 

@@ -239,8 +239,19 @@ o smoke detecta.
 de propósito, e seguiram vermelhos porque `SUPABASE_ACCESS_TOKEN` e
 `SUPABASE_DB_PASSWORD` continuavam não cadastrados. Foi nessa janela que duas
 migrations críticas ficaram três semanas sem aplicar sem ninguém notar. Confira
-com `gh secret list --repo devalphahouse-hue/agsur` — enquanto os dois não
-estiverem lá, **o `db push --dry-run` local é a única validação real**.
+com `gh secret list --repo devalphahouse-hue/agsur` — sem o token, **o
+`db push --dry-run` local é a única validação real**.
+
+✅ **Resolvido em 2026-09-22:** `SUPABASE_ACCESS_TOKEN` foi cadastrado e o
+`supabase-db-check` passou a exigir **só ele**. A senha do banco nunca foi
+cadastrada e não precisa ser: o CLI novo não a consome nesse comando — cria um
+login role temporário pela Management API ("Initialising login role...") e
+conecta por ela. Verificado num clone que nunca foi linkado, com
+`SUPABASE_DB_PASSWORD` ausente: `link` e `db push --dry-run` passaram. O
+workflow ainda passa a senha **se** ela existir (CLI antigo conecta direto) e
+continua falhando — nunca dando skip — quando o token falta. ⚠️ O token
+cadastrado é pessoal e revogável: **revogou, o check volta a ficar vermelho** —
+troque o secret na mesma hora.
 
 **SQL ad-hoc (leitura e correção pontual de dados) sem Studio:** com o projeto
 linkado, `npx supabase db query --linked "<sql>"` (ou `-f arquivo.sql`) roda via

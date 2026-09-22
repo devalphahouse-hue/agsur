@@ -35,15 +35,26 @@ jobs:
           # Secret ausente = FALHA, nunca skip. Até 2026-08-06 este passo fazia
           # `exit 0` com um ::warning:: — o check ficava verde sem ter validado
           # migration nenhuma (assim ficou desde 2026-07-11, sem ninguém notar).
-          missing=""
-          [ -z "$SUPABASE_ACCESS_TOKEN" ] && missing="$missing SUPABASE_ACCESS_TOKEN"
-          [ -z "$SUPABASE_DB_PASSWORD" ] && missing="$missing SUPABASE_DB_PASSWORD"
-          if [ -n "$missing" ]; then
-            echo "::error::Secret(s) ausente(s):$missing — o dry-run NÃO rodou."
+          # Isso NÃO mudou: sem o token o passo continua falhando.
+          #
+          # Desde 2026-09-22 só o TOKEN é obrigatório. O CLI novo não usa a senha
+          # do banco para isto — ele cria um login role temporário pela
+          # Management API ("Initialising login role...") e conecta por ela.
+          # Verificado em 2026-09-22 num clone que nunca foi linkado, com
+          # SUPABASE_DB_PASSWORD ausente: `link` e `db push --dry-run` passaram.
+          # Exigir a senha deixava o check vermelho por um segredo que o comando
+          # não consome — era o único motivo de ele estar vermelho. A senha
+          # continua sendo usada quando existir (CLI antigo conecta direto).
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::Secret ausente: SUPABASE_ACCESS_TOKEN — o dry-run NÃO rodou."
             echo "Cadastre em Settings → Secrets and variables → Actions do repo"
             echo "devalphahouse-hue/agsur. Token: https://supabase.com/dashboard/account/tokens"
             exit 1
           fi
           set -e
-          supabase link --project-ref bkzybtmxxzpxtztesdye --password "$SUPABASE_DB_PASSWORD"
+          if [ -n "$SUPABASE_DB_PASSWORD" ]; then
+            supabase link --project-ref bkzybtmxxzpxtztesdye --password "$SUPABASE_DB_PASSWORD"
+          else
+            supabase link --project-ref bkzybtmxxzpxtztesdye
+          fi
           supabase db push --dry-run

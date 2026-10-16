@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/supabase/supabase.dart';
+import '/backend/reminder_notifications.dart';
 import '/components/notificaoes_widget.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -39,11 +40,32 @@ class _HomePageWidgetState extends State<HomePageWidget> {
   late HomePageModel _model;
   final scaffoldKey = GlobalKey<ScaffoldState>();
   bool _disposed = false;
+  Timer? _reminderPoll;
+  int _trackingNotificationCount = 0;
+  int _reminderNotificationCount = 0;
+
+  Future<void> _refreshReminderCount() async {
+    try {
+      final rows = await reminderNotifications(limit: 1);
+      if (!mounted || _disposed) return;
+      setState(() {
+        _reminderNotificationCount =
+            rows.isEmpty ? 0 : (rows.first['unread_count'] as num).toInt();
+        _model.notificationCount =
+            _trackingNotificationCount + _reminderNotificationCount;
+      });
+    } catch (_) {
+      // Keep tracking notifications available while reminders are unavailable.
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => HomePageModel());
+    _refreshReminderCount();
+    _reminderPoll = Timer.periodic(
+        const Duration(seconds: 30), (_) => _refreshReminderCount());
 
     SchedulerBinding.instance.addPostFrameCallback((_) async {
       try {
@@ -63,7 +85,9 @@ class _HomePageWidgetState extends State<HomePageWidget> {
         }
         if (_disposed) return;
         safeSetState(() {
-          _model.notificationCount = uniqueAircrafts.length;
+          _trackingNotificationCount = uniqueAircrafts.length;
+          _model.notificationCount =
+              _trackingNotificationCount + _reminderNotificationCount;
         });
       } catch (_) {
         // Falha silenciosa — mantém badge em 0
@@ -74,6 +98,7 @@ class _HomePageWidgetState extends State<HomePageWidget> {
   @override
   void dispose() {
     _disposed = true;
+    _reminderPoll?.cancel();
     _model.dispose();
     super.dispose();
   }
@@ -96,8 +121,7 @@ class _HomePageWidgetState extends State<HomePageWidget> {
         final user = users.isNotEmpty ? users.first : null;
         final isAdminMaster = user?.profileType == 'Admin Master';
 
-        final wide =
-            MediaQuery.sizeOf(context).width >= kSidebarBreakpoint;
+        final wide = MediaQuery.sizeOf(context).width >= kSidebarBreakpoint;
 
         return GestureDetector(
           onTap: () {
@@ -170,6 +194,7 @@ class _HomePageWidgetState extends State<HomePageWidget> {
         );
       },
     );
+    if (mounted) await _refreshReminderCount();
   }
 
   String _firstName(String? full) {
@@ -303,9 +328,7 @@ class _IconBubbleState extends State<_IconBubble> {
                           height: 1.0,
                         ),
                       ),
-                    )
-                        .animate(onPlay: (c) => c.repeat(reverse: true))
-                        .scale(
+                    ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(
                           begin: const Offset(1, 1),
                           end: const Offset(1.18, 1.18),
                           duration: 1100.ms,
@@ -320,7 +343,6 @@ class _IconBubbleState extends State<_IconBubble> {
     );
   }
 }
-
 
 // ─────────────────────── KPIs DASHBOARD ───────────────────────
 class _DashboardKpis extends StatelessWidget {
@@ -381,8 +403,7 @@ class _DashboardKpis extends StatelessWidget {
     String fmt(num? v) => v == null
         ? '0'
         : formatNumber(v,
-            formatType: FormatType.decimal,
-            decimalType: DecimalType.automatic);
+            formatType: FormatType.decimal, decimalType: DecimalType.automatic);
     // A view devolve pontos percentuais (-50.00 = -50%), mas
     // FormatType.percent usa NumberFormat.percentPattern, que multiplica por
     // 100 — sem o /100 um crescimento de 12% saía como "1.200%".
@@ -615,8 +636,7 @@ class _LatestContracts extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: const Color(0x22C2D51C),
                   borderRadius: BorderRadius.circular(999),
@@ -633,8 +653,7 @@ class _LatestContracts extends StatelessWidget {
               ),
               const Spacer(),
               TextButton.icon(
-                onPressed: () =>
-                    context.pushNamed(ContractsWidget.routeName),
+                onPressed: () => context.pushNamed(ContractsWidget.routeName),
                 icon: const Icon(Icons.arrow_forward_rounded,
                     size: 14, color: Color(0xFFC2D51C)),
                 label: Text(
@@ -730,8 +749,8 @@ class _ContractRow extends StatelessWidget {
                 ),
               ],
             ),
-            child:
-                const Icon(Icons.description_outlined, color: Color(0xFF313131)),
+            child: const Icon(Icons.description_outlined,
+                color: Color(0xFF313131)),
           ),
           const SizedBox(width: 14),
           Expanded(

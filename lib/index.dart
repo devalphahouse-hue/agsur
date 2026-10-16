@@ -68,3 +68,5 @@ export '/contract/create_contract_terms/create_contract_terms_widget.dart'
     show CreateContractTermsWidget;
 export '/pages/aircrafts/available_aircrafts/available_aircrafts_widget.dart'
     show AvailableAircraftsWidget;
+
+export '/pages/reminders/reminder_history/reminder_history_widget.dart' show ReminderHistoryWidget;

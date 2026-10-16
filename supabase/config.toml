@@ -399,6 +399,13 @@ port = 54327
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"
 
+# Custom dispatch secret / signed Meta webhook authenticate these endpoints.
+[functions.whatsapp-reminders]
+verify_jwt = false
+
+[functions.whatsapp-webhook]
+verify_jwt = false
+
 # Experimental features may be deprecated any time
 [experimental]
 # Configures Postgres storage engine to use OrioleDB (S3)

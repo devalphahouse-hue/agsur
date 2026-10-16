@@ -49,6 +49,7 @@ class AccessControl {
   static const _common = {'HomePage', 'Chat', 'ChatDetail', 'Profile', 'ProfileEdit'};
   static const _solicitacoes = {'ProfileAnalysis'};
   static const _funil = {
+    'ReminderHistory',
     'Leads', 'ViewEditLead', 'Proposals', 'ViewEditProposal', 'CreateProposal',
     'Contracts', 'ViewContract', 'Clients', 'ViewEditClient',
   };

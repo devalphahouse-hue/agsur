@@ -24,6 +24,26 @@
 >   o `stockConversionBlocker`, mas cada tela mantém a sua seção, porque o que
 >   elas mostram é diferente (a proposta oferece, o contrato registra).
 
+> **Atualização de 16/10/2026 — WhatsApp.** A implementação local completa o
+> fluxo de nota, intenção + destinatários, equipe com habilitação explícita,
+> opt-out, histórico global/contextual, cancelar/reenviar, tentativas e webhook.
+> Mantém a tabela física `whatsapp_reminders` por compatibilidade e adiciona
+> `note_reminders` e `whatsapp_dispatch_attempts`. O template aprovado na Meta é
+> `agsur_lembrete_atendimento` (pt_BR, **uma variável**), substituindo o exemplo
+> de quatro variáveis deste plano. Envios reais continuam exclusivos da Meta;
+> simulação é apenas um modo interno de validação. Claims com resultado incerto
+> não são reenviadas automaticamente para evitar duplicidade. O preflight remoto
+> confirmou tabelas/functions ainda ausentes; faltam login da CLI, secrets,
+> deploy e homologação da fila com o número autorizado. Em 16/10 às 14:48:56,
+> uma mensagem direta foi aceita pela Meta no número pessoal autorizado, após
+> geração do token e confirmação de template APPROVED/UTILITY pela API oficial.
+> Isso não valida a fila, o Cron nem a entrega pelo webhook. **A aprovação na Meta não é o
+> aceite do fluxo em produção.** Ver `supabase/WHATSAPP.md` para critérios de
+> passagem à Sprint 2. O usuário também solicitou alerta no sino do painel;
+> a caixa pessoal, o contador e a confirmação de leitura estão implementados
+> localmente na migration `20261016130000_whatsapp_panel_notifications.sql`,
+> aguardando publicação e teste pela interface do sistema real.
+
 ---
 
 ## ⚡ Quinta-feira — arranque (nesta ordem)

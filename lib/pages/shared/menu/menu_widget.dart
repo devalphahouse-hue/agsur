@@ -162,6 +162,7 @@ class _MenuWidgetState extends State<MenuWidget> {
             if (showFunil) ...[
               const SizedBox(height: 16),
               const _MenuSectionLabel(label: 'Funil de vendas'),
+              _MenuItem(icon: Icons.notifications_active_outlined, label: 'Lembretes WhatsApp', active: _isActive(ReminderHistoryWidget.routePath), onTap: () => context.pushNamed(ReminderHistoryWidget.routeName)),
               _MenuExpandable(
                 icon: Icons.point_of_sale_rounded,
                 label: 'Vendas',

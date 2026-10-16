@@ -1,5 +1,7 @@
 # Supabase — Migrations versionadas (Agsur)
 
+Integração WhatsApp oficial e ativação dos lembretes: [WHATSAPP.md](WHATSAPP.md).
+
 Antes deste setup, o DDL do projeto Supabase `bkzybtmxxzpxtztesdye` vivia
 exclusivamente no Studio remoto (sem histórico, sem code review, sem
 rollback). A pasta `supabase/migrations/` passa a ser a **fonte da verdade
@@ -212,3 +214,17 @@ dos `.sql` e no `CLAUDE.md` (seções RBAC, write_guard, contrato e estoque).
   `public.users`. Não chame essas funções com input do usuário sem validar.
 - `key.properties` (Android) e `SUPABASE_ACCESS_TOKEN` (CLI) **nunca** vão
   pro git. Estão em `.gitignore` / memória do Claude respectivamente.
+
+
+## WhatsApp — fluxo interno (16/10/2026, implementação local)
+
+As migrations `20261016120000_whatsapp_internal_workflow` e
+`20261016121000_whatsapp_cron_observability` acrescentam intenção de lembrete,
+opt-in da equipe, opt-out do cliente, tentativas, cancelamento/reenvio, view de
+histórico e manutenção do Cron à base criada em 13/10. As funções de serviço
+são revogadas de anon/authenticated e a view usa security_invoker. As tabelas
+não foram alteradas em produção: o preflight remoto retornou 404 para a base
+WhatsApp e a CLI local está sem autenticação. Checklist de deploy e aceite em
+[WHATSAPP.md](WHATSAPP.md).
+
+- `20261016130000_whatsapp_panel_notifications.sql`: caixa pessoal de lembretes vencidos, contador global de não lidos e leitura por usuário; código local, ainda não aplicado em produção.

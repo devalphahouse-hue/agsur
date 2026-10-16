@@ -1,0 +1,25 @@
+name: WhatsApp integration checks
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/tests/**'
+      - 'supabase/migrations/*whatsapp*'
+      - '.github/workflows/whatsapp-check.yml'
+  push:
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/tests/**'
+      - 'supabase/migrations/*whatsapp*'
+      - '.github/workflows/whatsapp-check.yml'
+jobs:
+  isolated-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test supabase/tests/whatsapp.test.mjs
+      - run: npm install --prefix "$RUNNER_TEMP/whatsapp-tests" @electric-sql/pglite@0.5.9
+      - run: PGLITE_MODULE="$RUNNER_TEMP/whatsapp-tests/node_modules/@electric-sql/pglite/dist/index.js" node --test supabase/tests/whatsapp_database.test.mjs supabase/tests/whatsapp_internal.test.mjs

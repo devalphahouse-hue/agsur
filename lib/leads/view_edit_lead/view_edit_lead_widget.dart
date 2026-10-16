@@ -11,6 +11,7 @@ import '/flutter_flow/flutter_flow_widgets.dart';
 import '/pages/shared/edit_email_dialog/edit_email_dialog.dart';
 import '/pages/shared/empty_list/empty_list_widget.dart';
 import '/pages/shared/modal_register_note/modal_register_note_widget.dart';
+import '/pages/shared/modal_register_note/whatsapp_reminder_history.dart';
 import '/index.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -3764,18 +3765,8 @@ class _ViewEditLeadWidgetState extends State<ViewEditLeadWidget> {
                                                               ModalRegisterNoteWidget(
                                                             leadId:
                                                                 widget!.leadId!,
-                                                            btnAction:
-                                                                (inputNote) async {
-                                                              await NotesTable()
-                                                                  .insert({
-                                                                'lead_id':
-                                                                    widget!
-                                                                        .leadId,
-                                                                'note':
-                                                                    inputNote,
-                                                                'created_by':
-                                                                    currentUserUid,
-                                                              });
+                                                            onSaved:
+                                                                () async {
                                                               safeSetState(() =>
                                                                   _model.requestCompleter =
                                                                       null);
@@ -3858,6 +3849,14 @@ class _ViewEditLeadWidgetState extends State<ViewEditLeadWidget> {
                                             ),
                                           ),
                                         ],
+                                      ),
+                                    ),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: TextButton.icon(
+                                        onPressed: widget.leadId == null ? null : () => showWhatsappReminderHistory(context, widget.leadId!),
+                                        icon: const Icon(Icons.history),
+                                        label: const Text('Histórico de lembretes WhatsApp'),
                                       ),
                                     ),
                                     Divider(

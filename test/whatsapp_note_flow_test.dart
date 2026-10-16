@@ -10,12 +10,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:a_g_sur_back_office/pages/shared/modal_register_note/modal_register_note_widget.dart';
 import 'package:a_g_sur_back_office/core_ui/app_form_field.dart';
+import 'package:a_g_sur_back_office/backend/notes.dart';
 import 'package:a_g_sur_back_office/components/reminder_notifications_widget.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final writes = <Map<String, dynamic>>[];
   var notificationRead = false;
+  String? noteRpcErrorCode;
+  final legacyWrites = <Map<String, dynamic>>[];
   const lead = '22222222-2222-2222-2222-222222222222';
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
@@ -87,7 +90,22 @@ void main() {
             notificationRead = true;
             return http.Response('', 204, request: request);
           }
+          if (request.url.path.endsWith('/rest/v1/notes')) {
+            legacyWrites.add(
+                Map<String, dynamic>.from(jsonDecode(request.body) as Map));
+            return http.Response(jsonEncode({'id': lead}), 201,
+                request: request,
+                headers: {'content-type': 'application/json'});
+          }
           if (request.url.path.endsWith('/rpc/create_lead_note')) {
+            if (noteRpcErrorCode != null) {
+              return http.Response(
+                  jsonEncode(
+                      {'code': noteRpcErrorCode, 'message': 'RPC unavailable'}),
+                  404,
+                  request: request,
+                  headers: {'content-type': 'application/json'});
+            }
             writes.add(
                 Map<String, dynamic>.from(jsonDecode(request.body) as Map));
             return http.Response(
@@ -100,10 +118,36 @@ void main() {
             'content-range': '0-0/0'
           });
         }));
+    final expires =
+        DateTime.now().add(const Duration(hours: 1)).millisecondsSinceEpoch ~/
+            1000;
+    String encode(Map<String, dynamic> value) =>
+        base64Url.encode(utf8.encode(jsonEncode(value))).replaceAll('=', '');
+    final accessToken = '${encode({'alg': 'HS256', 'typ': 'JWT'})}.${encode({
+          'exp': expires,
+          'sub': '11111111-1111-1111-1111-111111111111',
+          'aud': 'authenticated'
+        })}.test';
+    await Supabase.instance.client.auth.recoverSession(jsonEncode({
+      'access_token': accessToken,
+      'refresh_token': 'unit-test',
+      'token_type': 'bearer',
+      'expires_at': expires,
+      'expires_in': 3600,
+      'user': {
+        'id': '11111111-1111-1111-1111-111111111111',
+        'aud': 'authenticated',
+        'app_metadata': {},
+        'user_metadata': {},
+        'created_at': DateTime.now().toUtc().toIso8601String()
+      },
+    }));
   });
   tearDownAll(() async => Supabase.instance.dispose());
   setUp(() {
     writes.clear();
+    legacyWrites.clear();
+    noteRpcErrorCode = null;
     notificationRead = false;
   });
 
@@ -235,5 +279,36 @@ void main() {
     expect(find.text('Lembretes (0 não lidos)'), findsOneWidget);
     expect(find.text('Marcar como lido'), findsNothing);
     await tester.pumpWidget(const SizedBox());
+  });
+
+  test(
+      'nota simples preserva o INSERT anterior somente quando a RPC não existe',
+      () async {
+    noteRpcErrorCode = 'PGRST202';
+    await createLeadNote(leadId: lead, note: '  Nota comum  ', requestId: lead);
+    expect(legacyWrites, hasLength(1));
+    expect(legacyWrites.single, {
+      'lead_id': lead,
+      'note': 'Nota comum',
+      'created_by': '11111111-1111-1111-1111-111111111111',
+    });
+  });
+
+  test('lembretes e falhas diferentes não fazem INSERT alternativo', () async {
+    noteRpcErrorCode = 'PGRST202';
+    await expectLater(
+        createLeadNote(
+            leadId: lead,
+            note: 'Lembrete',
+            requestId: lead,
+            reminder: {'consent': true}),
+        throwsA(isA<PostgrestException>()));
+    for (final code in ['42501', '23505', 'PGRST500']) {
+      noteRpcErrorCode = code;
+      await expectLater(
+          createLeadNote(leadId: lead, note: 'Nota', requestId: lead),
+          throwsA(isA<PostgrestException>()));
+    }
+    expect(legacyWrites, isEmpty);
   });
 }

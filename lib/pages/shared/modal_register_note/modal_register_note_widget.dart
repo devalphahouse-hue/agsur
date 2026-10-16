@@ -176,9 +176,11 @@ class _ModalRegisterNoteWidgetState extends State<ModalRegisterNoteWidget> {
       if (mounted) {
         showWriteError(
             context,
-            error.code == 'P0001'
-                ? error.message
-                : 'Não foi possível salvar. Verifique seus dados e permissões.');
+            error.code == 'PGRST202'
+                ? 'Os lembretes ainda não estão disponíveis. Fale com o administrador.'
+                : error.code == 'P0001'
+                    ? error.message
+                    : 'Não foi possível salvar. Verifique seus dados e permissões.');
       }
     } catch (_) {
       if (mounted) {

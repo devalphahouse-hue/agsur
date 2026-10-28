@@ -6,6 +6,7 @@ import '/flutter_flow/flutter_flow_util.dart';
 // Begin custom action code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:http/http.dart' as http;
@@ -228,7 +229,8 @@ Future<void> generateContractPdf(
     GetFinancialProposalStruct asGetFinancialProposal,
     String terms,
     String instructions,
-    {ContractPdfUnit? stockUnit}) async {
+    {ContractPdfUnit? stockUnit,
+    Future<void> Function(Uint8List)? onGenerated}) async {
   final pdf = pw.Document();
 
   // Load logo
@@ -756,7 +758,9 @@ Future<void> generateContractPdf(
     ),
   );
 
-  await abrirPdfGerado(await pdf.save(), 'Contrato_Agsur.pdf');
+  final bytes = await pdf.save();
+  await abrirPdfGerado(bytes, 'Contrato_Agsur.pdf');
+  if (onGenerated != null) await onGenerated(bytes);
 }
 
 pw.Widget _bankInfoRow(String label, String value) {

@@ -1424,3 +1424,18 @@ já trata a casca; ao mexer em telas/conteúdo, mantenha o padrão:
 
 Somente pt-BR (`supportedLocales: [Locale('pt')]`). `FFLocalizationsDelegate`
 configurado mas strings ficam inline em pt — não há arquivos `.arb`.
+
+
+### Sprint 2 e linha do tempo — alterações manuais de 28/10/2026
+
+Uma regeneração precisa preservar as rotas Commissions/Signatures e os guards
+em `lib/flutter_flow/nav/nav.dart`, os exports em `lib/index.dart` e os pontos
+de integração de `ContactTimelineWidget` nas telas de lead e cliente. A tela de
+contrato oferece a assinatura dos mesmos bytes gerados no PDF. Não importar
+APIs de navegador diretamente: assinaturas e comissões também compilam no mobile.
+
+Clicksign usa exclusivamente o backend (`contract-signatures` e
+`clicksign-webhook`), com token sem prefixo Bearer, JSON:API e `Content-Hmac`.
+A inscrição de eventos da Meta foi confirmada pela Graph API em 28/10; entrega
+real pelo callback e sandbox Clicksign continuam critérios de homologação.
+Nunca declarar Sprint 2 completa apenas por testes locais ou secrets presentes.

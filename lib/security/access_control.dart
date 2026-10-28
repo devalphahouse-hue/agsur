@@ -49,7 +49,7 @@ class AccessControl {
   static const _common = {'HomePage', 'Chat', 'ChatDetail', 'Profile', 'ProfileEdit'};
   static const _solicitacoes = {'ProfileAnalysis'};
   static const _funil = {
-    'ReminderHistory',
+    'ReminderHistory', 'Signatures',
     'Leads', 'ViewEditLead', 'Proposals', 'ViewEditProposal', 'CreateProposal',
     'Contracts', 'ViewContract', 'Clients', 'ViewEditClient',
   };
@@ -92,7 +92,7 @@ class AccessControl {
         // visibility into the aircraft stock"). Entrada/saída/edição seguem
         // com documentação/master — quem decide é a guarda do banco
         // (canManageStock).
-        return {..._common, ..._funil, ..._rastreio, 'AvailableAircrafts'};
+        return {..._common, ..._funil, ..._rastreio, 'AvailableAircrafts', 'Commissions'};
       case PanelRole.none:
         return _common;
     }
@@ -102,7 +102,7 @@ class AccessControl {
     ..._common, ..._solicitacoes, ..._funil, ..._pilotos, ..._oficinas,
     ..._vendedores, ..._colaboradores, ..._rastreio, ..._aeronaves,
     ..._cartaServico, ..._cotacao, ..._garantias, ..._certificados,
-    ..._taxas, ..._termos,
+    ..._taxas, ..._termos, 'Commissions',
   };
 
   static bool canView(PanelRole role, String routeName) =>

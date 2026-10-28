@@ -70,3 +70,6 @@ export '/pages/aircrafts/available_aircrafts/available_aircrafts_widget.dart'
     show AvailableAircraftsWidget;
 
 export '/pages/reminders/reminder_history/reminder_history_widget.dart' show ReminderHistoryWidget;
+
+export '/pages/commercial/commissions_widget.dart' show CommissionsWidget;
+export '/pages/commercial/signatures_widget.dart' show SignaturesWidget;

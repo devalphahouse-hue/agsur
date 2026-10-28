@@ -53,6 +53,21 @@ Future<void> openStorageDoc(String url, {int expiresInSeconds = 3600}) async {
   await launchURL(signed);
 }
 
+/// Private documents fail closed: never fall back to a public object URL.
+Future<void> openPrivateStorageDoc(String bucket, String path,
+    {int expiresInSeconds = 120}) async {
+  if (bucket.isEmpty ||
+      path.isEmpty ||
+      expiresInSeconds < 1 ||
+      expiresInSeconds > 300) {
+    throw ArgumentError('Documento ou validade inválidos');
+  }
+  final url = await SupaFlow.client.storage
+      .from(bucket)
+      .createSignedUrl(path, expiresInSeconds);
+  await launchURL(url);
+}
+
 /// Drop-in para `Image.network(publicUrl)` que assina a URL antes de carregar.
 /// Use os mesmos parâmetros visuais (fit, width, height, errorBuilder).
 class SignedNetworkImage extends StatefulWidget {
@@ -85,7 +100,8 @@ class _SignedNetworkImageState extends State<SignedNetworkImage> {
   @override
   void initState() {
     super.initState();
-    _future = signedUrlFor(widget.url, expiresInSeconds: widget.expiresInSeconds);
+    _future =
+        signedUrlFor(widget.url, expiresInSeconds: widget.expiresInSeconds);
   }
 
   @override

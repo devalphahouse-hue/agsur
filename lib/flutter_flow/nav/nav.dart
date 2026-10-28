@@ -163,6 +163,8 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
         ShellRoute(
           builder: (context, state, child) => AppShell(child: child),
           routes: [
+        FFRoute(name: CommissionsWidget.routeName, path: CommissionsWidget.routePath, builder: (context, params) => const CommissionsWidget()),
+        FFRoute(name: SignaturesWidget.routeName, path: SignaturesWidget.routePath, builder: (context, params) => const SignaturesWidget()),
         FFRoute(name: ReminderHistoryWidget.routeName, path: ReminderHistoryWidget.routePath, builder: (context, params) => const ReminderHistoryWidget()),
         FFRoute(
           name: HomePageWidget.routeName,

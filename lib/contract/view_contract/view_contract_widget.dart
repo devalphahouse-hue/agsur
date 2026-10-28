@@ -1,3 +1,4 @@
+import '/pages/commercial/signatures_widget.dart' show offerContractSignature;
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/api_requests/api_calls.dart';
 import '/core_ui/core_ui.dart';
@@ -5775,6 +5776,7 @@ class _ViewContractWidgetState extends State<ViewContractWidget> {
                                         _composeTerms(),
                                         _model.tFInstructionTextController.text,
                                         stockUnit: stockUnit,
+                                        onGenerated: (bytes) async { if (context.mounted) await offerContractSignature(context, widget.proposalId ?? '', bytes); },
                                       );
                                     },
                                     text: 'Gerar PDF',

@@ -1,0 +1,35 @@
+name: Commercial workflow checks
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/*commercial*'
+      - 'supabase/migrations/*signature*'
+      - 'supabase/tests/commercial.test.mjs'
+      - 'supabase/tests/clicksign.test.mjs'
+      - 'supabase/functions/**'
+      - 'supabase/migrations/*clicksign*'
+      - '.github/workflows/commercial-check.yml'
+  push:
+    paths:
+      - 'supabase/migrations/*commercial*'
+      - 'supabase/migrations/*signature*'
+      - 'supabase/tests/commercial.test.mjs'
+      - 'supabase/tests/clicksign.test.mjs'
+      - 'supabase/functions/**'
+      - 'supabase/migrations/*clicksign*'
+      - '.github/workflows/commercial-check.yml'
+jobs:
+  isolated-database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install --prefix "$RUNNER_TEMP/commercial-tests" @electric-sql/pglite@0.5.9
+      - run: PGLITE_MODULE="$RUNNER_TEMP/commercial-tests/node_modules/@electric-sql/pglite/dist/index.js" node --test supabase/tests/commercial.test.mjs
+      - run: node --test supabase/tests/clicksign.test.mjs
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno check supabase/functions/contract-signatures/index.ts supabase/functions/clicksign-webhook/index.ts

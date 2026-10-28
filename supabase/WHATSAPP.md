@@ -1,5 +1,23 @@
 # WhatsApp oficial — Sprint 1
 
+## Atualização de 28/10/2026
+
+- Envio pela plataforma real e alerta interno foram testados em 19/10; o usuário
+  confirmou recebimento no número autorizado. Os registros de 16/10 abaixo são
+  históricos e antecedem essa validação.
+- Em 28/10, consulta oficial de `subscribed_apps` retornou lista vazia. O token
+  foi validado para o aplicativo Agsur e o aplicativo foi inscrito na WABA;
+  consulta posterior confirmou a inscrição do aplicativo correto.
+- Ainda é necessário confirmar callback/campo `messages` na Meta e observar
+  um retorno real de entrega/leitura. A inscrição isolada não é esse aceite.
+- A linha do tempo interna substitui os acessos separados de histórico. Dentro
+  de cada registro ficam autor, horário e acompanhamento do envio opcional.
+  Preferências de contato ficam na própria linha do tempo; a equipe é gerida
+  pelo Master no formulário ao escolher destinatário Equipe.
+- Publicar pelo PR/CI. Não incluir tokens nem arquivos privados no Git.
+
+
+
 ## Estado verificado em 16/10/2026
 
 - Código local: notas + lembretes atômicos, equipe habilitada por Admin Master, autorização por destinatário, opt-out do cliente, fila com tentativas, cancelamento, reenvio, histórico global e contextual, e webhook assinado.

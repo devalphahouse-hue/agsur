@@ -1,16 +1,69 @@
 # Sprint 2 — Gestão Comercial, Comissões e Assinatura Digital
 
-## Ordem solicitada em 16/10/2026
+## Atualização de 28/10/2026 — Clicksign escolhida
 
-A implementação desta sprint começa **após a homologação do WhatsApp no sistema**.
-Esta é a preparação do escopo, não uma declaração de início/conclusão da sprint.
-O teste interno simulado não substitui envio e retorno de entrega reais.
+- Provedor definido pelo usuário: **Clicksign**, API oficial de Envelope v3.
+- Adaptador, envio, notificação, webhook HMAC `Content-Hmac`, inbox persistente,
+  retries de arquivamento e agendamento implementados. Identificadores remotos
+  são persistidos antes das próximas operações; resultado desconhecido nunca
+  cria outro envelope automaticamente.
+- Callbacks individuais não concluem o contrato. A confirmação exige todas as
+  assinaturas esperadas, evento de fechamento, confirmação na API e PDF privado.
+- A tela consulta a configuração do backend e informa sandbox/produção/ativação
+  pendente. Preservada a aprovação comercial antes de enviar.
+- **Pendente operacional:** acesso à conta sandbox, token e secret HMAC,
+  publicação pelo PR/CI e homologação real. Testes isolados não significam
+  conclusão da Sprint 2 em produção.
 
-Entrada: checklist `supabase/WHATSAPP.md`, tabela e funções publicadas,
-nota agendada para o destinatário autorizado e entrega confirmada pelo webhook.
-Em 16/10, o preflight remoto encontrou tabelas/functions WhatsApp ausentes e a
-CLI estava sem sessão. Não iniciar mudanças de comissionamento nem disparos de
-contratos enquanto esse aceite estiver pendente.
+O registro de 19/10 abaixo descreve a etapa anterior, antes da escolha do provedor.
+
+
+## Implementação autorizada em 19/10/2026
+
+O usuário autorizou expressamente iniciar esta implementação. Isso substitui a
+condição anterior de aguardar a homologação do WhatsApp. O aceite operacional do
+WhatsApp continua independente; iniciar esta sprint não declara aquele aceite.
+
+### Implementado no código
+
+- Regras versionadas por vigência futura; percentual, valor fixo e faixas por
+  preço/meta mensal da empresa (mês UTC). Persistência e cálculo em PostgreSQL
+  `numeric`, com arredondamento de centavos no banco.
+- Trigger congela a regra em novas vendas, incluindo repasse de indicação. O
+  cliente antigo continua compatível: os valores enviados por ele são
+  substituídos pelo cálculo autoritativo do banco depois da migration.
+- Vendas históricas preservam os valores armazenados. Não se reconstrói uma
+  indicação histórica sem prova; esse saldo fica zero e a tela informa isso.
+- Rateio explícito por beneficiário interno/externo e origem. O criador da
+  proposta nunca recebe automaticamente o bolo. Travas de linha e limites de
+  saldo impedem sobrealocação; cada beneficiário recebe um rateio por origem.
+- Deduções com motivo, extratos com período/situação/beneficiário, totais sobre
+  todo o filtro (não só a página), acesso de vendedor apenas ao próprio extrato.
+- Liquidação integral idempotente por rateio, referência e auditoria. É um
+  registro contábil de pagamento efetuado; nenhuma transferência é executada.
+- Preparação de assinatura pelo PDF gerado na tela do contrato, ou seleção de
+  contrato e upload de PDF. PDF, signatários e dados comerciais congelados.
+- Aprovação comercial, fila com claim exclusivo, eventos deduplicados e estados
+  protegidos contra regressão, correção por descarte antes do início do envio.
+- PDFs em bucket privado, acesso vinculado ao contrato e URLs de 120 segundos.
+  Um contrato só fica Assinado depois que existe o PDF assinado arquivado.
+- Testes isolados de banco e workflow de CI em `commercial-check.yml`.
+
+### Pendente para concluir e homologar
+
+- O usuário ainda precisa escolher Clicksign, ZapSign ou DocuSign (pergunta
+  enviada em 19/10). **Adaptador HTTP do provedor, Edge worker, webhook
+  autenticado e agendamento do worker ainda não estão implementados**: isso
+  depende da plataforma escolhida. Os RPCs de fila/evento já estão preparados
+  e restritos a `service_role`; não há endpoint público sem autenticação.
+- Configurar a conta sandbox e credenciais do provedor no backend, conectar os
+  RPCs ao adaptador e validar envio, eventos por signatário e arquivamento real.
+- Publicar migrations via PR e executar dry-run/autorização no projeto correto;
+  os testes locais usam um PostgreSQL isolado e não alteram produção.
+- Publicar frontend pelo CI existente e homologar com perfis reais. Nada neste
+  documento declara a Sprint 2 100% implantada.
+
+Detalhes de ativação e critérios de teste em `supabase/COMMERCIAL.md`.
 
 ## 2.1 — Comissões e regras comerciais
 
@@ -39,7 +92,7 @@ Entregas previstas:
 
 ## 2.2 — Assinatura digital de contratos
 
-Antes de implementar API real, definir a plataforma usada pela Agsur entre
+Para completar a API real, definir a plataforma usada pela Agsur entre
 DocuSign, Clicksign ou ZapSign e obter acesso ao ambiente de testes. O PDF lista
 alternativas, não escolhe uma. Não contratar serviço, aceitar termos nem enviar
 contratos reais em nome do cliente sem instrução explícita.
@@ -58,3 +111,15 @@ Entregas previstas:
 
 A sprint não inclui fluxo de caixa/parcelas/Google Places (Sprint 3) nem IA/RAG
 (Sprint 4).
+
+## Ajuste de apresentação autorizado em 28/10/2026
+
+- Histórico interno unificado na linha do tempo de cada lead/cliente, com autor,
+  data/hora, notas e acompanhamento dos envios vinculados a cada registro.
+- Retirados o menu “Lembretes WhatsApp” e os atalhos de histórico separados.
+  A rota antiga permanece para compatibilidade; não é mais uma entrada do menu.
+- O registro interno continua funcionando sem notificação. O envio por WhatsApp
+  permanece opcional no formulário de adicionar registro; a fila não mudou.
+- Notas paginadas no servidor; consultas de envio limitadas ao cadastro e às
+  notas da página. Falha no histórico de envios não esconde as notas internas.
+- Este ajuste é no código local; não declara publicação nem conclusão da Sprint 2.

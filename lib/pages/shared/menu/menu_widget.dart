@@ -162,7 +162,8 @@ class _MenuWidgetState extends State<MenuWidget> {
             if (showFunil) ...[
               const SizedBox(height: 16),
               const _MenuSectionLabel(label: 'Funil de vendas'),
-              _MenuItem(icon: Icons.notifications_active_outlined, label: 'Lembretes WhatsApp', active: _isActive(ReminderHistoryWidget.routePath), onTap: () => context.pushNamed(ReminderHistoryWidget.routeName)),
+              if (can(CommissionsWidget.routeName)) _MenuItem(icon: Icons.payments_outlined, label: 'Comissões', active: _isActive(CommissionsWidget.routePath), onTap: () => context.pushNamed(CommissionsWidget.routeName)),
+              if (can(SignaturesWidget.routeName)) _MenuItem(icon: Icons.draw_outlined, label: 'Assinaturas digitais', active: _isActive(SignaturesWidget.routePath), onTap: () => context.pushNamed(SignaturesWidget.routeName)),
               _MenuExpandable(
                 icon: Icons.point_of_sale_rounded,
                 label: 'Vendas',

@@ -50,4 +50,6 @@ jobs:
             exit 1
           fi
           set -e
-          supabase db push --remote=bkzybtmxxzpxtztesdye --dry-run --skip-vault
+          # Link caches the IPv4 pooler address; hosted runners have no IPv6.
+          supabase link --project-ref bkzybtmxxzpxtztesdye
+          supabase db push --remote --dry-run --skip-vault

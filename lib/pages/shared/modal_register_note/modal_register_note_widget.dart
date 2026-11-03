@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '/backend/notes.dart';
 import '/backend/phone.dart';
+import '/security/access_control.dart';
+import '/pages/shared/contact_timeline/whatsapp_preferences.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 
 import '/backend/supabase/supabase.dart';
@@ -10,7 +12,6 @@ import '/security/write_guard.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import 'modal_register_note_model.dart';
-import 'whatsapp_reminder_history.dart';
 
 export 'modal_register_note_model.dart';
 
@@ -198,9 +199,9 @@ class _ModalRegisterNoteWidgetState extends State<ModalRegisterNoteWidget> {
   Widget build(BuildContext context) {
     return AppModal(
       icon: Icons.sticky_note_2_outlined,
-      title: 'Adicionar nota',
+      title: 'Adicionar registro',
       description:
-          'Registre informações importantes sobre este lead — visíveis para todo o time comercial.',
+          'Registre um contato ou observação na linha do tempo deste cadastro. O registro é interno à equipe.',
       maxWidth: 540,
       footer: Row(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -237,13 +238,6 @@ class _ModalRegisterNoteWidgetState extends State<ModalRegisterNoteWidget> {
                 if (v == null || v.trim().isEmpty) return 'Campo obrigatório';
                 return null;
               },
-            ),
-            TextButton.icon(
-              onPressed: _busy || widget.leadId == null
-                  ? null
-                  : () => showWhatsappReminderHistory(context, widget.leadId!),
-              icon: const Icon(Icons.history),
-              label: const Text('Histórico de lembretes'),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
@@ -292,6 +286,18 @@ class _ModalRegisterNoteWidgetState extends State<ModalRegisterNoteWidget> {
                         _loadRecipients();
                       },
               ),
+              if (_recipientType == 'equipe' &&
+                  AccessControl.current == PanelRole.adminMaster)
+                TextButton.icon(
+                  icon: const Icon(Icons.groups),
+                  label: const Text('Gerenciar equipe de notificações'),
+                  onPressed: _busy
+                      ? null
+                      : () async {
+                          await manageWhatsAppTeam(context);
+                          if (mounted) _loadRecipients();
+                        },
+                ),
               if (_loadingRecipients)
                 const LinearProgressIndicator()
               else if (_recipients.isEmpty)

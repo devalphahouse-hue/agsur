@@ -112,8 +112,11 @@ class AppPagination extends StatelessWidget {
                 children: [
                   resumo,
                   const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 16,
+                    runSpacing: 10,
                     children: [porPagina, navegacao],
                   ),
                 ],

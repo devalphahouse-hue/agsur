@@ -1,7 +1,6 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/api_requests/api_calls.dart';
 import '/backend/client_reuse.dart';
-import '/backend/commission.dart';
 import '/backend/lead_conversion.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/schema/structs/index.dart';
@@ -196,40 +195,6 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
         r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
       ).hasMatch(FFAppState().asGetProposalDetails.proposalCompany.id);
 
-  /// A venda veio de indicação de terceiro?
-  ///
-  /// A marcação mora no LEAD (`leads.is_referral`, migration
-  /// `20260817120000`), porque precisa existir antes da conversão para a
-  /// comissão do vendedor sair certa de primeira — ver `commission.dart`.
-  /// Não dá para usar `_model.getLead`: ele só é carregado no ramo de cliente
-  /// NOVO, e numa recompra fica null.
-  ///
-  /// Falha-fechada em `false` (comissão cheia). Se a leitura do lead falhar,
-  /// pagar os US$ 7.500 é o erro barato; cortar US$ 3.000 de alguém por causa
-  /// de uma consulta que não respondeu, não.
-  Future<bool> _vendaVeioDeIndicacao() async {
-    final leadId = FFAppState().asGetProposalDetails.proposalLead.id;
-    if (!RegExp(
-      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
-    ).hasMatch(leadId)) {
-      return false;
-    }
-    try {
-      final rows = await LeadsTable().queryRows(
-        queryFn: (q) => q.eqOrNull('id', leadId),
-      );
-      return rows.firstOrNull?.isReferral ?? false;
-    } catch (e, st) {
-      Sentry.captureException(
-        e,
-        stackTrace: st,
-        withScope: (scope) =>
-            scope.setTag('acao', 'conversao.lerIndicacaoDoLead'),
-      );
-      return false;
-    }
-  }
-
   /// Cadastra a empresa de uma proposta que nasceu sem ela.
   ///
   /// A empresa pertence ao LEAD (`company.lead_id`), não à proposta — por isso
@@ -380,35 +345,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
         );
         return false;
       case ClientReuseDecision.reusarEVincular:
-        final linked = await guardWrite(
-          context,
-          () => UsersTable().update(
-            data: {'lead_id': proposalLeadId},
-            matchingRows: (rows) => rows.eqOrNull('id', existing.id),
-            returnRows: true,
-          ),
-          // O bloqueio não deve abortar a conversão: vai ao Sentry e o
-          // aviso abaixo explica a consequência para quem clicou.
-          silent: true,
-          contexto: 'conversao: vincular lead ao cliente reusado',
-        );
-        if (!linked && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'O contrato será criado para o cliente já cadastrado, mas '
-                'você não tem permissão para vincular o lead a ele — o '
-                'lead continuará na lista de leads. Peça a um Admin '
-                'Master para concluir o vínculo.',
-                style: TextStyle(
-                  color: FlutterFlowTheme.of(context).primaryText,
-                ),
-              ),
-              duration: Duration(milliseconds: 6000),
-              backgroundColor: FlutterFlowTheme.of(context).warning,
-            ),
-          );
-        }
+        // The RPC links the lead in the same transaction as the contract.
         return true;
       case ClientReuseDecision.reusarMesmoLead:
       case ClientReuseDecision.criarNovo:
@@ -5899,20 +5836,10 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                           context)
                                                       .primary,
                                                   confirmBtnAction: () async {
-                                                    // A conversão são 7 escritas encadeadas (users, leads,
-                                                    // contract, user_aircraft, sales, financial e 21 linhas de
-                                                    // tracking). Sem try/catch, uma falha no meio deixava o
-                                                    // diálogo aberto E o banco com contrato parcial — o usuário
-                                                    // não sabia se converteu, clicava de novo e duplicava.
+                                                    // All business writes run in a single transaction.
+                                                    String? newClientId;
+                                                    String? newClientPassword;
                                                     try {
-                                                    // Zera resíduo de conversão
-                                                    // anterior no model — senão
-                                                    // um createUserPublic velho
-                                                    // teria precedência sobre o
-                                                    // cliente reusado no insert
-                                                    // do contrato.
-                                                    _model.createUserPublic =
-                                                        null;
                                                     // Cliente JÁ existente
                                                     // (mesmo e-mail, qualquer
                                                     // caixa) = contrato novo
@@ -6079,197 +6006,28 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                         }
                                                       }
                                                       if (!reusedExisting) {
-                                                      _model.createUserPublic =
-                                                          await UsersTable()
-                                                              .insert({
-                                                        'id': getJsonField(
-                                                          (_model.createUserAuth
-                                                                  ?.jsonBody ??
-                                                              ''),
-                                                          r'''$.user.id''',
-                                                        ).toString(),
-                                                        'name': _model.getLead
-                                                            ?.firstOrNull?.name,
-                                                        'email':
-                                                            confirmedEmail,
-                                                        'profile_photo_url':
-                                                            'https://bkzybtmxxzpxtztesdye.supabase.co/storage/v1/object/public/AGSur//user_icon%20(1).png',
-                                                        'phone': FFAppState()
-                                                            .asGetProposalDetails
-                                                            .proposalLead
-                                                            .phone,
-                                                        'profile_type':
-                                                            ProfileType
-                                                                .Cliente.name,
-                                                        'is_admin': false,
-                                                        'cpf': _model.getLead
-                                                            ?.firstOrNull?.cpf,
-                                                        'status': UserStatus
-                                                            .approved.name,
-                                                        'lastname': _model
-                                                            .getLead
-                                                            ?.firstOrNull
-                                                            ?.lastName,
-                                                        'lead_id': FFAppState()
-                                                            .asGetProposalDetails
-                                                            .proposalLead
-                                                            .id,
-                                                        'fullname': _model
-                                                            .getLead
-                                                            ?.firstOrNull
-                                                            ?.fullname,
-                                                      });
-                                                      // e-mail de boas-vindas com as credenciais do cliente novo
-                                                      // (via Edge Function send-credentials-email / Resend)
+                                                        newClientId = novoUserId.toString();
+                                                        newClientPassword = clientPassword;
+                                                      }
+                                                    }
+                                                    final conversion = await SupaFlow.client.rpc(
+                                                      'convert_proposal_atomic',
+                                                      params: {
+                                                        'p_proposal_id': widget.proposalId,
+                                                        'p_email': confirmedEmail,
+                                                        'p_new_client_id': newClientId,
+                                                      },
+                                                    );
+                                                    // Auth is prepared first; all business records commit together.
+                                                    // Send credentials only after the complete transaction succeeds.
+                                                    if (conversion['client_created'] == true && newClientPassword != null) {
                                                       final emailSent = await sendCredentialsEmail(
                                                         email: confirmedEmail,
-                                                        password: clientPassword,
+                                                        password: newClientPassword,
                                                         profileType: 'Cliente',
                                                         name: _model.getLead?.firstOrNull?.name,
                                                       );
-                                                      if (!emailSent && context.mounted) {
-                                                        showCredentialsEmailWarning(context);
-                                                      }
-                                                      }
-                                                    }
-                                                    final createdContract =
-                                                        await ContractTable()
-                                                            .insert({
-                                                      'user_Id': _model
-                                                              .createUserPublic
-                                                              ?.id ??
-                                                          _model.userExist
-                                                              ?.firstOrNull
-                                                              ?.id,
-                                                      'proposal_id':
-                                                          widget!.proposalId,
-                                                      'fullprice': FFAppState()
-                                                          .asGetProposalDetails
-                                                          .proposal
-                                                          .fullprice,
-                                                      'created_by':
-                                                          currentUserUid,
-                                                    });
-                                                    _model.createUserAircraft =
-                                                        await UserAircraftTable()
-                                                            .insert({
-                                                      'created_by':
-                                                          currentUserUid,
-                                                      'aircraft_status':
-                                                          AircraftStatus
-                                                              .processing.name,
-                                                      'proposal_id': FFAppState()
-                                                          .asGetProposalDetails
-                                                          .proposal
-                                                          .id,
-                                                      // liga o avião ao contrato
-                                                      // (a view vw_my_aircrafts_home
-                                                      // junta por contract_id)
-                                                      'contract_id':
-                                                          createdContract.id,
-                                                    });
-                                                    // Régua de 17/08/2026: 2%
-                                                    // para a AGSur e valor fixo
-                                                    // para o vendedor (7500, ou
-                                                    // 4500 se veio de
-                                                    // indicação). Os números
-                                                    // vivem em
-                                                    // backend/commission.dart —
-                                                    // não volte a chumbá-los
-                                                    // aqui. Congela agora: o
-                                                    // que for gravado não é
-                                                    // recalculado depois.
-                                                    final comissao =
-                                                        calcularComissao(
-                                                      fullprice: FFAppState()
-                                                          .asGetProposalDetails
-                                                          .proposal
-                                                          .fullprice,
-                                                      isIndicacao:
-                                                          await _vendaVeioDeIndicacao(),
-                                                    );
-                                                    _model.createSales =
-                                                        await SalesTable()
-                                                            .insert({
-                                                      'seller_id': FFAppState()
-                                                          .asGetProposalDetails
-                                                          .proposal
-                                                          .createdBy,
-                                                      'fullprice': FFAppState()
-                                                          .asGetProposalDetails
-                                                          .proposal
-                                                          .fullprice,
-                                                      'seller_commission':
-                                                          comissao.seller,
-                                                      'company_commission':
-                                                          comissao.company,
-                                                      'created_by':
-                                                          currentUserUid,
-                                                      'proposal_id': FFAppState()
-                                                          .asGetProposalDetails
-                                                          .proposal
-                                                          .id,
-                                                    });
-                                                    _model.createFinance =
-                                                        await FinancialTable()
-                                                            .insert({
-                                                      'financial_type':
-                                                          FinancialType
-                                                              .income.name,
-                                                      'sale_id': _model
-                                                          .createSales?.id,
-                                                      'description':
-                                                          'Venda de aeronave',
-                                                      'financial_status':
-                                                          FinancialStatus
-                                                              .pending.name,
-                                                      'created_by':
-                                                          currentUserUid,
-                                                    });
-                                                    for (int loop1Index = 0;
-                                                        loop1Index <= 20;
-                                                        loop1Index++) {
-                                                      final currentLoop1Item =
-                                                          FFAppConstants
-                                                                  .TrackingDescription[
-                                                              loop1Index];
-                                                      _model.createTracking =
-                                                          await TrackingTable()
-                                                              .insert({
-                                                        'user_aircraft': _model
-                                                            .createUserAircraft
-                                                            ?.id,
-                                                        'tracking_description':
-                                                            FFAppConstants
-                                                                    .TrackingDescription
-                                                                .elementAtOrNull(
-                                                                    _model
-                                                                        .countController),
-                                                        'isCheck': false,
-                                                        'order': _model
-                                                            .countController,
-                                                      });
-                                                      _model.countController =
-                                                          _model.countController +
-                                                              1;
-                                                    }
-                                                    _model.countController = 0;
-                                                    final okIsContract =
-                                                        await guardWrite(
-                                                      context,
-                                                      () => ProposalTable().update(
-                                                        data: {
-                                                          'is_contract': true,
-                                                        },
-                                                        matchingRows: (rows) => rows.eqOrNull(
-                                                          'id',
-                                                          widget!.proposalId,
-                                                        ),
-                                                        returnRows: true,
-                                                      ),
-                                                    );
-                                                    if (!okIsContract) {
-                                                      return;
+                                                      if (!emailSent && context.mounted) showCredentialsEmailWarning(context);
                                                     }
                                                     // O lead virou cliente:
                                                     // invalida o cache que a
@@ -6311,10 +6069,12 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                       // órfã — a RPC só apaga quem NÃO tem linha em
                                                       // public.users, então é no-op se a falha veio depois.
                                                       try {
-                                                        await SupaFlow.client.rpc(
-                                                          'admin_purge_orphan_auth_user',
-                                                          params: {'p_email': confirmedEmail},
-                                                        );
+                                                        if (newClientId != null) {
+                                                          await SupaFlow.client.rpc(
+                                                            'admin_purge_orphan_auth_user',
+                                                            params: {'p_email': confirmedEmail},
+                                                          );
+                                                        }
                                                       } catch (_) {}
                                                       await Sentry.captureException(e, stackTrace: st,
                                                           withScope: (s) => s.setTag('acao', 'proposta.converter'));
@@ -6325,8 +6085,8 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                       showWriteError(
                                                         context,
                                                         mensagemDeErro(e,
-                                                            fallback: 'A conversão não foi concluída. '
-                                                                'Confira a lista de contratos antes de tentar de novo.'),
+                                                            fallback: 'Não foi possível confirmar a conversão. '
+                                                                'Tente novamente: a mesma proposta não gerará outro contrato.'),
                                                       );
                                                     }
                                                   },

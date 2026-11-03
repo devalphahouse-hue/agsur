@@ -410,7 +410,7 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                               containerGetLeadDetailsResponse
                                                                   .jsonBody,
                                                             ),
-                                                            '[lead fullname]',
+                                                            'Não informado',
                                                           ),
                                                           style: TextStyle(
                                                             color: Color(
@@ -519,7 +519,7 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                               containerGetLeadDetailsResponse
                                                                   .jsonBody,
                                                             ),
-                                                            '[lead cpf]',
+                                                            'Não informado',
                                                           ),
                                                           style: TextStyle(
                                                             color: Color(
@@ -628,7 +628,7 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                               containerGetLeadDetailsResponse
                                                                   .jsonBody,
                                                             ),
-                                                            '[lead phone]',
+                                                            'Não informado',
                                                           ),
                                                           style: TextStyle(
                                                             color: Color(
@@ -747,7 +747,7 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                               containerGetLeadDetailsResponse
                                                                   .jsonBody,
                                                             ),
-                                                            '[lead e-mail]',
+                                                            'Não informado',
                                                           ),
                                                           style: TextStyle(
                                                             color: Color(
@@ -856,7 +856,7 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                               containerGetLeadDetailsResponse
                                                                   .jsonBody,
                                                             ),
-                                                            '[lead company]',
+                                                            'Não informado',
                                                           ),
                                                           style: TextStyle(
                                                             color: Color(
@@ -964,7 +964,7 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                               containerGetLeadDetailsResponse
                                                                   .jsonBody,
                                                             ),
-                                                            '[lead job title]',
+                                                            'Não informado',
                                                           ),
                                                           style: TextStyle(
                                                             color: Color(
@@ -1084,7 +1084,7 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                               containerGetLeadDetailsResponse
                                                                   .jsonBody,
                                                             ),
-                                                            '[lead city]',
+                                                            'Não informado',
                                                           ),
                                                           style: TextStyle(
                                                             color: Color(
@@ -1192,7 +1192,7 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                               containerGetLeadDetailsResponse
                                                                   .jsonBody,
                                                             ),
-                                                            '[lead state]',
+                                                            'Não informado',
                                                           ),
                                                           style: TextStyle(
                                                             color: Color(
@@ -1365,7 +1365,7 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                               containerGetLeadDetailsResponse
                                                                   .jsonBody,
                                                             ),
-                                                            '[leadName]',
+                                                            'Nome',
                                                           ),
                                                         ),
                                                         focusNode: _model
@@ -1616,7 +1616,7 @@ class _ViewEditClientWidgetState extends State<ViewEditClientWidget> {
                                                               containerGetLeadDetailsResponse
                                                                   .jsonBody,
                                                             ),
-                                                            '[leadLastname]',
+                                                            'Sobrenome',
                                                           ),
                                                         ),
                                                         focusNode: _model

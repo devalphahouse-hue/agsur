@@ -1,6 +1,6 @@
 import '/auth/supabase_auth/auth_util.dart';
+import 'package:uuid/uuid.dart';
 import '/backend/api_requests/api_calls.dart';
-import '/backend/financing.dart';
 import '/backend/lead_conversion.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/schema/structs/index.dart';
@@ -48,6 +48,8 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
   late CreateProposalModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  // Stable across retries when a successful response is lost.
+  final String _submissionId = const Uuid().v4();
 
   /// Leads que já viraram cliente. Preenchido por [_fetchLeadOptions] antes do
   /// builder rodar, e usado só para rotular/ordenar o dropdown.
@@ -367,6 +369,10 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                           0.0, 16.0, 0.0, 16.0),
                                       child: FFButtonWidget(
                                         onPressed: () async {
+                                          if (_model.dpdLeadValue == null || _model.dpdLeadValue!.isEmpty) {
+                                            showWriteError(context, 'Selecione um lead antes de avançar.');
+                                            return;
+                                          }
                                           var _shouldSetState = false;
                                           _model.getLeadProposal =
                                               await GetLeadDetailsForProposalCall
@@ -6475,242 +6481,20 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                       // crus: falha em qualquer um travava o diálogo e podia deixar
                                                       // a proposta gravada sem financiamento.
                                                       try {
-                                                      _model.getRates =
-                                                          await FinancingRatesTable()
-                                                              .queryRows(
-                                                        queryFn: (q) =>
-                                                            q.eqOrNull(
-                                                          'id',
-                                                          'ce659e4b-caee-4b88-8d99-46f15c7e9b69',
-                                                        ),
-                                                      );
-                                                      // TAXA ZERADA NO PDF (2026-08-25).
-                                                      // SOFR e juros do plano de
-                                                      // financiamento saem DESTA
-                                                      // leitura, e o insert abaixo
-                                                      // gravava 0.0 via
-                                                      // valueOrDefault sempre que
-                                                      // ela não trouxesse número —
-                                                      // sem erro, sem exceção. O PDF
-                                                      // saía com "TAXA DE JUROS
-                                                      // 0.0000%" e juros $ 0.00 nas
-                                                      // 14 parcelas: número errado
-                                                      // apresentado como certo
-                                                      // (proposta 590546, 22/08).
-                                                      // Duas formas de não vir
-                                                      // número: RLS bloqueando a
-                                                      // leitura (era admin-only até
-                                                      // a migration 20260825210000,
-                                                      // que liberou o Vendedor) ou
-                                                      // o cadastro de Taxas zerado
-                                                      // no momento da criação.
-                                                      // Melhor não criar a proposta
-                                                      // do que criá-la com taxa
-                                                      // zerada.
-                                                      final ratesRow = _model
-                                                          .getRates?.firstOrNull;
-                                                      if (ratesRow == null ||
-                                                          (ratesRow.sofrRate +
-                                                                  ratesRow
-                                                                      .interestRate) <=
-                                                              0) {
-                                                        Navigator.of(dialogContext)
-                                                            .maybePop();
-                                                        if (!context.mounted)
-                                                          return;
-                                                        showWriteError(
-                                                          context,
-                                                          ratesRow == null
-                                                              ? 'Não foi possível ler as taxas de financiamento '
-                                                                  '(SOFR e juros). Peça a um Admin para abrir '
-                                                                  'Taxas e conferir o cadastro — sem elas a '
-                                                                  'proposta sairia com juros zerados.'
-                                                              : 'As taxas de financiamento estão zeradas no '
-                                                                  'cadastro (Taxas). Preencha SOFR e juros '
-                                                                  'antes de criar a proposta.',
-                                                        );
-                                                        return;
-                                                      }
-                                                      _model.insertProposal =
-                                                          await ProposalTable()
-                                                              .insert({
-                                                        'lead_id': FFAppState()
-                                                            .asGetLeadProposal
-                                                            .lead
-                                                            .id,
-                                                        'fullprice':
-                                                            valueOrDefault<
-                                                                double>(
-                                                          (double priceAircraft,
-                                                                  List<double>
-                                                                      totalPriceItemsOpcional) {
-                                                            return priceAircraft +
-                                                                (totalPriceItemsOpcional
-                                                                        .isEmpty
-                                                                    ? 0
-                                                                    : totalPriceItemsOpcional
-                                                                        .reduce((a,
-                                                                                b) =>
-                                                                            a +
-                                                                            b));
-                                                          }(
-                                                              valueOrDefault<
-                                                                  double>(
-                                                                FFAppState()
-                                                                    .asGetAircraftProposal
-                                                                    .price,
-                                                                0.0,
-                                                              ),
-                                                              _model
-                                                                  .itemsOptional
-                                                                  .map((e) =>
-                                                                      valueOrDefault<
-                                                                              double>(
-                                                                        e.price,
-                                                                        0.0,
-                                                                      ) *
-                                                                      e.qty)
-                                                                  .toList()),
-                                                          0.00,
-                                                        ),
-                                                        'created_by':
-                                                            currentUserUid,
-                                                        'aircraft_id': FFAppState()
-                                                            .asGetAircraftProposal
-                                                            .id,
-                                                        'available_aircraft_id':
-                                                            stockUnit?.id,
-                                                        'id_ref':
-                                                            valueOrDefault<
-                                                                String>(
-                                                          functions
-                                                              .generateRandomSixDigitCode(),
-                                                          '000000',
-                                                        ),
+                                                      await SupaFlow.client.rpc('create_proposal_atomic', params: {
+                                                        'p_id': _submissionId,
+                                                        'p_lead_id': FFAppState().asGetLeadProposal.lead.id,
+                                                        'p_aircraft_id': FFAppState().asGetAircraftProposal.id,
+                                                        'p_stock_unit_id': stockUnit?.id,
+                                                        'p_reference': functions.generateRandomSixDigitCode(),
+                                                        'p_financing': {
+                                                          'term_length': int.parse(prazo),
+                                                          'credit_date': _model.datePicked?.toIso8601String().split('T').first,
+                                                          'down_payment': (functions.parsePriceToDouble(_model.tFDownPaymentTextController.text) ?? 0) / 100,
+                                                          'initial_deposit': (functions.parsePriceToDouble(_model.tFInitialDepositTextController.text) ?? 0) / 100,
+                                                        },
+                                                        'p_optional_ids': _model.itemsOptional.map((e) => e.id).toSet().toList(),
                                                       });
-                                                      _model.insertProposalFinancing =
-                                                          await ProposalFinancingTable()
-                                                              .insert({
-                                                        'term_length':
-                                                            valueOrDefault<int>(
-                                                          int.tryParse(prazo),
-                                                          0,
-                                                        ),
-                                                        'credit_date':
-                                                            supaSerialize<
-                                                                    DateTime>(
-                                                                _model
-                                                                    .datePicked),
-                                                        'down_payment':
-                                                            valueOrDefault<
-                                                                double>(
-                                                          (String downPayment) {
-                                                            return double.parse(
-                                                                    downPayment
-                                                                        .replaceAll(
-                                                                            '%',
-                                                                            '')) /
-                                                                100;
-                                                          }(functions
-                                                              .parsePriceToDouble(
-                                                                  valueOrDefault<
-                                                                      String>(
-                                                                _model
-                                                                    .tFDownPaymentTextController
-                                                                    .text,
-                                                                '0.0',
-                                                              ))!
-                                                              .toString()),
-                                                          5.0,
-                                                        ),
-                                                        'initial_deposit':
-                                                            valueOrDefault<
-                                                                double>(
-                                                          (String
-                                                              initialDeposit) {
-                                                            return double.parse(
-                                                                    initialDeposit
-                                                                        .replaceAll(
-                                                                            '%',
-                                                                            '')) /
-                                                                100;
-                                                          }(functions
-                                                              .parsePriceToDouble(
-                                                                  valueOrDefault<
-                                                                      String>(
-                                                                _model
-                                                                    .tFInitialDepositTextController
-                                                                    .text,
-                                                                '0.0',
-                                                              ))!
-                                                              .toString()),
-                                                          0.0,
-                                                        ),
-                                                        'total_deposit':
-                                                            // Calculado aqui a
-                                                            // partir do sinal e
-                                                            // do depósito: o
-                                                            // campo da tela só
-                                                            // era preenchido no
-                                                            // onChanged do
-                                                            // depósito inicial e
-                                                            // gravava 0 quando
-                                                            // ninguém digitava
-                                                            // nele (2 das 6
-                                                            // propostas em
-                                                            // produção).
-                                                            totalDepositFraction(
-                                                                  sinal: _model
-                                                                      .tFDownPaymentTextController
-                                                                      .text,
-                                                                  depositoInicial: _model
-                                                                      .tFInitialDepositTextController
-                                                                      .text,
-                                                                ) ??
-                                                                0.0,
-                                                        // Prêmio do CADASTRO de
-                                                        // Taxas (era 5%/7%
-                                                        // chumbado aqui, e o
-                                                        // Admin editava Taxas sem
-                                                        // efeito).
-                                                        'premium_rate':
-                                                            premiumRateForTerm(
-                                                          termYears:
-                                                              int.parse(prazo),
-                                                          premiumRateFive: ratesRow
-                                                              .premiumRateFive,
-                                                          premiumRateSeven: ratesRow
-                                                              .premiumRateSeven,
-                                                        ),
-                                                        'sofr_rate':
-                                                            ratesRow.sofrRate,
-                                                        'interest_rate':
-                                                            ratesRow
-                                                                .interestRate,
-                                                      });
-                                                      while (_model
-                                                              .countController <
-                                                          _model.itemsOptional
-                                                              .length) {
-                                                        _model.insertProposalItem =
-                                                            await ProposalItemTable()
-                                                                .insert({
-                                                          'proposal_id': _model
-                                                              .insertProposal
-                                                              ?.id,
-                                                          'aircraft_item_id': _model
-                                                              .itemsOptional
-                                                              .elementAtOrNull(
-                                                                  _model
-                                                                      .countController)
-                                                              ?.id,
-                                                        });
-                                                        _model.countController =
-                                                            _model.countController +
-                                                                1;
-                                                      }
-                                                      _model.countController =
-                                                          0;
                                                       // Fecha o modal de
                                                       // confirmação antes de
                                                       // navegar. Sem isso o modal

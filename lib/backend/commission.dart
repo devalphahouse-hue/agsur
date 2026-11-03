@@ -31,8 +31,9 @@
 /// a régua antiga de 25%/5%. Se um dia a régua mudar de novo, decida
 /// explicitamente entre reprocessar ou não, e registre aqui.
 ///
-/// Cálculo puro (sem I/O) para ser testável; quem aplica é a conversão em
-/// `view_edit_proposal_widget.dart`.
+/// Cálculo puro (sem I/O) para telas e testes. A conversão grava a mesma
+/// régua no banco, em `convert_proposal_atomic` (migration atomic_sales_flow).
+/// Ao mudar a régua, atualize ambos e os testes de comissão e sales_flow.
 library;
 
 /// Percentual da AGSur sobre o valor do contrato.

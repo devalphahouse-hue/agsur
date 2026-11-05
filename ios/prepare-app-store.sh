@@ -2,9 +2,10 @@
 set -euo pipefail
 
 usage() {
-  echo 'Uso: bash ios/prepare-app-store.sh NUMERO_DO_BUILD [VERSAO]'
+  echo 'Uso: bash ios/prepare-app-store.sh NUMERO_DO_BUILD [VERSAO] [--upload]'
   echo 'Confira no App Store Connect o maior número de build já enviado e use um maior.'
   echo 'A versão padrão é 1.0.0, correspondente à versão 1.0 da ficha atual.'
+  echo 'Com --upload, o Xcode envia o build ao App Store Connect usando a conta já conectada.'
 }
 
 if [[ ${1:-} == --help ]]; then
@@ -14,7 +15,9 @@ fi
 
 build_number=${1:-}
 version=${2:-1.0.0}
-if [[ $# -gt 2 || ! $build_number =~ ^[1-9][0-9]*$ || ! $version =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+upload=${3:-}
+if [[ $# -gt 3 || ! $build_number =~ ^[1-9][0-9]*$ || ! $version =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ||
+      ( -n $upload && $upload != --upload ) ]]; then
   usage >&2
   exit 2
 fi
@@ -25,9 +28,21 @@ if [[ $(uname -s) != Darwin ]]; then
 fi
 
 cd "$(dirname "$0")/.."
-for tool in flutter pod xcodebuild; do
+for tool in git flutter pod xcodebuild; do
   command -v "$tool" >/dev/null || { echo "Comando indisponível: $tool" >&2; exit 1; }
 done
+
+if [[ -n $(git status --porcelain) ]]; then
+  echo 'A cópia local tem alterações. Resolva-as antes de preparar a versão.' >&2
+  exit 1
+fi
+git switch main
+git pull --ff-only origin main
+if [[ $(git rev-parse HEAD) != "$(git rev-parse FETCH_HEAD)" ]]; then
+  echo 'A main local tem commits além da main remota. Confira antes de compilar.' >&2
+  exit 1
+fi
+
 xcodebuild -version
 xcrun --sdk iphoneos --show-sdk-version
 
@@ -67,5 +82,16 @@ if [[ $(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_plist") != 
 fi
 
 echo "Archive pronto: $archive"
-echo 'No Xcode Organizer, escolha Distribute App > App Store Connect > Upload.'
-open "$archive"
+if [[ $upload == --upload ]]; then
+  upload_options="$release_dir/UploadOptions.plist"
+  cp ios/ExportOptions.plist "$upload_options"
+  /usr/libexec/PlistBuddy -c 'Set :destination upload' \
+    -c 'Add :manageAppVersionAndBuildNumber bool false' "$upload_options"
+  xcodebuild -exportArchive -archivePath "$archive" \
+    -exportOptionsPlist "$upload_options" -exportPath "$release_dir/upload" \
+    -allowProvisioningUpdates
+  echo "Upload concluído para $version ($build_number). Confira o processamento no App Store Connect."
+else
+  echo 'No Xcode Organizer, escolha Distribute App > App Store Connect > Upload.'
+  open "$archive"
+fi

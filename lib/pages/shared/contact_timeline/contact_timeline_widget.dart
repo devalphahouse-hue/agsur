@@ -5,6 +5,7 @@ import '/backend/contact_timeline.dart';
 import '/backend/paged_query.dart';
 import '/backend/supabase/supabase.dart';
 import '/core_ui/core_ui.dart';
+import '/security/write_guard.dart';
 import 'whatsapp_preferences.dart';
 import '/pages/shared/modal_register_note/modal_register_note_widget.dart';
 
@@ -95,6 +96,65 @@ class _ContactTimelineState extends State<ContactTimelineWidget> {
                               Text('Registro adicionado à linha do tempo.')));
                     }),
               ));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _registerWaiting() async {
+    final id = widget.leadId;
+    if (_busy || id == null || id.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      final now = DateTime.now();
+      final due = await showDatePicker(
+        context: context, helpText: 'Prazo do cliente',
+        firstDate: DateTime(now.year, now.month, now.day),
+        initialDate: now, lastDate: DateTime(now.year + 5),
+      );
+      if (due == null || !mounted) return;
+      var reason = '';
+      final form = GlobalKey<FormState>();
+      final savedReason = await showDialog<String>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: const Text('Registrar cliente em espera'),
+          content: Form(
+            key: form,
+            child: TextFormField(
+              decoration: const InputDecoration(labelText: 'Motivo da espera'),
+              autofocus: true,
+              maxLength: 500,
+              maxLines: 3,
+              onChanged: (value) => reason = value.trim(),
+              validator: (_) => reason.isEmpty ? 'Informe o motivo.' : null,
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialog), child: const Text('Cancelar')),
+            TextButton(
+              onPressed: () {
+                if (form.currentState!.validate()) Navigator.pop(dialog, reason);
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
+        ),
+      );
+      if (savedReason == null || !mounted || widget.leadId != id) return;
+      final ok = await SupaFlow.client.rpc('set_lead_waiting', params: {
+        'p_lead_id': id, 'p_due_on': DateFormat('yyyy-MM-dd').format(due),
+        'p_reason': savedReason,
+      });
+      if (!mounted) return;
+      if (ok != true) {
+        showWriteError(context, 'Sem permissão para registrar a espera deste cliente.');
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pendência registrada nas notificações.')));
+    } catch (_) {
+      if (mounted) showWriteError(context, 'Não foi possível registrar a pendência.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -280,6 +340,12 @@ class _ContactTimelineState extends State<ContactTimelineWidget> {
                           onPressed: _busy ? null : _refresh,
                           icon:
                               const Icon(Icons.refresh, color: Colors.white70)),
+                      IconButton(
+                        tooltip: 'Registrar cliente em espera',
+                        icon: const Icon(Icons.pending_actions_outlined, color: Colors.white70),
+                        onPressed: _busy || widget.leadId?.isNotEmpty != true
+                            ? null : _registerWaiting,
+                      ),
                       AppPrimaryButton(
                           label: 'Adicionar registro',
                           icon: Icons.add,

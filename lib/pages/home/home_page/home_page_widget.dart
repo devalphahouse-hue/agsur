@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:aligned_dialog/aligned_dialog.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/supabase/supabase.dart';
 import '/backend/reminder_notifications.dart';
+import '/backend/operational_notifications.dart';
 import '/components/notificaoes_widget.dart';
 import '/core_ui/core_ui.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -45,18 +45,28 @@ class _HomePageWidgetState extends State<HomePageWidget> {
   int _reminderNotificationCount = 0;
 
   Future<void> _refreshReminderCount() async {
-    try {
-      final rows = await reminderNotifications(limit: 1);
-      if (!mounted || _disposed) return;
-      setState(() {
-        _reminderNotificationCount =
-            rows.isEmpty ? 0 : (rows.first['unread_count'] as num).toInt();
-        _model.notificationCount =
-            _trackingNotificationCount + _reminderNotificationCount;
-      });
-    } catch (_) {
-      // Keep tracking notifications available while reminders are unavailable.
-    }
+    await Future.wait([
+      () async {
+        try {
+          final rows = await reminderNotifications(limit: 1);
+          if (mounted) _reminderNotificationCount =
+              rows.isEmpty ? 0 : (rows.first['unread_count'] as num).toInt();
+        } catch (_) {
+          // Keep the last successful count while offline.
+        }
+      }(),
+      () async {
+        try {
+          final rows = await operationalNotifications(limit: 1);
+          if (mounted) _trackingNotificationCount = rows.firstOrNull?.total ?? 0;
+        } catch (_) {
+          // Keep the last successful count while offline.
+        }
+      }(),
+    ]);
+    if (!mounted || _disposed) return;
+    setState(() => _model.notificationCount =
+        _trackingNotificationCount + _reminderNotificationCount);
   }
 
   @override
@@ -66,33 +76,6 @@ class _HomePageWidgetState extends State<HomePageWidget> {
     _refreshReminderCount();
     _reminderPoll = Timer.periodic(
         const Duration(seconds: 30), (_) => _refreshReminderCount());
-
-    SchedulerBinding.instance.addPostFrameCallback((_) async {
-      try {
-        // Cache 30s — listagem de tracking pendente (notificações)
-        final allTracking = await QueryCache.fetch<List<VwAllTrackingRow>>(
-          key: 'home.notificationsCount',
-          ttl: const Duration(seconds: 30),
-          fetcher: () => VwAllTrackingTable().queryRows(
-            queryFn: (q) =>
-                q.eqOrNull('isCheck', false).order('user_aircraft_id'),
-          ),
-        );
-        final uniqueAircrafts = <String>{};
-        for (final row in allTracking) {
-          final key = row.userAircraftId ?? '';
-          if (key.isNotEmpty) uniqueAircrafts.add(key);
-        }
-        if (_disposed) return;
-        safeSetState(() {
-          _trackingNotificationCount = uniqueAircrafts.length;
-          _model.notificationCount =
-              _trackingNotificationCount + _reminderNotificationCount;
-        });
-      } catch (_) {
-        // Falha silenciosa — mantém badge em 0
-      }
-    });
   }
 
   @override

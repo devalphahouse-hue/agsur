@@ -63,5 +63,8 @@ class VwContractDataRow extends SupabaseDataRow {
   String? get cancelledByName => getField<String>('cancelled_by_name');
 
   /// `true` quando o contrato foi cancelado — o registro continua existindo.
+  DateTime? get cancellationFollowUpAt => getField<DateTime>('cancellation_follow_up_at');
+  DateTime? get cancellationFollowUpDoneAt => getField<DateTime>('cancellation_follow_up_done_at');
+
   bool get isCancelled => cancelledAt != null;
 }

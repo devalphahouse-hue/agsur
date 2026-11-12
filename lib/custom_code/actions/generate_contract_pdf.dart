@@ -208,8 +208,12 @@ class ContractPdfUnit {
     this.registrationPrefix,
     this.manufactureYear,
     this.deliveryDate,
+    this.aircraft,
+    this.seriesItems,
   });
 
+  final ProposalAircraftStruct? aircraft;
+  final List<ProposalSeriesItemsStruct>? seriesItems;
   final String serialNumber;
   final String? registrationPrefix;
   final int? manufactureYear;
@@ -226,8 +230,6 @@ class ContractPdfUnit {
 Future<void> generateContractPdf(
     GetProposalDetailsStruct asGetProposalDetails,
     GetFinancialProposalStruct asGetFinancialProposal,
-    String terms,
-    String instructions,
     {ContractPdfUnit? stockUnit}) async {
   final pdf = pw.Document();
 
@@ -241,8 +243,8 @@ Future<void> generateContractPdf(
   final lead = asGetProposalDetails.proposalLead;
   final company = asGetProposalDetails.proposalCompany;
   final address = asGetProposalDetails.proposalAddress;
-  final aircraft = asGetProposalDetails.proposalAircraft;
-  final seriesItems = asGetProposalDetails.proposalSeriesItems ?? [];
+  final aircraft = stockUnit?.aircraft ?? asGetProposalDetails.proposalAircraft;
+  final seriesItems = stockUnit?.seriesItems ?? asGetProposalDetails.proposalSeriesItems ?? [];
   final optionalItems = asGetProposalDetails.proposalOptionalItems ?? [];
 
   final fullPrice = asGetFinancialProposal.fullprice;
@@ -539,6 +541,9 @@ Future<void> generateContractPdf(
             ...List.generate(optionalItems.length, (index) {
               final opt = optionalItems[index];
               final item = opt.item;
+              final description = opt.discountPercent > 0
+                  ? '${item.itemName} (${opt.discountPercent}% de desconto)'
+                  : item.itemName;
               final itemPrice = item.price;
               final itemQty = item.qty;
               final itemTotal = _roundUp(itemPrice * itemQty);
@@ -548,7 +553,7 @@ Future<void> generateContractPdf(
                 child: pw.Row(children: [
                   pw.Container(width: 30, child: pw.Text('${index + 2}', style: pw.TextStyle(fontSize: 7))),
                   pw.Container(width: 25, child: pw.Text('$itemQty', style: pw.TextStyle(fontSize: 7))),
-                  pw.Expanded(child: pw.Text(_pdfSafe(item.itemName), style: pw.TextStyle(fontSize: 7))),
+                  pw.Expanded(child: pw.Text(_pdfSafe(description), style: pw.TextStyle(fontSize: 7))),
                   pw.Container(width: 90, child: pw.Text(_formatCurrencyU(itemPrice), style: pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.right)),
                   pw.Container(width: 80, child: pw.Text(_formatCurrencyU(itemTotal), style: pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.right)),
                 ]),
@@ -611,24 +616,6 @@ Future<void> generateContractPdf(
             ),
             pw.SizedBox(height: 16),
 
-            // Instruções de Pagamento (digitadas pelo usuário)
-            if (instructions.isNotEmpty) ...[
-              pw.Text('Instruções de Pagamento',
-                  style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
-              pw.SizedBox(height: 6),
-              pw.Container(
-                padding: const pw.EdgeInsets.all(8),
-                decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
-                // Texto livre digitado/colado pelo usuário — é o campo com
-                // MAIOR chance de trazer aspa curva, travessão e reticências
-                // de uma colagem de Word/e-mail, e era o único do arquivo
-                // fora do _pdfSafe (a fonte WinAnsi não cobre esses glifos).
-                child: pw.Text(_pdfSafe(instructions),
-                    style: pw.TextStyle(fontSize: 9)),
-              ),
-              pw.SizedBox(height: 12),
-            ],
-
             // Instruções para transferência bancária
             pw.Text('Instruções para transferência bancária',
                 style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
@@ -647,12 +634,6 @@ Future<void> generateContractPdf(
                 ],
               ),
             ),
-            // "Termos do Contrato" removido do PDF em 2026-07-22 (pedido do
-            // cliente): os termos vão passar a sair na CPI, não aqui. O
-            // parâmetro `terms` segue na assinatura de propósito — a chamada
-            // em view_contract_widget.dart (página FlutterFlow) continua
-            // passando _composeTerms() e não precisa mudar; quando a CPI
-            // ganhar os termos, esse texto é o insumo.
             pw.SizedBox(height: 24),
 
             // Signatures

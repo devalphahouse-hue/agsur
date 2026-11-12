@@ -39,12 +39,21 @@ class _ModalRegisterNoteWidgetState extends State<ModalRegisterNoteWidget> {
   bool _consent = false;
   bool _loadingRecipients = false;
   String _recipientType = 'cliente';
+  String _purpose = 'personalizada';
+  static const _purposes = {
+    'personalizada': 'Personalizada',
+    'compromisso': 'Lembrete de compromisso',
+    'documentos': 'Documentação pendente',
+    'retorno': 'Retomada de contato',
+    'entrega': 'Acompanhamento de entrega',
+  };
   List<Map<String, dynamic>> _recipients = [];
   final Set<String> _selected = {};
   DateTime? _scheduledAt;
   int _recipientRequest = 0;
   final _requestId = const Uuid().v4();
   final _subject = TextEditingController();
+  final _whatsAppText = TextEditingController();
 
   Future<void> _loadRecipients() async {
     final request = ++_recipientRequest;
@@ -124,6 +133,7 @@ class _ModalRegisterNoteWidgetState extends State<ModalRegisterNoteWidget> {
   @override
   void dispose() {
     _subject.dispose();
+    _whatsAppText.dispose();
     _model.maybeDispose();
     super.dispose();
   }
@@ -155,6 +165,8 @@ class _ModalRegisterNoteWidgetState extends State<ModalRegisterNoteWidget> {
         reminder: _reminder
             ? {
                 'subject': _subject.text,
+                if (_whatsAppText.text.trim().isNotEmpty)
+                  'message': _whatsAppText.text.trim(),
                 'recipient_type': _recipientType,
                 'recipient_ids': _selected.toList(),
                 'scheduled_at': _scheduledAt!.toUtc().toIso8601String(),
@@ -251,6 +263,23 @@ class _ModalRegisterNoteWidgetState extends State<ModalRegisterNoteWidget> {
                     },
             ),
             if (_reminder) ...[
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                initialValue: _purpose,
+                decoration: const InputDecoration(labelText: 'Tipo de mensagem'),
+                items: [
+                  for (final entry in _purposes.entries)
+                    DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+                ],
+                onChanged: _busy ? null : (value) {
+                  if (value == null) return;
+                  setState(() {
+                    _purpose = value;
+                    _subject.text = value == 'personalizada' ? '' : _purposes[value]!;
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
               AppFormField(
                   controller: _subject,
                   label: 'Assunto',
@@ -259,6 +288,13 @@ class _ModalRegisterNoteWidgetState extends State<ModalRegisterNoteWidget> {
                   validator: (v) => (v?.length ?? 0) > 100
                       ? 'Use até 100 caracteres.'
                       : null),
+              AppFormField(
+                controller: _whatsAppText,
+                label: 'Texto para WhatsApp',
+                placeholder: 'Se vazio, usa o texto da nota',
+                maxLines: 2,
+                onChanged: (_) => setState(() {}),
+              ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 isExpanded: true,
@@ -286,6 +322,18 @@ class _ModalRegisterNoteWidgetState extends State<ModalRegisterNoteWidget> {
                         _loadRecipients();
                       },
               ),
+              if (_recipientType == 'cliente' && widget.leadId != null)
+                TextButton.icon(
+                  icon: const Icon(Icons.phone_outlined),
+                  label: const Text('Cadastrar ou atualizar telefone do cliente'),
+                  onPressed: _busy ? null : () async {
+                    final saved = await editClientWhatsAppPhone(context, widget.leadId!);
+                    if (saved && mounted) {
+                      setState(() => _consent = false);
+                      await _loadRecipients();
+                    }
+                  },
+                ),
               if (_recipientType == 'equipe' &&
                   AccessControl.current == PanelRole.adminMaster)
                 TextButton.icon(
@@ -304,7 +352,7 @@ class _ModalRegisterNoteWidgetState extends State<ModalRegisterNoteWidget> {
                 TextButton(
                   onPressed: _loadRecipients,
                   child: const Text(
-                    'Sem destinatários: confira a autorização do cliente, o vendedor ou os membros habilitados na equipe. Tentar novamente',
+                    'Nenhum destinatário disponível. Confira o telefone, as preferências de envio e a equipe cadastrada. Tentar novamente',
                   ),
                 )
               else
@@ -366,7 +414,8 @@ class _ModalRegisterNoteWidgetState extends State<ModalRegisterNoteWidget> {
                       color: const Color(0xFF404040),
                       borderRadius: BorderRadius.circular(8)),
                   child: Text(whatsappPreview(
-                      _model.tFNotesTextController!.text,
+                      _whatsAppText.text.trim().isEmpty
+                          ? _model.tFNotesTextController!.text : _whatsAppText.text,
                       subject: _subject.text))),
               const Text(
                   'A prévia mostra exatamente o conteúdo do template. Quebras de linha viram espaços; textos longos são limitados ao tamanho permitido.'),

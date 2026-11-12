@@ -14,6 +14,8 @@ class ProposalStruct extends BaseStruct {
     String? createdAt,
     String? createdBy,
     String? idRef,
+    this.deliveryDate,
+    this.isContract = false,
   })  : _id = id,
         _leadId = leadId,
         _aircraftId = aircraftId,
@@ -21,6 +23,9 @@ class ProposalStruct extends BaseStruct {
         _createdAt = createdAt,
         _createdBy = createdBy,
         _idRef = idRef;
+
+  final DateTime? deliveryDate;
+  final bool isContract;
 
   // "id" field.
   String? _id;
@@ -75,6 +80,8 @@ class ProposalStruct extends BaseStruct {
 
   static ProposalStruct fromMap(Map<String, dynamic> data) => ProposalStruct(
         id: data['id'] as String?,
+        deliveryDate: DateTime.tryParse(data['delivery_date'] as String? ?? ''),
+        isContract: data['is_contract'] == true,
         leadId: data['lead_id'] as String?,
         aircraftId: data['aircraft_id'] as String?,
         fullprice: castToType<double>(data['fullprice']),
@@ -88,6 +95,8 @@ class ProposalStruct extends BaseStruct {
 
   Map<String, dynamic> toMap() => {
         'id': _id,
+        'delivery_date': deliveryDate?.toIso8601String(),
+        'is_contract': isContract,
         'lead_id': _leadId,
         'aircraft_id': _aircraftId,
         'fullprice': _fullprice,
@@ -98,6 +107,8 @@ class ProposalStruct extends BaseStruct {
 
   @override
   Map<String, dynamic> toSerializableMap() => {
+        'delivery_date': serializeParam(deliveryDate, ParamType.DateTime),
+        'is_contract': serializeParam(isContract, ParamType.bool),
         'id': serializeParam(
           _id,
           ParamType.String,
@@ -130,6 +141,11 @@ class ProposalStruct extends BaseStruct {
 
   static ProposalStruct fromSerializableMap(Map<String, dynamic> data) =>
       ProposalStruct(
+        deliveryDate:
+            deserializeParam(data['delivery_date'], ParamType.DateTime, false),
+        isContract: deserializeParam<bool>(
+                data['is_contract'], ParamType.bool, false) ??
+            false,
         id: deserializeParam(
           data['id'],
           ParamType.String,

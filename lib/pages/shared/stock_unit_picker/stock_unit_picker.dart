@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '/backend/stock.dart';
@@ -327,6 +328,9 @@ class _StockUnitPickerModalState extends State<StockUnitPickerModal> {
   }
 
   Widget _tile(VwStockUnitsRow u) {
+    final proposals = u.openProposalRefs;
+    final negotiating = proposals.isNotEmpty && u.contractId == null;
+    final status = negotiating ? 'Em negociação' : u.status;
     final isCurrent = u.id == widget.currentUnitId;
     final blocked = !isCurrent &&
         !isStockUnitSellable(
@@ -389,16 +393,16 @@ class _StockUnitPickerModalState extends State<StockUnitPickerModal> {
                       color: const Color(0xB3FFFFFF),
                     ),
                   ),
+                  Text(stockDeliveryLabel(u.deliveryDate)),
+                  if (negotiating)
+                    Text('${proposals.length} ${proposals.length == 1 ? 'proposta' : 'propostas'} · ${proposals.map((ref) => '#$ref').join(', ')}'),
                 ],
               ),
             ),
             const SizedBox(width: 10),
             AppStatusBadge(
-              label: u.status.isEmpty ? '—' : u.status,
-              tone: u.status.toLowerCase().contains('negocia') ||
-                      u.status.toLowerCase().contains('reserv')
-                  ? AppStatusTone.warning
-                  : AppStatusTone.success,
+              label: status.isEmpty ? '—' : status,
+              tone: stockStatusTone(status, inStock: u.inStock),
               dense: true,
             ),
           ],
@@ -516,6 +520,7 @@ class StockUnitField extends StatelessWidget {
                         : 'Prefixo a definir',
                     if (u.manufactureDate != null)
                       'Fab. ${u.manufactureDate!.year}',
+                    stockDeliveryLabel(u.deliveryDate),
                   ].join(' · '),
                   style: GoogleFonts.inter(
                     fontSize: 12,
@@ -544,3 +549,7 @@ class StockUnitField extends StatelessWidget {
     );
   }
 }
+
+String stockDeliveryLabel(DateTime? date) => date == null
+    ? 'Previsão de entrega a definir'
+    : 'Previsão de entrega ${DateFormat('dd/MM/yyyy').format(date)}';

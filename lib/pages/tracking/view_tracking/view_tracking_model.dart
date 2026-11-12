@@ -37,7 +37,8 @@ class ViewTrackingModel {
 /// por `tracking_id`) + a linha `user_aircraft` (guarda cor/filtro/painel da
 /// etapa 1). Carregado uma vez por aeronave e passado aos cards.
 class TrackingExtras {
-  const TrackingExtras(this.detailsByTrackingId, this.aircraft);
+  const TrackingExtras(this.detailsByTrackingId, this.aircraft, {this.dueDates = const {}});
+  final Map<String, DateTime> dueDates;
   final Map<String, TrackingDetailsRow> detailsByTrackingId;
   final UserAircraftRow? aircraft;
 }

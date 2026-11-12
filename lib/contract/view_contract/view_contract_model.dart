@@ -9,51 +9,12 @@ import 'view_contract_widget.dart' show ViewContractWidget;
 import 'package:flutter/material.dart';
 
 class ViewContractModel extends FlutterFlowModel<ViewContractWidget> {
-  ///  Local state fields for this page.
-
-  List<AircraftItemsRow> itemsOptional = [];
-  void addToItemsOptional(AircraftItemsRow item) => itemsOptional.add(item);
-  void removeFromItemsOptional(AircraftItemsRow item) =>
-      itemsOptional.remove(item);
-  void removeAtIndexFromItemsOptional(int index) =>
-      itemsOptional.removeAt(index);
-  void insertAtIndexInItemsOptional(int index, AircraftItemsRow item) =>
-      itemsOptional.insert(index, item);
-  void updateItemsOptionalAtIndex(
-          int index, Function(AircraftItemsRow) updateFn) =>
-      itemsOptional[index] = updateFn(itemsOptional[index]);
-
-  int countController = 0;
-
-  List<String> listdIds = [];
-  void addToListdIds(String item) => listdIds.add(item);
-  void removeFromListdIds(String item) => listdIds.remove(item);
-
-  double baseAircraftPrice = 0.0;
-  Map<String, double> selectedItemPrices = {};
-  Map<String, String> aircraftToProposalItemId = {};
-
-  // Cache de futures para os FutureBuilders da lista de opcionais. Sem isto,
-  // o `future:` é recriado a cada rebuild (qualquer setState) e refaz as
-  // queries — uma para categorias e uma por categoria — gerando dezenas de
-  // chamadas repetidas ao abrir/usar a página. Memoizamos: categorias uma vez,
-  // itens por id de categoria.
-  Future<List<CategoryRow>>? optionalCategoriesFuture;
-  // Opcionais vêm de vw_aircraft_items_by_aircraft filtrada pelo avião do
-  // contrato — igual à proposta. Antes lia aircraft_items direto e listava
-  // opcionais de TODOS os modelos (achado do QA de 2026-09-22).
-  final Map<String, Future<List<VwAircraftItemsByAircraftRow>>>
-      optionalItemsByCategory = {};
-
   ///  State fields for stateful widgets in this page.
 
   // Stores action output result for [Backend Call - Query Rows] action in ViewContract widget.
   List<UsersRow>? user;
   // Stores action output result for [Backend Call - API (Get proposal details)] action in ViewContract widget.
   ApiCallResponse? contractGetProposalDetail;
-  // Stores action output result for [Backend Call - Query Rows] action in ViewContract widget.
-  List<ProposalFinancingRow>? getProposalFinancial;
-  Completer<List<ContractTermsRow>>? requestCompleter1;
   bool apiRequestCompleted = false;
   String? apiRequestLastUniqueKey;
   bool requestCompleted2 = false;
@@ -66,20 +27,6 @@ class ViewContractModel extends FlutterFlowModel<ViewContractWidget> {
   ApiCallResponse? viewEditAddressProposal;
   // Stores action output result for [Backend Call - Update Row(s)] action in ICEditLeadData widget.
   List<AddressRow>? updateViewEditAddress;
-  // State field(s) for TFInstruction widget.
-  FocusNode? tFInstructionFocusNode;
-  TextEditingController? tFInstructionTextController;
-  String? Function(BuildContext, String?)? tFInstructionTextControllerValidator;
-  // State field(s) for TFTerms widget.
-  FocusNode? tFTermsFocusNode;
-  TextEditingController? tFTermsTextController;
-  String? Function(BuildContext, String?)? tFTermsTextControllerValidator;
-  // Termos preenchíveis: os rótulos vêm do template (contract_terms.terms) e
-  // são fixos na UI; o usuário só preenche o valor de cada linha. Um
-  // controller por linha do template; o texto final é remontado no Gerar PDF.
-  String termsTemplate = '';
-  final Map<int, TextEditingController> termsFieldControllers = {};
-
   /// Query cache managers for this widget.
 
   final _propostaFinanceiroManager =
@@ -118,41 +65,15 @@ class ViewContractModel extends FlutterFlowModel<ViewContractWidget> {
 
   @override
   void dispose() {
-    tFInstructionFocusNode?.dispose();
-    tFInstructionTextController?.dispose();
-
-    tFTermsFocusNode?.dispose();
-    tFTermsTextController?.dispose();
-    for (final c in termsFieldControllers.values) {
-      c.dispose();
-    }
-
     /// Dispose query cache managers for this widget.
 
     clearPropostaFinanceiroCache();
 
     clearAircraftCache();
 
-    optionalCategoriesFuture = null;
-    optionalItemsByCategory.clear();
   }
 
   /// Additional helper methods.
-  Future waitForRequestCompleted1({
-    double minWait = 0,
-    double maxWait = double.infinity,
-  }) async {
-    final stopwatch = Stopwatch()..start();
-    while (true) {
-      await Future.delayed(Duration(milliseconds: 50));
-      final timeElapsed = stopwatch.elapsedMilliseconds;
-      final requestComplete = requestCompleter1?.isCompleted ?? false;
-      if (timeElapsed > maxWait || (requestComplete && timeElapsed > minWait)) {
-        break;
-      }
-    }
-  }
-
   Future waitForApiRequestCompleted({
     double minWait = 0,
     double maxWait = double.infinity,

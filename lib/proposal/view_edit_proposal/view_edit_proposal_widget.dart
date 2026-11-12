@@ -36,6 +36,8 @@ import 'package:provider/provider.dart';
 import '/core_ui/core_ui.dart';
 import 'proposal_stock_unit_section.dart';
 import 'view_edit_proposal_model.dart';
+import '../components/proposal_items_editor.dart';
+import '/security/access_control.dart';
 export 'view_edit_proposal_model.dart';
 
 class ViewEditProposalWidget extends StatefulWidget {
@@ -69,111 +71,101 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
     super.initState();
     _model = createModel(context, () => ViewEditProposalModel());
 
-    // On page load action.
     SchedulerBinding.instance.addPostFrameCallback((_) async {
-      _model.returnGetProposalDetail = await GetProposalDetailsCall.call(
-        pProposalId: widget!.proposalId,
-      );
-
-      if ((_model.returnGetProposalDetail?.succeeded ?? true)) {
-        FFAppState().asGetProposalDetails = GetProposalDetailsStruct(
-          proposal: GetProposalDetailsCall.objProposal(
-            (_model.returnGetProposalDetail?.jsonBody ?? ''),
-          ),
-          proposalLead: GetProposalDetailsCall.objProposalLead(
-            (_model.returnGetProposalDetail?.jsonBody ?? ''),
-          ),
-          proposalCompany: GetProposalDetailsCall.objProposalCompany(
-            (_model.returnGetProposalDetail?.jsonBody ?? ''),
-          ),
-          proposalAddress: GetProposalDetailsCall.objProposalAddress(
-            (_model.returnGetProposalDetail?.jsonBody ?? ''),
-          ),
-          proposalAircraft: GetProposalDetailsCall.objProposalAircraft(
-            (_model.returnGetProposalDetail?.jsonBody ?? ''),
-          ),
-          proposalSeriesItems: GetProposalDetailsCall.objProposalSeriesItem(
-            (_model.returnGetProposalDetail?.jsonBody ?? ''),
-          ),
-          proposalOptionalItems: GetProposalDetailsCall.objProposalOptionItems(
-            (_model.returnGetProposalDetail?.jsonBody ?? ''),
-          ),
-        );
-        safeSetState(() {});
-        final optItems = GetProposalDetailsCall.objProposalOptionItems(
-          (_model.returnGetProposalDetail?.jsonBody ?? ''),
-        )!;
-        _model.listdIds = optItems
-            .map((e) => e.item.id)
-            .toList()
-            .cast<String>();
-        // Populate selected item prices map and aircraft->proposalItem mapping
-        for (final optItem in optItems) {
-          _model.selectedItemPrices[optItem.item.id] =
-              optItem.item.price * optItem.item.qty;
-          _model.aircraftToProposalItemId[optItem.item.id] = optItem.id;
-        }
-        // Get aircraft base price directly from aircrafts table.
-        // O RPC GetProposalDetails devolve "Não cadastrado" (ou vazio) quando a
-        // proposta não tem aeronave vinculada. Isso não é um UUID e quebra o
-        // filtro por id (Postgres 22P02), deixando a tela em branco — então só
-        // consultamos quando o id é um UUID válido; senão usamos o fallback.
-        final aircraftId =
-            FFAppState().asGetProposalDetails.proposal.aircraftId;
-        final isValidAircraftId = RegExp(
-          r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
-        ).hasMatch(aircraftId);
-        final aircraftRows = isValidAircraftId
-            ? await AircraftsTable().queryRows(
-                queryFn: (q) => q.eqOrNull('id', aircraftId),
-              )
-            : <AircraftsRow>[];
-        _model.baseAircraftPrice = aircraftRows.isNotEmpty
-            ? aircraftRows.first.price
-            : FFAppState().asGetProposalDetails.proposal.fullprice -
-                _model.selectedItemPrices.values.fold(0.0, (a, b) => a + b);
-        // Sync fullprice in DB with actual base + selected optionals
-        final correctFullprice = _model.baseAircraftPrice + _model.selectedItemPrices.values.fold(0.0, (a, b) => a + b);
-        // silent: roda no load da tela, não num botão — bloqueio aqui vai pro
-        // Sentry em vez de virar alerta vermelho sem o usuário ter clicado.
-        await guardWrite(
-          context,
-          () => ProposalTable().update(
-            data: {'fullprice': correctFullprice},
-            matchingRows: (rows) => rows.eqOrNull('id', FFAppState().asGetProposalDetails.proposal.id),
-            returnRows: true,
-          ),
-          silent: true,
-          contexto: 'view_edit_proposal: sync de fullprice no load',
-        );
-        safeSetState(() {});
-        return;
-      } else {
-        await showDialog(
-          context: context,
-          builder: (alertDialogContext) {
-            return AlertDialog(
-              title: Text('Ocorreu um erro!'),
-              content: Text(
-                  'Erro ao carregar dados da proposta. Por favor, tente novamente!'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(alertDialogContext),
-                  child: Text('Ok'),
-                ),
-              ],
-            );
-          },
-        );
-
-        context.pushNamed(ProposalsWidget.routeName);
-
-        return;
+      try {
+        await _reloadProposal();
+      } catch (_) {
+        if (mounted) showWriteError(context, 'Não foi possível carregar a proposta.');
       }
     });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {}));
   }
+
+  bool _ready = false;
+  bool _savingItems = false;
+
+  bool get _canEditProposal =>
+      _ready &&
+      !FFAppState().asGetProposalDetails.proposal.isContract &&
+      widget.typeAccess == 'edit' &&
+      AccessControl.canEditProposal(AccessControl.current);
+
+  bool get _canDiscount => AccessControl.canDiscount(AccessControl.current);
+
+  List<ProposalItemDraft> get _items =>
+      (FFAppState().asGetProposalDetails.proposalOptionalItems ?? [])
+          .map(ProposalItemDraft.fromSaved)
+          .toList();
+
+  Future<void> _reloadProposal() async {
+    final response = await GetProposalDetailsCall.call(pProposalId: widget.proposalId);
+    if (!response.succeeded) throw StateError('Falha ao carregar a proposta.');
+    if (!mounted) return;
+    final body = response.jsonBody;
+    FFAppState().asGetProposalDetails = GetProposalDetailsStruct(
+      proposal: GetProposalDetailsCall.objProposal(body),
+      proposalLead: GetProposalDetailsCall.objProposalLead(body),
+      proposalCompany: GetProposalDetailsCall.objProposalCompany(body),
+      proposalAddress: GetProposalDetailsCall.objProposalAddress(body),
+      proposalAircraft: GetProposalDetailsCall.objProposalAircraft(body),
+      proposalSeriesItems: GetProposalDetailsCall.objProposalSeriesItem(body),
+      proposalOptionalItems: GetProposalDetailsCall.objProposalOptionItems(body),
+    );
+    setState(() {
+      _ready = FFAppState().asGetProposalDetails.proposal.id == widget.proposalId;
+      _model.listdIds = _items.map((item) => item.catalogId).nonNulls.toList();
+    });
+  }
+
+  Future<void> _saveItem(Future<void> Function() write) async {
+    if (!_canEditProposal || _savingItems) return;
+    setState(() => _savingItems = true);
+    try {
+      await write();
+      await _reloadProposal();
+    } catch (error) {
+      if (mounted) {
+        showWriteError(context, mensagemDeErro(error,
+            fallback: 'Não foi possível atualizar o item da proposta.'));
+      }
+    } finally {
+      if (mounted) setState(() => _savingItems = false);
+    }
+  }
+
+  Future<void> _editItem([ProposalItemDraft? item]) async {
+    final changed = await editProposalItem(context, item: item, canDiscount: _canDiscount);
+    if (changed == null || !mounted) return;
+    await _saveItem(() async {
+      if (changed.savedId == null) {
+        await SupaFlow.client.from('proposal_item').insert({
+          'proposal_id': widget.proposalId,
+          ...changed.toDatabase(),
+        });
+      } else {
+        final data = changed.catalogId == null ? changed.toDatabase() : {
+          'discount_percent': changed.discount,
+        };
+        await SupaFlow.client.from('proposal_item').update(data)
+            .eq('id', changed.savedId!).eq('proposal_id', widget.proposalId!)
+            .select('id').single();
+      }
+    });
+  }
+
+  Future<void> _toggleCatalogItem(String id, bool selected) => _saveItem(() async {
+    final table = SupaFlow.client.from('proposal_item');
+    if (selected) {
+      await table.delete().eq('proposal_id', widget.proposalId!)
+          .eq('aircraft_item_id', id);
+    } else {
+      await table.insert({'proposal_id': widget.proposalId, 'aircraft_item_id': id});
+    }
+  });
+
+  Future<void> _removeItem(ProposalItemDraft item) => _saveItem(() async {
+    await SupaFlow.client.from('proposal_item').delete().eq('id', item.savedId!)
+        .eq('proposal_id', widget.proposalId!).select('id').single();
+  });
 
   @override
   void dispose() {
@@ -413,10 +405,10 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                   'Vendedor: ${widget.sellerName}',
                               ].join(' · '),
                               badge: AppStatusBadge(
-                                label: widget.typeAccess == 'edit'
+                                label: _canEditProposal
                                     ? 'Edição'
                                     : 'Visualização',
-                                tone: widget.typeAccess == 'edit'
+                                tone: _canEditProposal
                                     ? AppStatusTone.warning
                                     : AppStatusTone.brand,
                                 icon: Icons.assignment_outlined,
@@ -490,7 +482,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                               ),
                                         ),
                                       ),
-                                      if (widget!.typeAccess == 'edit')
+                                      if (_canEditProposal)
                                       Builder(
                                         builder: (context) =>
                                             FlutterFlowIconButton(
@@ -1149,7 +1141,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                               text: TextSpan(
                                                 children: [
                                                   TextSpan(
-                                                    text: 'Depósito inicial',
+                                                    text: 'Entrada total',
                                                     style: FlutterFlowTheme.of(
                                                             context)
                                                         .bodyMedium
@@ -1205,8 +1197,8 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                                     2) +
                                                             '%';
                                                       }(valueOrDefault<double>(
-                                                        containerProposalFinancingRow
-                                                            ?.initialDeposit,
+                                                        ((containerProposalFinancingRow?.downPayment ?? 0.0) +
+                                                            (containerProposalFinancingRow?.initialDeposit ?? 0.0)),
                                                         0.0,
                                                       )),
                                                       '0',
@@ -1314,7 +1306,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                               ),
                                         ),
                                       ),
-                                      if (widget!.typeAccess == 'edit' &&
+                                      if (_canEditProposal &&
                                           _proposalHasCompany)
                                       Builder(
                                         builder: (context) =>
@@ -1545,7 +1537,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                       // não havia como preencher os Dados
                                       // Empresariais depois de criar a
                                       // proposta — bug relatado em 14/08.
-                                      if (widget!.typeAccess == 'edit' &&
+                                      if (_canEditProposal &&
                                           !_proposalHasCompany)
                                         Builder(
                                           builder: (context) =>
@@ -2349,7 +2341,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                   .proposalAddress
                                                   .id !=
                                               'Não cadastrado') {
-                                            if (widget!.typeAccess != 'edit')
+                                            if (!_canEditProposal)
                                               return SizedBox.shrink();
                                             return Builder(
                                               builder: (context) =>
@@ -2523,7 +2515,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                               ),
                                             );
                                           } else {
-                                            if (widget!.typeAccess != 'edit')
+                                            if (!_canEditProposal)
                                               return SizedBox.shrink();
                                             return Builder(
                                               builder: (context) =>
@@ -4095,7 +4087,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                         // da conversão — no contrato a seção é outra.
                         ProposalStockUnitSection(
                           proposalId: widget.proposalId ?? '',
-                          canEdit: widget.typeAccess == 'edit',
+                          canEdit: _canEditProposal,
                         ),
                         Padding(
                           padding: EdgeInsetsDirectional.fromSTEB(
@@ -5179,206 +5171,15 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                                                         36.0)),
                                                               ),
                                                             ),
-                                                            Builder(
-                                                              builder:
-                                                                  (context) {
-                                                                if (_model
-                                                                    .listdIds
-                                                                    .contains(
-                                                                        item.id)) {
-                                                                  if (widget!
-                                                                          .typeAccess !=
-                                                                      'edit')
-                                                                    return SizedBox
-                                                                        .shrink();
-                                                                  return FlutterFlowIconButton(
-                                                                    borderRadius:
-                                                                        8.0,
-                                                                    buttonSize:
-                                                                        36.0,
-                                                                    fillColor:
-                                                                        Color(
-                                                                            0xFF303030),
-                                                                    icon: Icon(
-                                                                      Icons
-                                                                          .remove,
-                                                                      color: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .error,
-                                                                      size:
-                                                                          20.0,
-                                                                    ),
-                                                                    onPressed:
-                                                                        () async {
-                                                                      try {
-                                                                        final proposalItemId = _model.aircraftToProposalItemId[item.id];
-                                                                        if (proposalItemId != null && proposalItemId.isNotEmpty) {
-                                                                          final okItemDeleteById = await guardWrite(
-                                                                            context,
-                                                                            () => ProposalItemTable().delete(
-                                                                              matchingRows: (rows) => rows.eqOrNull('id', proposalItemId),
-                                                                              returnRows: true,
-                                                                            ),
-                                                                          );
-                                                                          if (!okItemDeleteById) {
-                                                                            return;
-                                                                          }
-                                                                        } else {
-                                                                          final okItemDeleteByAircraft = await guardWrite(
-                                                                            context,
-                                                                            () => ProposalItemTable().delete(
-                                                                              matchingRows: (rows) => rows
-                                                                                  .eqOrNull('aircraft_item_id', item.id)
-                                                                                  .eqOrNull('proposal_id', widget!.proposalId),
-                                                                              returnRows: true,
-                                                                            ),
-                                                                          );
-                                                                          if (!okItemDeleteByAircraft) {
-                                                                            return;
-                                                                          }
-                                                                        }
-                                                                        _model.removeFromListdIds(item.id);
-                                                                        _model.selectedItemPrices.remove(item.id);
-                                                                        _model.aircraftToProposalItemId.remove(item.id);
-                                                                        // Update fullprice in proposal table and refresh FFAppState
-                                                                        final newFullprice = _model.baseAircraftPrice + _model.selectedItemPrices.values.fold(0.0, (a, b) => a + b);
-                                                                        final okRemoveFullprice = await guardWrite(
-                                                                          context,
-                                                                          () => ProposalTable().update(
-                                                                            data: {'fullprice': newFullprice},
-                                                                            matchingRows: (rows) => rows.eqOrNull('id', widget!.proposalId),
-                                                                            returnRows: true,
-                                                                          ),
-                                                                        );
-                                                                        if (!okRemoveFullprice) {
-                                                                          return;
-                                                                        }
-                                                                        // Refresh proposal details in FFAppState
-                                                                        final refreshedDetails = await GetProposalDetailsCall.call(pProposalId: widget!.proposalId);
-                                                                        if (refreshedDetails.succeeded) {
-                                                                          FFAppState().asGetProposalDetails = GetProposalDetailsStruct(
-                                                                            proposal: GetProposalDetailsCall.objProposal(refreshedDetails.jsonBody ?? ''),
-                                                                            proposalLead: GetProposalDetailsCall.objProposalLead(refreshedDetails.jsonBody ?? ''),
-                                                                            proposalCompany: GetProposalDetailsCall.objProposalCompany(refreshedDetails.jsonBody ?? ''),
-                                                                            proposalAddress: GetProposalDetailsCall.objProposalAddress(refreshedDetails.jsonBody ?? ''),
-                                                                            proposalAircraft: GetProposalDetailsCall.objProposalAircraft(refreshedDetails.jsonBody ?? ''),
-                                                                            proposalSeriesItems: GetProposalDetailsCall.objProposalSeriesItem(refreshedDetails.jsonBody ?? ''),
-                                                                            proposalOptionalItems: GetProposalDetailsCall.objProposalOptionItems(refreshedDetails.jsonBody ?? ''),
-                                                                          );
-                                                                        }
-                                                                        safeSetState(() {});
-                                                                        ScaffoldMessenger.of(context).showSnackBar(
-                                                                          SnackBar(
-                                                                            content: Text(
-                                                                              'Item removido com sucesso!',
-                                                                              style: TextStyle(
-                                                                                color: FlutterFlowTheme.of(context).primaryText,
-                                                                              ),
-                                                                            ),
-                                                                            duration: Duration(milliseconds: 4000),
-                                                                            backgroundColor: FlutterFlowTheme.of(context).error,
-                                                                          ),
-                                                                        );
-                                                                      } catch (e) {
-                                                                        ScaffoldMessenger.of(context).showSnackBar(
-                                                                          SnackBar(
-                                                                            content: Text('Erro ao remover item: $e'),
-                                                                            duration: Duration(milliseconds: 4000),
-                                                                            backgroundColor: FlutterFlowTheme.of(context).error,
-                                                                          ),
-                                                                        );
-                                                                      }
-                                                                    },
-                                                                  );
-                                                                } else {
-                                                                  if (widget!
-                                                                          .typeAccess !=
-                                                                      'edit')
-                                                                    return SizedBox
-                                                                        .shrink();
-                                                                  return FlutterFlowIconButton(
-                                                                    borderRadius:
-                                                                        8.0,
-                                                                    buttonSize:
-                                                                        36.0,
-                                                                    fillColor: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                    icon: Icon(
-                                                                      Icons.add,
-                                                                      color: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .primaryText,
-                                                                      size:
-                                                                          20.0,
-                                                                    ),
-                                                                    onPressed:
-                                                                        () async {
-                                                                      final insertedRow = await ProposalItemTable()
-                                                                          .insert({
-                                                                        'aircraft_item_id':
-                                                                            item.id,
-                                                                        'proposal_id':
-                                                                            widget!.proposalId,
-                                                                      });
-                                                                      _model.addToListdIds(
-                                                                          item.id);
-                                                                      _model.aircraftToProposalItemId[item.id] = insertedRow.id;
-                                                                      _model.selectedItemPrices[
-                                                                              item.id] =
-                                                                          (item.price ?? 0.0) *
-                                                                              (item.qty ?? 1).toDouble();
-                                                                      // Update fullprice in proposal table and refresh FFAppState
-                                                                      final newFullprice = _model.baseAircraftPrice + _model.selectedItemPrices.values.fold(0.0, (a, b) => a + b);
-                                                                      final okAddFullprice = await guardWrite(
-                                                                        context,
-                                                                        () => ProposalTable().update(
-                                                                          data: {'fullprice': newFullprice},
-                                                                          matchingRows: (rows) => rows.eqOrNull('id', widget!.proposalId),
-                                                                          returnRows: true,
-                                                                        ),
-                                                                      );
-                                                                      if (!okAddFullprice) {
-                                                                        return;
-                                                                      }
-                                                                      // Refresh proposal details in FFAppState
-                                                                      final refreshedDetails = await GetProposalDetailsCall.call(pProposalId: widget!.proposalId);
-                                                                      if (refreshedDetails.succeeded) {
-                                                                        FFAppState().asGetProposalDetails = GetProposalDetailsStruct(
-                                                                          proposal: GetProposalDetailsCall.objProposal(refreshedDetails.jsonBody ?? ''),
-                                                                          proposalLead: GetProposalDetailsCall.objProposalLead(refreshedDetails.jsonBody ?? ''),
-                                                                          proposalCompany: GetProposalDetailsCall.objProposalCompany(refreshedDetails.jsonBody ?? ''),
-                                                                          proposalAddress: GetProposalDetailsCall.objProposalAddress(refreshedDetails.jsonBody ?? ''),
-                                                                          proposalAircraft: GetProposalDetailsCall.objProposalAircraft(refreshedDetails.jsonBody ?? ''),
-                                                                          proposalSeriesItems: GetProposalDetailsCall.objProposalSeriesItem(refreshedDetails.jsonBody ?? ''),
-                                                                          proposalOptionalItems: GetProposalDetailsCall.objProposalOptionItems(refreshedDetails.jsonBody ?? ''),
-                                                                        );
-                                                                      }
-                                                                      safeSetState(
-                                                                          () {});
-                                                                      ScaffoldMessenger.of(
-                                                                              context)
-                                                                          .showSnackBar(
-                                                                        SnackBar(
-                                                                          content:
-                                                                              Text(
-                                                                            'Item adicionado com sucesso!',
-                                                                            style:
-                                                                                TextStyle(
-                                                                              color: FlutterFlowTheme.of(context).primaryText,
-                                                                            ),
-                                                                          ),
-                                                                          duration:
-                                                                              Duration(milliseconds: 4000),
-                                                                          backgroundColor:
-                                                                              FlutterFlowTheme.of(context).primary,
-                                                                        ),
-                                                                      );
-                                                                    },
-                                                                  );
-                                                                }
-                                                              },
-                                                            ),
+                                                            if (_canEditProposal)
+                                                              IconButton(
+                                                                tooltip: _model.listdIds.contains(item.id)
+                                                                    ? 'Remover opcional' : 'Adicionar opcional',
+                                                                icon: Icon(_model.listdIds.contains(item.id)
+                                                                    ? Icons.remove : Icons.add),
+                                                                onPressed: _savingItems ? null : () =>
+                                                                    _toggleCatalogItem(item.id, _model.listdIds.contains(item.id)),
+                                                              ),
                                                           ].divide(SizedBox(
                                                               width: 56.0)),
                                                         ),
@@ -5398,6 +5199,14 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                             },
                           ),
                         ),
+                        if (_ready)
+                          ProposalItemsEditor(
+                            items: _items,
+                            canDiscount: _canDiscount,
+                            onAdd: _canEditProposal && !_savingItems ? () => _editItem() : null,
+                            onEdit: _canEditProposal && !_savingItems ? _editItem : null,
+                            onRemove: _canEditProposal && !_savingItems ? _removeItem : null,
+                          ),
                         Padding(
                           padding: EdgeInsetsDirectional.fromSTEB(
                               16.0, 16.0, 16.0, 16.0),
@@ -5443,9 +5252,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                     TextSpan(
                                       text: valueOrDefault<String>(
                                         formatNumber(
-                                          _model.baseAircraftPrice +
-                                              _model.selectedItemPrices.values
-                                                  .fold(0.0, (a, b) => a + b),
+                                          FFAppState().asGetProposalDetails.proposal.fullprice,
                                           formatType: FormatType.decimal,
                                           decimalType:
                                               DecimalType.periodDecimal,
@@ -5710,7 +5517,7 @@ class _ViewEditProposalWidgetState extends State<ViewEditProposalWidget> {
                                     ),
                                   ),
                                 ),
-                                if (widget!.typeAccess == 'edit')
+                                if (_canEditProposal && AccessControl.canEditFunil(AccessControl.current))
                                 Align(
                                   alignment: AlignmentDirectional(1.0, 0.0),
                                   child: Builder(

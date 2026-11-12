@@ -135,3 +135,187 @@ test('invalid selection, other client email and RLS denial do not leave partial 
     await assert.rejects(convert(db),/permission denied/);
   } finally {await db.close();}
 });
+
+const seller = '77777777-7777-4777-8777-777777777777';
+const manager = '88888888-8888-4888-8888-888888888888';
+const otherAircraft = 'a0000000-0000-4000-8000-000000000001';
+const firstUnit = 'b0000000-0000-4000-8000-000000000001';
+const secondUnit = 'b0000000-0000-4000-8000-000000000002';
+
+async function setupAdjustments() {
+  const db = await setup();
+  try {
+    await db.exec(`
+      RESET ROLE;
+      CREATE ROLE service_role BYPASSRLS;
+      ALTER TABLE public.users ADD COLUMN access_level text;
+      CREATE OR REPLACE FUNCTION public.auth_is_seller_or_admin() RETURNS boolean LANGUAGE sql SECURITY DEFINER AS
+        $$ SELECT EXISTS (SELECT 1 FROM public.users WHERE id=auth.uid() AND profile_type IN ('Admin Master','Vendedor')) $$;
+      CREATE FUNCTION public.auth_is_vendedor() RETURNS boolean LANGUAGE sql SECURITY DEFINER AS
+        $$ SELECT EXISTS (SELECT 1 FROM public.users WHERE id=auth.uid() AND profile_type='Vendedor') $$;
+      CREATE FUNCTION public.auth_is_service_request() RETURNS boolean LANGUAGE sql AS
+        $$ SELECT false $$;
+      CREATE FUNCTION public.tg_require_documentacao() RETURNS trigger LANGUAGE plpgsql AS
+        $$ BEGIN IF NOT public.auth_is_admin_documentacao() THEN RAISE EXCEPTION 'Sem permissão'; END IF; RETURN coalesce(new, old); END $$;
+      ALTER TABLE public.leads ADD COLUMN seller_id uuid, ADD COLUMN created_by uuid;
+      UPDATE public.leads SET seller_id='${seller}';
+      ALTER TABLE public.proposal ADD COLUMN created_at timestamptz DEFAULT now();
+      ALTER TABLE public.proposal_item ADD COLUMN id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        ADD COLUMN created_at timestamptz DEFAULT now(), ALTER COLUMN aircraft_item_id SET NOT NULL;
+      ALTER TABLE public.contract ADD COLUMN available_aircraft_id uuid, ADD COLUMN created_at timestamptz DEFAULT now(),
+        ADD COLUMN cancelled_by uuid, ADD COLUMN cancellation_reason text, ADD COLUMN cancellation_note text;
+      ALTER TABLE public.user_aircraft ADD COLUMN deleted boolean DEFAULT false,
+        ADD COLUMN created_at timestamptz DEFAULT now();
+      ALTER TABLE public.tracking ADD COLUMN link text, ADD COLUMN created_at timestamptz DEFAULT now();
+      CREATE FUNCTION public.auth_owns_user_aircraft(uuid) RETURNS boolean LANGUAGE sql AS $$ SELECT false $$;
+      CREATE FUNCTION public.auth_is_linked_to_user_aircraft(uuid) RETURNS boolean LANGUAGE sql AS $$ SELECT false $$;
+      CREATE TABLE public.aircraft_manuals (
+        id uuid primary key, aircraft_id uuid, type text, documention_url text, deleted boolean
+      );
+      ALTER TABLE public.aircrafts ADD COLUMN aircraft_model text, ADD COLUMN aircraft_year text,
+        ADD COLUMN aircraft_description text, ADD COLUMN aircraft_photo_url text, ADD COLUMN hopper numeric,
+        ADD COLUMN featured boolean DEFAULT false;
+      ALTER TABLE public.aircraft_items ADD COLUMN category_id uuid, ADD COLUMN item_name text,
+        ADD COLUMN created_at timestamptz DEFAULT now();
+      CREATE TABLE public.category (id uuid primary key, category_name text);
+      CREATE TABLE public.company (
+        id uuid primary key, lead_id uuid, company_name text, cnpj text, cpf text, phone text, type_doc text
+      );
+      CREATE TABLE public.address (
+        id uuid primary key, company_id uuid, zipcode text, street text, number text,
+        neighborhood text, city text, state text, complement text
+      );
+      CREATE TABLE public.available_aircrafts (
+        id uuid primary key, aircraft_model uuid, serial_number text, registration_prefix text,
+        manufacture_date date, configuration_deadline date, delivery_date date, entry_year text,
+        status text default 'Disponível', in_stock boolean default true, created_at timestamptz default now()
+      );
+      CREATE TABLE public.contract_terms (id uuid primary key);
+      CREATE TABLE public.tracking_details (tracking_id uuid, payment_method text);
+      INSERT INTO public.users(id, name, profile_type, access_level) VALUES
+        ('${admin}','Admin','Admin Master',null), ('${seller}','Vendedor','Vendedor',null),
+        ('${manager}','Gerente','Vendedor','vendedor_admin');
+      UPDATE public.aircrafts SET aircraft_model='Modelo inicial';
+      INSERT INTO public.aircrafts(id,price,aircraft_model) VALUES('${otherAircraft}',120000,'Outro modelo');
+      UPDATE public.aircraft_items SET item_name='Opcional';
+      INSERT INTO public.available_aircrafts(id,aircraft_model,serial_number,delivery_date) VALUES
+        ('${firstUnit}','${aircraft}','A-001','2027-01-15'),
+        ('${secondUnit}','${otherAircraft}','B-001','2027-02-20');
+      CREATE VIEW public.vw_aircraft_items_by_aircraft AS SELECT i.id, i.category_id, i.item_name, i.qty, i.price,
+        i.active, i.deleted, i.created_at, i.item_type, l.aircraft_id
+        FROM public.aircraft_items i JOIN public.aircraft_item_links l ON l.aircraft_item_id = i.id;
+      CREATE INDEX contract_unit_unique ON public.contract(available_aircraft_id) WHERE cancelled_at IS NULL;
+      ALTER TABLE public.sales ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE public.financial ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY fixture_sales ON public.sales FOR SELECT TO authenticated USING (true);
+      CREATE POLICY fixture_finance ON public.financial FOR SELECT TO authenticated USING (true);
+      GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
+    `);
+    for (const file of ['20261112120000_sales_adjustments.sql', '20261112121000_sales_followups.sql']) {
+      await db.exec(await readFile(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+    }
+    await db.exec(`
+      CREATE TRIGGER test_contract_stock BEFORE INSERT OR UPDATE OF available_aircraft_id, cancelled_at
+        ON public.contract FOR EACH ROW EXECUTE FUNCTION public.tg_contract_stock_before();
+    `);
+    return db;
+  } catch (error) {
+    await db.close();
+    throw error;
+  }
+}
+
+async function useRole(db, user) {
+  await db.exec('RESET ROLE');
+  await db.query("select set_config('test.uid', $1, false)", [user]);
+  await db.exec('SET ROLE authenticated');
+}
+
+const createWithItems = (db, items, unit=firstUnit) =>
+  db.query('select public.create_proposal_with_items($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb)', [
+    proposal, lead, aircraft, unit, '123456',
+    JSON.stringify({...financing, initial_deposit: .10}), JSON.stringify(items),
+  ]);
+
+test('legacy catalog items, manual rows, restricted discount and 15% financing use one proposal total', async () => {
+  const db = await setupAdjustments();
+  try {
+    await db.exec('DELETE FROM public.aircraft_item_links');
+    await useRole(db, seller);
+    await assert.rejects(createWithItems(db, [{aircraft_item_id: optional, discount_percent: 10}]), /Somente Admin/);
+    assert.equal(await count(db, 'proposal'), 0);
+    await createWithItems(db, [
+      {aircraft_item_id: optional},
+      {manual_name: 'Instalação adicional', quantity: 2, unit_price: 100},
+    ]);
+    assert.equal(Number((await db.query('select total_deposit from public.proposal_financing')).rows[0].total_deposit), 0.15);
+    assert.equal(Number((await db.query('select fullprice from public.proposal')).rows[0].fullprice), 102100);
+    await assert.rejects(db.exec("UPDATE public.proposal SET is_contract=true"), /administrador/);
+    await db.exec("UPDATE public.proposal SET fullprice=1");
+    assert.equal(Number((await db.query('select fullprice from public.proposal')).rows[0].fullprice), 102100);
+    await useRole(db, manager);
+    await db.query('update public.proposal_item set discount_percent=10 where aircraft_item_id=$1', [optional]);
+    const detail = (await db.query('select * from public.get_proposal_details($1)', [proposal])).rows[0];
+    assert.equal(detail.proposal.fullprice, 101910);
+    assert.equal(detail.proposal.delivery_date, '2027-01-15');
+    assert.deepEqual(detail.proposal_optional_items.map((row) => row.item.item_name).sort(), ['Instalação adicional', 'Opcional']);
+    await useRole(db, seller);
+    await db.query('delete from public.proposal_item where aircraft_item_id=$1', [optional]);
+    assert.equal(Number((await db.query('select fullprice from public.proposal')).rows[0].fullprice), 100200);
+    assert.deepEqual((await db.query('select open_proposal_refs from public.vw_stock_units where id=$1', [firstUnit])).rows[0].open_proposal_refs, ['123456']);
+  } finally {
+    await db.close();
+  }
+});
+
+test('manager swaps the contracted model without viewing receivables and seller sees the current stage or due callback', async () => {
+  const db = await setupAdjustments();
+  try {
+    await useRole(db, seller);
+    await createWithItems(db, []);
+    await useRole(db, manager);
+    const {contract_id: contractId} = (await convert(db)).rows[0].result;
+    await db.query('update public.contract set available_aircraft_id=$1 where id=$2', [secondUnit, contractId]);
+    assert.equal((await db.query('select aircraft_id from public.vw_contract_data')).rows[0].aircraft_id, otherAircraft);
+    assert.equal(await count(db, 'sales'), 0);
+    assert.equal(await count(db, 'financial'), 0);
+    await useRole(db, seller);
+    await assert.rejects(db.query('insert into public.contract(proposal_id,created_by) values($1,$2)', [proposal,seller]),
+      /administrador/);
+    await assert.rejects(db.query('update public.contract set available_aircraft_id=$1 where id=$2', [firstUnit, contractId]), /administrador/);
+    const {id: requestId} = (await db.query(
+      "select public.request_contract_change($1,'Solicito a revisão da aeronave.') id", [contractId])).rows[0];
+    await assert.rejects(db.query('select public.resolve_contract_change($1)', [requestId]), /administrativo/);
+    await useRole(db, manager);
+    assert.equal((await db.query("select detail from public.operational_notifications(10) where kind='contract_change'")).rows[0].detail,
+      'Solicito a revisão da aeronave.');
+    assert.equal((await db.query('select public.resolve_contract_change($1) resolved', [requestId])).rows[0].resolved, true);
+    await useRole(db, seller);
+    await assert.rejects(db.exec("update public.proposal_financing set initial_deposit=0.3"), /administrador/);
+    await db.exec(`RESET ROLE;
+      UPDATE public.tracking SET "isCheck"=true WHERE "order"<9;
+      UPDATE public.tracking SET due_on=current_date - 1 WHERE "order"=16;
+      INSERT INTO public.tracking_details SELECT id,'vista' FROM public.tracking WHERE "order"=9;
+      SET ROLE authenticated;`);
+    const alerts = () => db.query('select * from public.operational_notifications(10)').then((r) => r.rows);
+    assert.match((await alerts())[0].detail, /Formalização/);
+    await db.exec('RESET ROLE; UPDATE public.tracking SET "isCheck"=true WHERE "order"=9; SET ROLE authenticated');
+    assert.match((await alerts())[0].detail, /Contratação de Seguro/);
+    await useRole(db, manager);
+    await db.query("select public.cancel_contract_with_follow_up($1,'outro','Mudança de plano',now()+interval '1 hour',false)", [contractId]);
+    await useRole(db, seller);
+    assert.equal((await alerts()).length, 0, 'canceled tracking and future callback are absent');
+    await useRole(db, manager);
+    await db.exec("UPDATE public.contract SET cancellation_follow_up_at=now()-interval '1 minute'");
+    await useRole(db, seller);
+    assert.equal((await alerts())[0].kind, 'follow_up');
+    assert.equal((await db.query('select public.complete_contract_follow_up($1) completed', [contractId])).rows[0].completed, true);
+    assert.equal((await alerts()).length, 0);
+    assert.equal((await db.query("select public.set_lead_waiting($1,current_date,'Aguarda confirmação') ok", [lead])).rows[0].ok, true);
+    assert.equal((await alerts())[0].kind, 'client_waiting');
+    assert.equal((await db.query('select public.set_lead_waiting($1) ok', [lead])).rows[0].ok, true);
+    assert.equal((await alerts()).length, 0);
+  } finally {
+    await db.close();
+  }
+});

@@ -1,5 +1,6 @@
 import '/backend/supabase/supabase.dart';
 import '/security/write_guard.dart';
+import '/security/access_control.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -36,6 +37,24 @@ class _ViewEditSellerWidgetState extends State<ViewEditSellerWidget> {
   late ViewEditSellerModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _savingAccess = false;
+
+  Future<void> _setManager(UsersRow seller, bool enabled) async {
+    setState(() => _savingAccess = true);
+    try {
+      await guardWrite(
+        context,
+        () => UsersTable().update(
+          data: {'access_level': enabled ? 'vendedor_admin' : null},
+          matchingRows: (q) => q.eq('id', seller.id).eq('profile_type', 'Vendedor'),
+          returnRows: true,
+        ),
+        contexto: 'vendedor.permissoes',
+      );
+    } finally {
+      if (mounted) setState(() => _savingAccess = false);
+    }
+  }
 
   @override
   void initState() {
@@ -104,6 +123,21 @@ class _ViewEditSellerWidgetState extends State<ViewEditSellerWidget> {
                     child: Column(
                       mainAxisSize: MainAxisSize.max,
                       children: [
+                        if (containerUsersRow != null &&
+                            containerUsersRow.profileType == 'Vendedor' &&
+                            AccessControl.current == PanelRole.adminMaster)
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: AppCard(
+                              child: SwitchListTile(
+                                title: const Text('Vendedor Admin'),
+                                subtitle: const Text('Gerencia o funil, os contratos e o catálogo de aeronaves.'),
+                                value: containerUsersRow.accessLevel == 'vendedor_admin',
+                                onChanged: _savingAccess ? null :
+                                    (enabled) => _setManager(containerUsersRow, enabled),
+                              ),
+                            ),
+                          ),
                         Center(
                           child: ConstrainedBox(
                             constraints: BoxConstraints(maxWidth: double.infinity),

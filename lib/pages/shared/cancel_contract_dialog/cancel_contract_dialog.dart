@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 import '/core_ui/core_ui.dart';
 
@@ -33,9 +34,16 @@ enum MotivoCancelamento {
 
 /// Resultado do diálogo de cancelamento.
 class CancelamentoInfo {
-  const CancelamentoInfo({required this.motivo, required this.observacao});
+  const CancelamentoInfo({
+    required this.motivo,
+    required this.observacao,
+    this.followUpAt,
+    this.whatsAppConsent = false,
+  });
   final MotivoCancelamento motivo;
   final String observacao;
+  final DateTime? followUpAt;
+  final bool whatsAppConsent;
 }
 
 /// Pergunta o motivo do cancelamento. Devolve `null` se o usuário desistiu.
@@ -109,6 +117,13 @@ Future<bool> confirmCancelSummary(
               if (info.observacao.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 _Linha('Observação', info.observacao),
+              ],
+              if (info.followUpAt != null) ...[
+                const SizedBox(height: 8),
+                _Linha('Retomar contato',
+                    DateFormat('dd/MM/yyyy HH:mm').format(info.followUpAt!)),
+                if (info.whatsAppConsent)
+                  const _Linha('WhatsApp', 'Avisar o vendedor responsável'),
               ],
               const SizedBox(height: 16),
               Text(
@@ -209,6 +224,34 @@ class _CancelDialogState extends State<_CancelDialog> {
   MotivoCancelamento? _motivo;
   final _obs = TextEditingController();
   String? _erro;
+  DateTime? _followUpAt;
+  bool _whatsAppConsent = false;
+
+  Future<void> _schedule() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _followUpAt ?? now,
+      firstDate: now,
+      lastDate: DateTime(now.year + 5),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_followUpAt ?? now),
+    );
+    if (time == null || !mounted) return;
+    final scheduled =
+        DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    if (!scheduled.isAfter(DateTime.now())) {
+      setState(() => _erro = 'Escolha um horário futuro.');
+      return;
+    }
+    setState(() {
+      _followUpAt = scheduled;
+      _erro = null;
+    });
+  }
 
   @override
   void dispose() {
@@ -226,7 +269,12 @@ class _CancelDialogState extends State<_CancelDialog> {
       return;
     }
     Navigator.of(context).pop(
-      CancelamentoInfo(motivo: _motivo!, observacao: _obs.text.trim()),
+      CancelamentoInfo(
+        motivo: _motivo!,
+        observacao: _obs.text.trim(),
+        followUpAt: _followUpAt,
+        whatsAppConsent: _whatsAppConsent,
+      ),
     );
   }
 
@@ -241,144 +289,177 @@ class _CancelDialogState extends State<_CancelDialog> {
         constraints: const BoxConstraints(maxWidth: 460),
         child: AppCard(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0x33F9CF58),
-                      borderRadius: BorderRadius.circular(11),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: const Color(0x33F9CF58),
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: const Icon(Icons.block_rounded,
+                          color: Color(0xFFF9CF58), size: 21),
                     ),
-                    child: const Icon(Icons.block_rounded,
-                        color: Color(0xFFF9CF58), size: 21),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(
-                      'Cancelar o contrato ${widget.referencia}?',
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        'Cancelar o contrato ${widget.referencia}?',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'O contrato não é excluído: ele continua na lista, marcado como '
-                'cancelado, com o motivo registrado.',
-                style: GoogleFonts.inter(
-                  fontSize: 12.5,
-                  height: 1.4,
-                  color: const Color(0xB3FFFFFF),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 18),
-              Text(
-                'Motivo *',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xCCFFFFFF),
-                ),
-              ),
-              const SizedBox(height: 7),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: const Color(0x14FFFFFF),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<MotivoCancelamento>(
-                    isExpanded: true,
-                    value: _motivo,
-                    hint: Text(
-                      'Selecione o motivo',
-                      style: GoogleFonts.inter(
-                        fontSize: 13.5,
-                        color: const Color(0x8AFFFFFF),
-                      ),
-                    ),
-                    dropdownColor: const Color(0xFF3A3A3A),
-                    borderRadius: BorderRadius.circular(10),
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded,
-                        color: Color(0x99FFFFFF)),
-                    style: GoogleFonts.inter(
-                        fontSize: 13.5, color: Colors.white),
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    items: [
-                      for (final m in MotivoCancelamento.values)
-                        DropdownMenuItem(value: m, child: Text(m.rotulo)),
-                    ],
-                    onChanged: (v) => setState(() {
-                      _motivo = v;
-                      _erro = null;
-                    }),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              AppFormField(
-                controller: _obs,
-                label: _motivo == MotivoCancelamento.outro
-                    ? 'Observação *'
-                    : 'Observação',
-                placeholder: 'Detalhe o que aconteceu (opcional)',
-                icon: Icons.notes_rounded,
-                maxLines: 3,
-              ),
-              if (_erro != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Text(
-                  _erro!,
+                  'O contrato não é excluído: ele continua na lista, marcado como '
+                  'cancelado, com o motivo registrado.',
                   style: GoogleFonts.inter(
                     fontSize: 12.5,
-                    color: const Color(0xFFFF7B82),
+                    height: 1.4,
+                    color: const Color(0xB3FFFFFF),
                   ),
                 ),
-              ],
-              const SizedBox(height: 22),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text(
-                      'Voltar',
-                      style: GoogleFonts.inter(
-                        fontSize: 13.5,
-                        color: const Color(0xCCFFFFFF),
+                const SizedBox(height: 18),
+                Text(
+                  'Motivo *',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xCCFFFFFF),
+                  ),
+                ),
+                const SizedBox(height: 7),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0x14FFFFFF),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<MotivoCancelamento>(
+                      isExpanded: true,
+                      value: _motivo,
+                      hint: Text(
+                        'Selecione o motivo',
+                        style: GoogleFonts.inter(
+                          fontSize: 13.5,
+                          color: const Color(0x8AFFFFFF),
+                        ),
                       ),
+                      dropdownColor: const Color(0xFF3A3A3A),
+                      borderRadius: BorderRadius.circular(10),
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                          color: Color(0x99FFFFFF)),
+                      style: GoogleFonts.inter(
+                          fontSize: 13.5, color: Colors.white),
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      items: [
+                        for (final m in MotivoCancelamento.values)
+                          DropdownMenuItem(value: m, child: Text(m.rotulo)),
+                      ],
+                      onChanged: (v) => setState(() {
+                        _motivo = v;
+                        _erro = null;
+                      }),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFF9CF58),
-                      foregroundColor: const Color(0xFF1A1A1A),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 14),
+                ),
+                const SizedBox(height: 14),
+                AppFormField(
+                  controller: _obs,
+                  label: _motivo == MotivoCancelamento.outro
+                      ? 'Observação *'
+                      : 'Observação',
+                  placeholder: 'Detalhe o que aconteceu (opcional)',
+                  icon: Icons.notes_rounded,
+                  maxLines: 3,
+                ),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    TextButton.icon(
+                      onPressed: _schedule,
+                      icon: const Icon(Icons.event_outlined),
+                      label: Text(_followUpAt == null
+                          ? 'Programar retorno ao cliente'
+                          : DateFormat('dd/MM/yyyy HH:mm')
+                              .format(_followUpAt!)),
                     ),
-                    onPressed: _confirmar,
-                    child: Text(
-                      'Cancelar contrato',
-                      style: GoogleFonts.inter(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
+                    if (_followUpAt != null)
+                      IconButton(
+                        tooltip: 'Remover retorno',
+                        icon: const Icon(Icons.close),
+                        onPressed: () => setState(() {
+                          _followUpAt = null;
+                          _whatsAppConsent = false;
+                        }),
                       ),
+                  ],
+                ),
+                if (_followUpAt != null)
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                        'Avisar também no WhatsApp autorizado do vendedor'),
+                    value: _whatsAppConsent,
+                    onChanged: (enabled) =>
+                        setState(() => _whatsAppConsent = enabled ?? false),
+                  ),
+                if (_erro != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _erro!,
+                    style: GoogleFonts.inter(
+                      fontSize: 12.5,
+                      color: const Color(0xFFFF7B82),
                     ),
                   ),
                 ],
-              ),
-            ],
+                const SizedBox(height: 22),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(
+                        'Voltar',
+                        style: GoogleFonts.inter(
+                          fontSize: 13.5,
+                          color: const Color(0xCCFFFFFF),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFFF9CF58),
+                        foregroundColor: const Color(0xFF1A1A1A),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 14),
+                      ),
+                      onPressed: _confirmar,
+                      child: Text(
+                        'Cancelar contrato',
+                        style: GoogleFonts.inter(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

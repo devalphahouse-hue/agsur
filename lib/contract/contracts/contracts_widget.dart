@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:intl/intl.dart';
 
 import '/security/action_feedback.dart';
 import '/pages/shared/cancel_contract_dialog/cancel_contract_dialog.dart';
@@ -30,6 +31,7 @@ class _ContractsWidgetState extends State<ContractsWidget> {
   late ContractsModel _model;
   final scaffoldKey = GlobalKey<ScaffoldState>();
   String _query = '';
+  bool _showCancelled = false;
   bool _disposed = false;
   int _page = 1;
   int _perPage = kDefaultPerPage;
@@ -49,6 +51,9 @@ class _ContractsWidgetState extends State<ContractsWidget> {
         perPage: _perPage,
         queryFn: (q) {
           var f = q.eq('is_contract', true);
+          f = _showCancelled
+              ? f.not('cancelled_at', 'is', null)
+              : f.isFilter('cancelled_at', null);
           if (_query.trim().isNotEmpty) {
             f = f.or(orIlike(
               const ['company_name', 'id_ref', 'aircraft_model'],
@@ -131,22 +136,13 @@ class _ContractsWidgetState extends State<ContractsWidget> {
       success: 'Contrato $ref cancelado',
       failure: 'Não foi possível cancelar o contrato.',
       action: () async {
-        final rows = await ContractTable().update(
-          data: {
-            'cancelled_at': supaSerialize<DateTime>(getCurrentTimestamp),
-            'cancelled_by': currentUserUid,
-            'cancellation_reason': info.motivo.codigo,
-            'cancellation_note':
-                info.observacao.isEmpty ? null : info.observacao,
-          },
-          matchingRows: (q) => q.eqOrNull('id', contractId),
-          returnRows: true,
-        );
-        // A RLS filtra em silêncio num UPDATE: sem esta checagem o painel
-        // diria "cancelado" sem ter gravado nada.
-        if (rows.isEmpty) {
-          throw StateError('42501: sem permissão para cancelar este contrato');
-        }
+        await SupaFlow.client.rpc('cancel_contract_with_follow_up', params: {
+          'p_contract_id': contractId,
+          'p_reason': info.motivo.codigo,
+          'p_note': info.observacao,
+          'p_follow_up_at': info.followUpAt?.toUtc().toIso8601String(),
+          'p_whatsapp_consent': info.whatsAppConsent,
+        });
       },
     );
     if (ok) _refresh();
@@ -167,151 +163,190 @@ class _ContractsWidgetState extends State<ContractsWidget> {
           _page = 1;
         }),
       ),
-      body: FutureBuilder<PagedResult<VwContractDataRow>>(
-        future: _fetchPage(),
-        builder: (context, snap) {
-          if (!snap.hasData) {
-            return Column(
-              children: List.generate(
-                4,
-                (_) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: AppSkeleton.box(height: 86),
-                ),
-              ),
-            );
-          }
-          final paged = snap.data!;
-          final list = paged.items;
-          if (list.isEmpty) {
-            return AppCard(
-              child: AppEmptyState(
-                icon: Icons.description_outlined,
-                title: _query.isEmpty
-                    ? 'Nenhum contrato fechado ainda'
-                    : 'Nenhum contrato encontrado',
-                description: _query.isEmpty
-                    ? 'Quando uma proposta vira contrato, ela aparece aqui.'
-                    : 'Tente outro termo de busca.',
-              ),
-            );
-          }
-          // Sem seleção múltipla: cancelamento exige um motivo POR contrato.
-          // Em lote, ou o usuário atribuiria o mesmo motivo a todos (registro
-          // sem valor) ou responderia N modais seguidas.
-          return Column(
-            mainAxisSize: MainAxisSize.min,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
             children: [
-              AppDataTable<VwContractDataRow>(
-            items: list,
-            rowId: (c) => c.id ?? '',
-            onRowTap: (c) => context.pushNamed(
-              ViewContractWidget.routeName,
-              queryParameters: {
-                'proposalId': serializeParam(c.id, ParamType.String),
-                'typeAccess': serializeParam(
-                    _canEdit ? 'edit' : 'view', ParamType.String),
-                'companyName':
-                    serializeParam(c.companyName, ParamType.String),
-              }.withoutNulls,
-            ),
-            columns: [
-              AppDataColumn(
-                label: 'ID',
-                width: 96,
-                cell: (c) => AppCellText('#${c.idRef ?? '0000000'}', bold: true),
-              ),
-              AppDataColumn(
-                label: 'Aeronave',
-                flex: 3,
-                cell: (c) => AppCellText(
-                  c.aircraftModel ?? 'Modelo não informado',
-                  muted: true,
+              for (final (cancelled, label) in [
+                (false, 'Em andamento'),
+                (true, 'Cancelados')
+              ])
+                ChoiceChip(
+                  label: Text(label),
+                  selected: _showCancelled == cancelled,
+                  onSelected: (_) => setState(() {
+                    _showCancelled = cancelled;
+                    _page = 1;
+                  }),
                 ),
-              ),
-              AppDataColumn(
-                label: 'Empresa',
-                flex: 3,
-                cell: (c) => AppCellText(
-                  (c.companyName ?? '').isNotEmpty ? c.companyName! : '—',
-                  muted: true,
-                ),
-              ),
-              AppDataColumn(
-                label: 'Vendedor',
-                flex: 2,
-                cell: (c) => AppCellText(
-                  (c.createdByName ?? '').isNotEmpty ? c.createdByName! : '—',
-                  muted: true,
-                ),
-              ),
-              AppDataColumn(
-                label: 'Data',
-                width: 100,
-                cell: (c) => AppCellText(
-                  c.createdAt != null
-                      ? dateTimeFormat('d/M/y', c.createdAt)
-                      : '—',
-                  muted: true,
-                ),
-              ),
-              AppDataColumn(
-                label: 'Valor/Status',
-                width: 150,
-                align: Alignment.centerRight,
-                cell: (c) => Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AppStatusBadge(
-                      label: c.isCancelled ? 'Cancelado' : 'Contrato',
-                      icon: c.isCancelled
-                          ? Icons.block_rounded
-                          : Icons.verified_outlined,
-                      tone: c.isCancelled
-                          ? AppStatusTone.danger
-                          : AppStatusTone.success,
-                      dense: true,
+            ],
+          ),
+          const SizedBox(height: 12),
+          FutureBuilder<PagedResult<VwContractDataRow>>(
+            future: _fetchPage(),
+            builder: (context, snap) {
+              if (snap.hasError)
+                return const Text('Não foi possível carregar os contratos.');
+              if (!snap.hasData) {
+                return Column(
+                  children: List.generate(
+                    4,
+                    (_) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: AppSkeleton.box(height: 86),
                     ),
-                    const SizedBox(height: 5),
-                    AppCellText(_money(c.fullprice), bold: true),
-                    if (c.isCancelled) ...[
-                      const SizedBox(height: 3),
-                      AppCellText(
-                        MotivoCancelamento.rotuloDe(c.cancellationReason),
-                        muted: true,
+                  ),
+                );
+              }
+              final paged = snap.data!;
+              final list = paged.items;
+              if (list.isEmpty) {
+                return AppCard(
+                  child: AppEmptyState(
+                    icon: Icons.description_outlined,
+                    title: _showCancelled
+                        ? 'Nenhum contrato cancelado'
+                        : 'Nenhum contrato encontrado',
+                    description:
+                        _query.isEmpty ? null : 'Tente outro termo de busca.',
+                  ),
+                );
+              }
+              // Sem seleção múltipla: cancelamento exige um motivo POR contrato.
+              // Em lote, ou o usuário atribuiria o mesmo motivo a todos (registro
+              // sem valor) ou responderia N modais seguidas.
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AppDataTable<VwContractDataRow>(
+                    items: list,
+                    rowId: (c) => c.id ?? '',
+                    onRowTap: (c) => context.pushNamed(
+                      ViewContractWidget.routeName,
+                      queryParameters: {
+                        'proposalId': serializeParam(c.id, ParamType.String),
+                        'typeAccess': serializeParam(
+                            _canEdit ? 'edit' : 'view', ParamType.String),
+                        'companyName':
+                            serializeParam(c.companyName, ParamType.String),
+                      }.withoutNulls,
+                    ),
+                    columns: [
+                      AppDataColumn(
+                        label: 'ID',
+                        width: 96,
+                        cell: (c) =>
+                            AppCellText('#${c.idRef ?? '0000000'}', bold: true),
+                      ),
+                      AppDataColumn(
+                        label: 'Aeronave',
+                        flex: 3,
+                        cell: (c) => AppCellText(
+                          c.aircraftModel ?? 'Modelo não informado',
+                          muted: true,
+                        ),
+                      ),
+                      AppDataColumn(
+                        label: 'Empresa',
+                        flex: 3,
+                        cell: (c) => AppCellText(
+                          (c.companyName ?? '').isNotEmpty
+                              ? c.companyName!
+                              : '—',
+                          muted: true,
+                        ),
+                      ),
+                      AppDataColumn(
+                        label: 'Vendedor',
+                        flex: 2,
+                        cell: (c) => AppCellText(
+                          (c.createdByName ?? '').isNotEmpty
+                              ? c.createdByName!
+                              : '—',
+                          muted: true,
+                        ),
+                      ),
+                      AppDataColumn(
+                        label: 'Data',
+                        width: 100,
+                        cell: (c) => AppCellText(
+                          c.createdAt != null
+                              ? dateTimeFormat('d/M/y', c.createdAt)
+                              : '—',
+                          muted: true,
+                        ),
+                      ),
+                      AppDataColumn(
+                        label: 'Valor/Status',
+                        width: 150,
+                        align: Alignment.centerRight,
+                        cell: (c) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AppStatusBadge(
+                              label: c.isCancelled ? 'Cancelado' : 'Contrato',
+                              icon: c.isCancelled
+                                  ? Icons.block_rounded
+                                  : Icons.verified_outlined,
+                              tone: c.isCancelled
+                                  ? AppStatusTone.danger
+                                  : AppStatusTone.success,
+                              dense: true,
+                            ),
+                            const SizedBox(height: 5),
+                            AppCellText(_money(c.fullprice), bold: true),
+                            if (c.isCancelled) ...[
+                              const SizedBox(height: 3),
+                              AppCellText(
+                                MotivoCancelamento.rotuloDe(
+                                    c.cancellationReason),
+                                muted: true,
+                              ),
+                              if ((c.cancellationNote ?? '').isNotEmpty)
+                                AppCellText(c.cancellationNote!, muted: true),
+                              if (c.cancellationFollowUpAt
+                                  case final DateTime due)
+                                AppCellText(
+                                  c.cancellationFollowUpDoneAt != null
+                                      ? 'Contato concluído'
+                                      : 'Retorno em ${DateFormat('dd/MM/yyyy HH:mm').format(due.toLocal())}',
+                                  muted: true,
+                                ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      AppDataColumn(
+                        label: 'Ações',
+                        width: 64,
+                        align: Alignment.centerRight,
+                        // Já cancelado não mostra a ação — cancelar duas vezes só
+                        // sobrescreveria o motivo e a data do primeiro cancelamento.
+                        cell: (c) => _canEdit && !c.isCancelled
+                            ? AppRowAction(
+                                icon: Icons.block_rounded,
+                                tooltip: 'Cancelar contrato',
+                                danger: true,
+                                onPressed: () => _confirmCancel(c),
+                              )
+                            : const SizedBox.shrink(),
                       ),
                     ],
-                  ],
-                ),
-              ),
-              AppDataColumn(
-                label: 'Ações',
-                width: 64,
-                align: Alignment.centerRight,
-                // Já cancelado não mostra a ação — cancelar duas vezes só
-                // sobrescreveria o motivo e a data do primeiro cancelamento.
-                cell: (c) => _canEdit && !c.isCancelled
-                    ? AppRowAction(
-                        icon: Icons.block_rounded,
-                        tooltip: 'Cancelar contrato',
-                        danger: true,
-                        onPressed: () => _confirmCancel(c),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ],
-              ),
-              AppPagination(
-                result: paged,
-                onPageChanged: _goToPage,
-                onPerPageChanged: _setPerPage,
-              ),
-            ],
-          );
-        },
+                  ),
+                  AppPagination(
+                    result: paged,
+                    onPageChanged: _goToPage,
+                    onPerPageChanged: _setPerPage,
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }
 }
-

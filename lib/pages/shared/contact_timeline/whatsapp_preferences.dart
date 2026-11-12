@@ -110,3 +110,67 @@ Future<void> editWhatsAppPreference(BuildContext context, String leadId) async {
     }
   }
 }
+
+Future<bool> editClientWhatsAppPhone(
+    BuildContext context, String leadId) async {
+  try {
+    final row = await SupaFlow.client
+        .from('leads')
+        .select('phone, wa_opt_out')
+        .eq('id', leadId)
+        .single();
+    if (!context.mounted) return false;
+    final form = GlobalKey<FormState>();
+    var editedPhone = row['phone'] as String?;
+    final phone = await showDialog<String>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Telefone do cliente'),
+        content: Form(
+          key: form,
+          child: TextFormField(
+            initialValue: editedPhone,
+            onChanged: (value) => editedPhone = value,
+            autofocus: true,
+            keyboardType: TextInputType.phone,
+            decoration: InputDecoration(
+              labelText: 'Telefone com DDD',
+              helperText: row['wa_opt_out'] == true
+                  ? 'O cliente está com os envios suspensos.'
+                  : null,
+            ),
+            validator: (value) => toE164Br(value) == null
+                ? 'Informe um telefone brasileiro válido.'
+                : null,
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dialog),
+              child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () {
+              if (form.currentState!.validate()) {
+                Navigator.pop(dialog, toE164Br(editedPhone));
+              }
+            },
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+    if (phone == null || !context.mounted) return false;
+    await SupaFlow.client
+        .from('leads')
+        .update({'phone': phone})
+        .eq('id', leadId)
+        .select('id')
+        .single();
+    return true;
+  } catch (_) {
+    if (context.mounted) {
+      showWriteError(context, 'Não foi possível salvar o telefone do cliente.');
+    }
+    return false;
+  }
+}

@@ -23,7 +23,7 @@ double? parsePercentToFraction(String? raw) {
       .replaceAll(',', '.');
   if (cleaned.isEmpty) return null;
   final v = double.tryParse(cleaned);
-  if (v == null) return null;
+  if (v == null || !v.isFinite) return null;
   return v / 100;
 }
 
@@ -53,3 +53,12 @@ double premiumRateForTerm({
   if (fromRegistry != null && fromRegistry > 0) return fromRegistry;
   return termYears <= 5 ? 0.05 : 0.07;
 }
+
+const proposalSignalFraction = 0.05;
+const defaultProposalEntry = 0.15;
+
+bool isValidProposalEntry(double? entry) =>
+    entry != null && entry >= proposalSignalFraction && entry <= 1;
+
+String proposalEntryLabel(double fraction) =>
+    '${(fraction * 100).toStringAsFixed(3).replaceFirst(RegExp(r'\.?0+$'), '').replaceAll('.', ',')}%';

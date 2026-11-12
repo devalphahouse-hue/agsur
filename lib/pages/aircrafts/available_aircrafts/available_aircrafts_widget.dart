@@ -724,8 +724,12 @@ class _AvailableAircraftsWidgetState extends State<AvailableAircraftsWidget> {
                     runSpacing: 4,
                     children: [
                       AppStatusBadge(
-                        label: u.status.isEmpty ? '—' : u.status,
-                        tone: stockStatusTone(u.status, inStock: u.inStock),
+                        label: u.inStock && u.openProposalRefs.isNotEmpty
+                            ? 'Em negociação'
+                            : u.status.isEmpty ? '—' : u.status,
+                        tone: u.inStock && u.openProposalRefs.isNotEmpty
+                            ? AppStatusTone.warning
+                            : stockStatusTone(u.status, inStock: u.inStock),
                         dense: true,
                       ),
                       if (u.contractId != null)
@@ -737,9 +741,9 @@ class _AvailableAircraftsWidgetState extends State<AvailableAircraftsWidget> {
                         )
                       else if (u.inStock && (proposals[u.id] ?? 0) > 0)
                         AppStatusBadge(
-                          label: (proposals[u.id] ?? 0) == 1
-                              ? 'Em 1 proposta'
-                              : 'Em ${proposals[u.id]} propostas',
+                          label: u.openProposalRefs.isEmpty
+                              ? '${proposals[u.id]} proposta(s)'
+                              : '${u.openProposalRefs.length} proposta(s) · ${u.openProposalRefs.map((ref) => '#$ref').join(', ')}',
                           icon: Icons.request_quote_outlined,
                           tone: AppStatusTone.warning,
                           dense: true,

@@ -11,7 +11,14 @@ import '/backend/supabase/database/tables/users.dart';
 ///   profile_type = 'Vendedor'                        → vendedor
 ///   profile_type = 'Admin' + access_level='documentacao' → adminDocumentacao
 ///   profile_type = 'Admin' + access_level (outro/NULL)   → adminRecepcao
-enum PanelRole { adminMaster, adminRecepcao, adminDocumentacao, vendedor, none }
+enum PanelRole {
+  adminMaster,
+  adminRecepcao,
+  adminDocumentacao,
+  vendedorAdmin,
+  vendedor,
+  none
+}
 
 class AccessControl {
   AccessControl._();
@@ -20,23 +27,18 @@ class AccessControl {
   /// Setado no login e a cada build do menu; limpo no logout.
   static PanelRole current = PanelRole.none;
 
-  static PanelRole roleOf(UsersRow? user) {
-    final p = user?.profileType;
-    if (p == 'Admin Master') return PanelRole.adminMaster;
-    if (p == 'Vendedor') return PanelRole.vendedor;
-    if (p == 'Admin') {
-      return user?.accessLevel == 'documentacao'
-          ? PanelRole.adminDocumentacao
-          : PanelRole.adminRecepcao;
-    }
-    return PanelRole.none;
-  }
+  static PanelRole roleOf(UsersRow? user) =>
+      roleOfStrings(user?.profileType, user?.accessLevel);
 
   /// Deriva o papel a partir das strings cruas (usado no login, antes de
   /// carregar um UsersRow completo).
   static PanelRole roleOfStrings(String? profileType, String? accessLevel) {
     if (profileType == 'Admin Master') return PanelRole.adminMaster;
-    if (profileType == 'Vendedor') return PanelRole.vendedor;
+    if (profileType == 'Vendedor') {
+      return accessLevel == 'vendedor_admin'
+          ? PanelRole.vendedorAdmin
+          : PanelRole.vendedor;
+    }
     if (profileType == 'Admin') {
       return accessLevel == 'documentacao'
           ? PanelRole.adminDocumentacao
@@ -46,12 +48,25 @@ class AccessControl {
   }
 
   // ── Grupos de rotas (por routeName) ──────────────────────────────────────
-  static const _common = {'HomePage', 'Chat', 'ChatDetail', 'Profile', 'ProfileEdit'};
+  static const _common = {
+    'HomePage',
+    'Chat',
+    'ChatDetail',
+    'Profile',
+    'ProfileEdit'
+  };
   static const _solicitacoes = {'ProfileAnalysis'};
   static const _funil = {
     'ReminderHistory',
-    'Leads', 'ViewEditLead', 'Proposals', 'ViewEditProposal', 'CreateProposal',
-    'Contracts', 'ViewContract', 'Clients', 'ViewEditClient',
+    'Leads',
+    'ViewEditLead',
+    'Proposals',
+    'ViewEditProposal',
+    'CreateProposal',
+    'Contracts',
+    'ViewContract',
+    'Clients',
+    'ViewEditClient',
   };
   static const _pilotos = {'Pilots', 'ViewEditPilots'};
   static const _oficinas = {'oficina', 'oficina_details'};
@@ -79,13 +94,26 @@ class AccessControl {
         return _all;
       case PanelRole.adminRecepcao:
         return {
-          ..._common, ..._pilotos, ..._oficinas, ..._garantias,
-          ..._certificados, ..._cartaServico, ..._cotacao,
+          ..._common,
+          ..._pilotos,
+          ..._oficinas,
+          ..._garantias,
+          ..._certificados,
+          ..._cartaServico,
+          ..._cotacao,
         };
+      case PanelRole.vendedorAdmin:
       case PanelRole.adminDocumentacao:
         return {
-          ..._common, ..._solicitacoes, ..._funil, ..._rastreio,
-          ..._aeronaves, ..._cartaServico, ..._garantias, ..._taxas, ..._termos,
+          ..._common,
+          ..._solicitacoes,
+          ..._funil,
+          ..._rastreio,
+          ..._aeronaves,
+          ..._cartaServico,
+          ..._garantias,
+          ..._taxas,
+          ..._termos,
         };
       case PanelRole.vendedor:
         // Estoque em leitura (reunião de 2026-09-22: "all sales reps gain full
@@ -99,10 +127,21 @@ class AccessControl {
   }
 
   static final Set<String> _all = {
-    ..._common, ..._solicitacoes, ..._funil, ..._pilotos, ..._oficinas,
-    ..._vendedores, ..._colaboradores, ..._rastreio, ..._aeronaves,
-    ..._cartaServico, ..._cotacao, ..._garantias, ..._certificados,
-    ..._taxas, ..._termos,
+    ..._common,
+    ..._solicitacoes,
+    ..._funil,
+    ..._pilotos,
+    ..._oficinas,
+    ..._vendedores,
+    ..._colaboradores,
+    ..._rastreio,
+    ..._aeronaves,
+    ..._cartaServico,
+    ..._cotacao,
+    ..._garantias,
+    ..._certificados,
+    ..._taxas,
+    ..._termos,
   };
 
   static bool canView(PanelRole role, String routeName) =>
@@ -111,7 +150,9 @@ class AccessControl {
   /// Só master e documentação podem editar/checar o rastreio. Vendedor
   /// visualiza (view-only); recepção nem vê a tela.
   static bool canEditTracking(PanelRole role) =>
-      role == PanelRole.adminMaster || role == PanelRole.adminDocumentacao;
+      role == PanelRole.adminMaster ||
+      role == PanelRole.adminDocumentacao ||
+      role == PanelRole.vendedorAdmin;
 
   /// Master e documentação abrem proposta/contrato em modo edição
   /// (`typeAccess=edit`: campos editáveis + converter proposta em contrato).
@@ -119,11 +160,20 @@ class AccessControl {
   /// (`proposals`/`contracts`) consultam isto ao navegar — não hardcode
   /// perfil lá.
   static bool canEditFunil(PanelRole role) =>
-      role == PanelRole.adminMaster || role == PanelRole.adminDocumentacao;
+      role == PanelRole.adminMaster ||
+      role == PanelRole.adminDocumentacao ||
+      role == PanelRole.vendedorAdmin;
+
+  static bool canEditProposal(PanelRole role) =>
+      role == PanelRole.vendedor || canEditFunil(role);
+
+  static bool canDiscount(PanelRole role) => canEditFunil(role);
 
   /// Entrada/saída/edição de unidades do estoque. Espelha a guarda do banco
   /// (`tg_available_aircrafts_guard` + RPCs `stock_*`, migration
   /// 20260922120000), que exige `auth_is_admin_documentacao()`.
   static bool canManageStock(PanelRole role) =>
-      role == PanelRole.adminMaster || role == PanelRole.adminDocumentacao;
+      role == PanelRole.adminMaster ||
+      role == PanelRole.adminDocumentacao ||
+      role == PanelRole.vendedorAdmin;
 }

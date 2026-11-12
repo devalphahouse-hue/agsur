@@ -2,10 +2,10 @@ import '/auth/supabase_auth/auth_util.dart';
 import 'package:uuid/uuid.dart';
 import '/backend/api_requests/api_calls.dart';
 import '/backend/lead_conversion.dart';
+import '/backend/financing.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/schema/structs/index.dart';
 import '/backend/supabase/supabase.dart';
-import '/core_ui/percent_input_formatter.dart';
 import '/security/action_feedback.dart';
 import '/security/write_guard.dart';
 import '/flutter_flow/flutter_flow_drop_down.dart';
@@ -23,7 +23,6 @@ import '/pages/shared/modal_edit_address/modal_edit_address_widget.dart';
 import '/pages/shared/modal_register_address/modal_register_address_widget.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
-import 'package:easy_debounce/easy_debounce.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -31,6 +30,8 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:provider/provider.dart';
 import '/core_ui/core_ui.dart';
 import '/pages/shared/stock_unit_picker/stock_unit_picker.dart';
+import '../components/proposal_items_editor.dart';
+import '/security/access_control.dart';
 import 'create_proposal_model.dart';
 export 'create_proposal_model.dart';
 
@@ -54,6 +55,8 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
   /// Leads que já viraram cliente. Preenchido por [_fetchLeadOptions] antes do
   /// builder rodar, e usado só para rotular/ordenar o dropdown.
   Set<String> _convertedLeadIds = {};
+  final _leadCompanies = <String, Set<String>>{};
+  late final Future<List<LeadsRow>> _leadOptions;
 
   /// O seletor lista leads em aberto E clientes. Cliente continua sendo uma
   /// linha de `leads` por baixo (é a chave de auth do app), então uma proposta
@@ -64,6 +67,17 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
       queryFn: (q) => q.eqOrNull('active', true).eqOrNull('is_deleted', false),
     );
     _convertedLeadIds = await LeadConversion.convertedLeadIds();
+    for (var offset = 0; offset < leads.length; offset += 100) {
+      final ids = leads.skip(offset).take(100).map((lead) => lead.id).toList();
+      final companies = await SupaFlow.client.from('company')
+          .select('lead_id, company_name').inFilter('lead_id', ids);
+      for (final company in companies) {
+        final name = (company['company_name'] as String?)?.trim();
+        if (name != null && name.isNotEmpty) {
+          (_leadCompanies[company['lead_id'] as String] ??= {}).add(name);
+        }
+      }
+    }
     // Leads em aberto primeiro (é o caso comum), clientes depois.
     leads.sort((a, b) {
       final ac = _convertedLeadIds.contains(a.id) ? 1 : 0;
@@ -78,13 +92,15 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
 
   String _leadOptionLabel(LeadsRow e) {
     final name = valueOrDefault<String>(e.fullname, 'Nome completo');
-    return _convertedLeadIds.contains(e.id) ? '$name · Cliente' : '$name · Lead';
+    final type = _convertedLeadIds.contains(e.id) ? 'Cliente' : 'Lead';
+    return [name, ...?_leadCompanies[e.id], type].join(' · ');
   }
 
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => CreateProposalModel());
+    _leadOptions = _fetchLeadOptions();
 
     _model.tFDownPaymentTextController ??= TextEditingController();
     _model.tFDownPaymentFocusNode ??= FocusNode();
@@ -96,7 +112,9 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
     _model.tFTotalDepositFocusNode ??= FocusNode();
 
     WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {
-          _model.tFDownPaymentTextController?.text = '5%';
+          _model.tFDownPaymentTextController?.text = proposalEntryLabel(proposalSignalFraction);
+          _model.tFInitialDepositTextController?.text = proposalEntryLabel(defaultProposalEntry);
+          _model.tFTotalDepositTextController?.text = proposalEntryLabel(defaultProposalEntry);
         }));
 
     // Quantas aeronaves vendáveis cada modelo tem — alimenta o filtro
@@ -126,6 +144,36 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
       if (_model.dpdAircraftValue != u.aircraftId) {
         _model.dpdAircraftValue = u.aircraftId;
         _model.dpdAircraftValueController?.value = u.aircraftId;
+      }
+    });
+  }
+
+  final _manualItems = <ProposalItemDraft>[];
+  final _catalogDiscounts = <String, double>{};
+
+  List<ProposalItemDraft> get _proposalItems => [
+    for (final row in _model.itemsOptional)
+      ProposalItemDraft(
+        catalogId: row.id,
+        name: row.itemName,
+        quantity: row.qty,
+        price: row.price,
+        discount: _catalogDiscounts[row.id] ?? 0,
+      ),
+    ..._manualItems,
+  ];
+
+  Future<void> _editItem([ProposalItemDraft? item]) async {
+    final changed = await editProposalItem(context, item: item,
+        canDiscount: AccessControl.canDiscount(AccessControl.current));
+    if (changed == null || !mounted) return;
+    setState(() {
+      if (changed.catalogId != null) {
+        _catalogDiscounts[changed.catalogId!] = changed.discount;
+      } else if (item != null) {
+        _manualItems[_manualItems.indexOf(item)] = changed;
+      } else {
+        _manualItems.add(changed);
       }
     });
   }
@@ -186,8 +234,11 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                       padding: EdgeInsetsDirectional.fromSTEB(
                           16.0, 12.0, 16.0, 16.0),
                       child: FutureBuilder<List<LeadsRow>>(
-                        future: _fetchLeadOptions(),
+                        future: _leadOptions,
                         builder: (context, snapshot) {
+                          if (snapshot.hasError) {
+                            return const Text('Não foi possível carregar leads e empresas.');
+                          }
                           // Customize what your widget looks like when it's loading.
                           if (!snapshot.hasData) {
                             return Center(
@@ -342,7 +393,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                     .fontStyle,
                                           ),
                                       hintText: 'Selecione o lead ou cliente',
-                                      searchHintText: 'Digite o nome aqui...',
+                                      searchHintText: 'Busque pelo nome do cliente ou da empresa',
                                       icon: Icon(
                                         Icons.keyboard_arrow_down_rounded,
                                         color: FlutterFlowTheme.of(context)
@@ -3197,6 +3248,11 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                   // Avião (re)selecionado: os
                                                   // caches de série/opcionais
                                                   // dependem dele.
+                                                  if (FFAppState().asGetAircraftProposal.id != _model.dpdAircraftValue) {
+                                                    _model.itemsOptional.clear();
+                                                    _model.listIds.clear();
+                                                    _catalogDiscounts.clear();
+                                                  }
                                                   _model.optionalItemsByCategory
                                                       .clear();
                                                   _model.seriesItemsFuture =
@@ -5318,6 +5374,21 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                               },
                             ),
                           ),
+                          ProposalItemsEditor(
+                            items: _proposalItems,
+                            onAdd: () => _editItem(),
+                            canDiscount: AccessControl.canDiscount(AccessControl.current),
+                            onEdit: _editItem,
+                            onRemove: (item) => setState(() {
+                              if (item.catalogId == null) {
+                                _manualItems.remove(item);
+                              } else {
+                                _model.itemsOptional.removeWhere((row) => row.id == item.catalogId);
+                                _model.listIds.remove(item.catalogId);
+                                _catalogDiscounts.remove(item.catalogId);
+                              }
+                            }),
+                          ),
                           Padding(
                             padding: EdgeInsetsDirectional.fromSTEB(
                                 16.0, 16.0, 16.0, 16.0),
@@ -5364,31 +5435,8 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                       TextSpan(
                                         text: valueOrDefault<String>(
                                           formatNumber(
-                                            (double priceAircraft,
-                                                    List<double>
-                                                        totalPriceItemsOpcional) {
-                                              return priceAircraft +
-                                                  (totalPriceItemsOpcional
-                                                          .isEmpty
-                                                      ? 0
-                                                      : totalPriceItemsOpcional
-                                                          .reduce(
-                                                              (a, b) => a + b));
-                                            }(
-                                                valueOrDefault<double>(
-                                                  FFAppState()
-                                                      .asGetAircraftProposal
-                                                      .price,
-                                                  0.0,
-                                                ),
-                                                _model.itemsOptional
-                                                    .map((e) =>
-                                                        valueOrDefault<double>(
-                                                          e.price,
-                                                          0.0,
-                                                        ) *
-                                                        e.qty)
-                                                    .toList()),
+                                            FFAppState().asGetAircraftProposal.price +
+                                                _proposalItems.fold<double>(0, (total, item) => total + item.total),
                                             formatType: FormatType.decimal,
                                             decimalType:
                                                 DecimalType.periodDecimal,
@@ -5983,40 +6031,14 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                               .tFInitialDepositTextController,
                                           focusNode:
                                               _model.tFInitialDepositFocusNode,
-                                          onChanged: (_) =>
-                                              EasyDebounce.debounce(
-                                            '_model.tFInitialDepositTextController',
-                                            Duration(milliseconds: 300),
-                                            () async {
-                                              safeSetState(() {
-                                                // Soma o sinal (5%) com o depósito
-                                                // inicial digitado e mostra o total.
-                                                final dep = double.tryParse(_model
-                                                        .tFInitialDepositTextController
-                                                        .text
-                                                        .replaceAll('%', '')
-                                                        .replaceAll(',', '.')) ??
-                                                    0;
-                                                final total = 5 + dep;
-                                                final formatted = total
-                                                    .toStringAsFixed(1)
-                                                    .replaceFirst(
-                                                        RegExp(r'\.0$'), '');
-                                                _model.tFTotalDepositTextController
-                                                    ?.text = '$formatted%';
-                                              });
-                                            },
-                                          ),
-                                          inputFormatters: [
-                                            PercentInputFormatter()
-                                          ],
-                                          keyboardType: const TextInputType
-                                              .numberWithOptions(decimal: true),
+                                          onChanged: (value) {
+                                            _model.tFTotalDepositTextController?.text = value;
+                                          },
                                           autofocus: false,
                                           obscureText: false,
                                           decoration: InputDecoration(
                                             isDense: false,
-                                            labelText: 'Depósito inicial',
+                                            labelText: 'Entrada total (inclui o sinal)',
                                             labelStyle:
                                                 FlutterFlowTheme.of(context)
                                                     .labelMedium
@@ -6048,7 +6070,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                               .labelMedium
                                                               .fontStyle,
                                                     ),
-                                            hintText: 'Depósito inicial',
+                                            hintText: 'Entrada total (inclui o sinal)',
                                             hintStyle:
                                                 FlutterFlowTheme.of(context)
                                                     .labelMedium
@@ -6168,7 +6190,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                           decoration: InputDecoration(
                                             isDense: false,
                                             labelText:
-                                                'Valor total do depósito',
+                                                'Percentual total de entrada',
                                             labelStyle:
                                                 FlutterFlowTheme.of(context)
                                                     .labelMedium
@@ -6200,7 +6222,7 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                               .labelMedium
                                                               .fontStyle,
                                                     ),
-                                            hintText: 'Valor total do depósito',
+                                            hintText: 'Percentual total de entrada',
                                             hintStyle:
                                                 FlutterFlowTheme.of(context)
                                                     .labelMedium
@@ -6480,8 +6502,16 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                       // Os inserts abaixo (proposta, financiamento e itens) rodavam
                                                       // crus: falha em qualquer um travava o diálogo e podia deixar
                                                       // a proposta gravada sem financiamento.
+                                                      final entry = parsePercentToFraction(
+                                                          _model.tFInitialDepositTextController.text);
+                                                      if (!isValidProposalEntry(entry)) {
+                                                        Navigator.of(dialogContext).pop();
+                                                        showWriteError(context,
+                                                            'Informe uma entrada total entre 5% e 100%.');
+                                                        return;
+                                                      }
                                                       try {
-                                                      await SupaFlow.client.rpc('create_proposal_atomic', params: {
+                                                      await SupaFlow.client.rpc('create_proposal_with_items', params: {
                                                         'p_id': _submissionId,
                                                         'p_lead_id': FFAppState().asGetLeadProposal.lead.id,
                                                         'p_aircraft_id': FFAppState().asGetAircraftProposal.id,
@@ -6490,10 +6520,10 @@ class _CreateProposalWidgetState extends State<CreateProposalWidget> {
                                                         'p_financing': {
                                                           'term_length': int.parse(prazo),
                                                           'credit_date': _model.datePicked?.toIso8601String().split('T').first,
-                                                          'down_payment': (functions.parsePriceToDouble(_model.tFDownPaymentTextController.text) ?? 0) / 100,
-                                                          'initial_deposit': (functions.parsePriceToDouble(_model.tFInitialDepositTextController.text) ?? 0) / 100,
+                                                          'down_payment': proposalSignalFraction,
+                                                          'initial_deposit': entry! - proposalSignalFraction,
                                                         },
-                                                        'p_optional_ids': _model.itemsOptional.map((e) => e.id).toSet().toList(),
+                                                        'p_items': _proposalItems.map((item) => item.toDatabase()).toList(),
                                                       });
                                                       // Fecha o modal de
                                                       // confirmação antes de

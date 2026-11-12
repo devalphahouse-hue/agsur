@@ -36,6 +36,8 @@ class TrackingRow extends SupabaseDataRow {
   String? get link => getField<String>('link');
   set link(String? value) => setField<String>('link', value);
 
+  DateTime? get dueOn => getField<DateTime>('due_on');
+
   String? get link2 => getField<String>('link2');
   set link2(String? value) => setField<String>('link2', value);
 }

@@ -363,7 +363,10 @@ Future<void> generateProposalPdf(
 
   // Forma de pagamento
   final formaPagamento = 'FINANCIADO - $prazo ANOS';
-  final previsaoEntrega = '';
+  final deliveryDate = proposal.deliveryDate;
+  final previsaoEntrega = deliveryDate == null
+      ? 'A definir'
+      : DateFormat('dd/MM/yyyy').format(deliveryDate);
 
   final totalPages = 3;
 
@@ -593,6 +596,9 @@ Future<void> generateProposalPdf(
             ...List.generate(optionalItems.length, (index) {
               final opt = optionalItems[index];
               final item = opt.item;
+              final description = opt.discountPercent > 0
+                  ? '${item.itemName} (${opt.discountPercent}% de desconto)'
+                  : item.itemName;
               final itemPrice = item.price;
               final itemQty = item.qty;
               final itemTotal = roundUp(itemPrice * itemQty);
@@ -602,7 +608,7 @@ Future<void> generateProposalPdf(
                 child: pw.Row(children: [
                   pw.Container(width: 30, child: pw.Text('${index + 2}', style: pw.TextStyle(fontSize: 7))),
                   pw.Container(width: 25, child: pw.Text('$itemQty', style: pw.TextStyle(fontSize: 7))),
-                  pw.Expanded(child: pw.Text(_pdfSafe(item.itemName), style: pw.TextStyle(fontSize: 7))),
+                  pw.Expanded(child: pw.Text(_pdfSafe(description), style: pw.TextStyle(fontSize: 7))),
                   pw.Container(width: 90, child: pw.Text(formatCurrencyU(itemPrice), style: pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.right)),
                   pw.Container(width: 80, child: pw.Text(formatCurrencyU(itemTotal), style: pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.right)),
                 ]),
@@ -660,9 +666,7 @@ Future<void> generateProposalPdf(
                     child: pw.Column(children: [
                       _tableHeader('INFORMAÇÃO DE CRÉDITO'),
                       _tableRow('PREÇO NA FATURA', formatCurrency(fullPrice), boldLabel: false, padding: _densePad),
-                      _tableRow('SINAL', formatCurrency(sinalValor), boldLabel: false, padding: _densePad),
-                      _tableRow('DEPOSITO (ANTES DA ENTREGA)', formatCurrency(depositoValor), boldLabel: false, padding: _densePad),
-                      _tableRow('DEPOSITO TOTAL', formatCurrency(depositoTotal), boldLabel: false, padding: _densePad),
+                      _tableRow('ENTRADA TOTAL ${(percentualEntrada * 100).toStringAsFixed(2)}%', formatCurrency(depositoTotal), boldLabel: false, padding: _densePad),
                       _tableRow('SUBTORAL', formatCurrency(subtotal), boldLabel: false, padding: _densePad),
                       _tableRow('TAXA PREMIUL (ESTIMATIVA)', '${(taxaPremium * 100).toStringAsFixed(2)}%', boldLabel: false, padding: _densePad),
                       _tableRow('PREMIUM', formatCurrency(premium), boldLabel: false, padding: _densePad),
@@ -748,9 +752,7 @@ Future<void> generateProposalPdf(
                 _tableRow('PERIODICIDADE', 'PAGAMENTOS SEMESTRAIS', padding: _densePad),
                 _tableRow('CARENCIA INICIAL', '6 MESES', padding: _densePad),
                 _tableRow('VALOR DO BEM', formatCurrency(fullPrice), padding: _densePad),
-                _tableRow('DEPOSITO ENTRADA ${(sinalPercent * 100).toStringAsFixed(0)}% - ATE (DATA)', formatCurrency(sinalValor), padding: _densePad),
-                _tableRow('DEPOSITO SALDO ${(depositoPercent * 100).toStringAsFixed(0)}% - (ANTES DA ENTREGA)', formatCurrency(depositoValor), padding: _densePad),
-                _tableRow('DEPOSITO TOTAL ${((sinalPercent + depositoPercent) * 100).toStringAsFixed(0)}%', formatCurrency(roundUp(sinalValor + depositoValor)), padding: _densePad),
+                _tableRow('ENTRADA TOTAL ${(percentualEntrada * 100).toStringAsFixed(2)}%', formatCurrency(depositoTotal), padding: _densePad),
                 // Ordem validada com o cliente (2026-07-15): SALDO = bem menos
                 // entradas; RISCO PAIS = prêmio; TOTAL FINANCIADO = saldo +
                 // risco país (crédito total).

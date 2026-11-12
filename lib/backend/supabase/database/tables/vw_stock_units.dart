@@ -33,6 +33,7 @@ class VwStockUnitsRow extends SupabaseDataRow {
   String get status => getField<String>('status') ?? '';
   bool get inStock => getField<bool>('in_stock') ?? false;
   DateTime? get createdAt => getField<DateTime>('created_at');
+  List<String> get openProposalRefs => getListField<String>('open_proposal_refs');
   String? get contractId => getField<String>('contract_id');
   String? get contractProposalId => getField<String>('contract_proposal_id');
 }

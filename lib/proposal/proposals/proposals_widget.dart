@@ -296,7 +296,8 @@ class _ProposalsWidgetState extends State<ProposalsWidget> {
               queryParameters: {
                 'proposalId': serializeParam(p.id, ParamType.String),
                 'typeAccess': serializeParam(
-                    _canEdit ? 'edit' : 'view', ParamType.String),
+                    AccessControl.canEditProposal(AccessControl.roleOf(_model.user?.firstOrNull))
+                        ? 'edit' : 'view', ParamType.String),
                 'companyName':
                     serializeParam(p.companyName, ParamType.String),
                 'sellerName':

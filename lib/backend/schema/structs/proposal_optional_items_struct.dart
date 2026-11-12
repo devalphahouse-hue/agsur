@@ -1,6 +1,5 @@
 // ignore_for_file: unnecessary_getters_setters
 
-
 import 'index.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 
@@ -11,11 +10,16 @@ class ProposalOptionalItemsStruct extends BaseStruct {
     String? aircraftItemId,
     String? createdAt,
     ItemStruct? item,
+    this.unitPrice,
+    this.discountPercent = 0,
   })  : _id = id,
         _proposalId = proposalId,
         _aircraftItemId = aircraftItemId,
         _createdAt = createdAt,
         _item = item;
+
+  final double? unitPrice;
+  final double discountPercent;
 
   // "id" field.
   String? _id;
@@ -59,6 +63,8 @@ class ProposalOptionalItemsStruct extends BaseStruct {
   static ProposalOptionalItemsStruct fromMap(Map<String, dynamic> data) =>
       ProposalOptionalItemsStruct(
         id: data['id'] as String?,
+        unitPrice: (data['unit_price'] as num?)?.toDouble(),
+        discountPercent: (data['discount_percent'] as num?)?.toDouble() ?? 0,
         proposalId: data['proposal_id'] as String?,
         aircraftItemId: data['aircraft_item_id'] as String?,
         createdAt: data['created_at'] as String?,
@@ -73,6 +79,8 @@ class ProposalOptionalItemsStruct extends BaseStruct {
 
   Map<String, dynamic> toMap() => {
         'id': _id,
+        'unit_price': unitPrice,
+        'discount_percent': discountPercent,
         'proposal_id': _proposalId,
         'aircraft_item_id': _aircraftItemId,
         'created_at': _createdAt,
@@ -81,6 +89,8 @@ class ProposalOptionalItemsStruct extends BaseStruct {
 
   @override
   Map<String, dynamic> toSerializableMap() => {
+        'unit_price': serializeParam(unitPrice, ParamType.double),
+        'discount_percent': serializeParam(discountPercent, ParamType.double),
         'id': serializeParam(
           _id,
           ParamType.String,
@@ -106,6 +116,11 @@ class ProposalOptionalItemsStruct extends BaseStruct {
   static ProposalOptionalItemsStruct fromSerializableMap(
           Map<String, dynamic> data) =>
       ProposalOptionalItemsStruct(
+        unitPrice:
+            deserializeParam(data['unit_price'], ParamType.double, false),
+        discountPercent: deserializeParam<double>(
+                data['discount_percent'], ParamType.double, false) ??
+            0,
         id: deserializeParam(
           data['id'],
           ParamType.String,

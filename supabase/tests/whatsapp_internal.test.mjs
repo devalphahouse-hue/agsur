@@ -32,6 +32,8 @@ async function database() {
  for (const name of ['20261013120000_whatsapp_reminders.sql','20261016120000_whatsapp_internal_workflow.sql','20261016130000_whatsapp_panel_notifications.sql']) {
   await db.exec(await readFile(new URL(`../migrations/${name}`,import.meta.url),'utf8'));
  }
+ await db.exec('ALTER TABLE public.users ADD COLUMN lead_id uuid');
+ await db.exec(await readFile(new URL('../migrations/20261112122000_whatsapp_client_contacts.sql', import.meta.url), 'utf8'));
  return db;
 }
 async function schedule(db,kind='cliente',ids=[lead],text='Nota\n com\t detalhes',key=null) {
@@ -214,4 +216,29 @@ test('panel inbox is due-only, private to author/recipient, read once and indepe
  await db.exec('RESET ROLE; SET ROLE anon');
  await assert.rejects(db.query('SELECT * FROM public.my_reminder_notifications()'),/permission denied/);
  }finally{await db.close();}
+});
+
+
+test('linked client fallback respects opt-out and sends only the custom message in the approved template', async () => {
+  const db = await database();
+  try {
+    await db.query("UPDATE public.leads SET phone=null WHERE id=$1", [lead]);
+    await db.query('UPDATE public.users SET lead_id=$1 WHERE id=$2', [lead, outsider]);
+    await db.exec('SET ROLE authenticated');
+    const recipients = () => db.query("SELECT * FROM public.whatsapp_reminder_recipients($1,'cliente')", [lead]);
+    assert.equal((await recipients()).rows[0].phone, '+5521987654321');
+    await db.query('SELECT public.create_lead_note($1,$2,$3::jsonb)', [
+      lead, 'Nota interna', JSON.stringify({
+        subject: 'Documentação pendente', message: 'Envie a documentação',
+        recipient_type: 'cliente', recipient_ids: [lead], scheduled_at: future(), consent: true,
+      }),
+    ]);
+    const {message, template_name} = (await db.query('SELECT message,template_name FROM public.whatsapp_reminders')).rows[0];
+    assert.equal(message, 'Documentação pendente — Envie a documentação');
+    assert.equal(template_name, 'agsur_lembrete_atendimento');
+    await db.query('SELECT public.set_whatsapp_opt_out($1,true)', [lead]);
+    assert.equal((await recipients()).rows.length, 0);
+  } finally {
+    await db.close();
+  }
 });

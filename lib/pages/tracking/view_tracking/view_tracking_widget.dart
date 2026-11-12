@@ -86,7 +86,10 @@ class _ViewTrackingWidgetState extends State<ViewTrackingWidget> {
     final aircraftRows = await UserAircraftTable().queryRows(
       queryFn: (q) => q.eqOrNull('id', aircraftId),
     );
-    return TrackingExtras(byId, aircraftRows.firstOrNull);
+    return TrackingExtras(byId, aircraftRows.firstOrNull, dueDates: {
+      for (final row in trackingRows)
+        if (row.dueOn case final DateTime date) row.id: date,
+    });
   }
 
   /// Etapas que só fazem sentido no fluxo de financiamento: Aprovação de
@@ -219,6 +222,7 @@ class _ViewTrackingWidgetState extends State<ViewTrackingWidget> {
                           details:
                               extras?.detailsByTrackingId[visible[index].id],
                           aircraft: extras?.aircraft,
+                          dueOn: extras?.dueDates[visible[index].id],
                         ).appStagger(index);
                       }
 
@@ -455,6 +459,7 @@ class _TrackingCard extends StatelessWidget {
     required this.onChanged,
     this.details,
     this.aircraft,
+    this.dueOn,
   });
 
   final TrackingStruct item;
@@ -465,6 +470,7 @@ class _TrackingCard extends StatelessWidget {
   final Future<void> Function() onChanged;
   final TrackingDetailsRow? details;
   final UserAircraftRow? aircraft;
+  final DateTime? dueOn;
 
   bool get _checked => item.isCheck == true;
   int get _orderInt => int.tryParse(item.order ?? '') ?? -1;
@@ -891,6 +897,26 @@ class _TrackingCard extends StatelessWidget {
     );
   }
 
+  Future<void> _changeDeadline(BuildContext context, {bool clear = false}) async {
+    DateTime? date;
+    if (!clear) {
+      final today = DateTime.now();
+      date = await showDatePicker(
+        context: context, initialDate: dueOn ?? today,
+        firstDate: DateTime(2000), lastDate: DateTime(2100),
+      );
+      if (date == null || !context.mounted) return;
+    }
+    try {
+      await SupaFlow.client.from('tracking')
+          .update({'due_on': date?.toIso8601String().split('T').first})
+          .eq('id', item.id).select('id').single();
+      await onChanged();
+    } catch (_) {
+      if (context.mounted) showWriteError(context, 'Não foi possível salvar o prazo.');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final canAct = isAdmin && !_checked;
@@ -973,6 +999,23 @@ class _TrackingCard extends StatelessWidget {
               ],
             ),
           ),
+          if (dueOn != null || canAct)
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (canAct) TextButton.icon(
+                  icon: const Icon(Icons.event_outlined),
+                  onPressed: () => _changeDeadline(context),
+                  label: Text(dueOn == null ? 'Definir prazo' : 'Prazo ${dateTimeFormat('dd/MM/yyyy', dueOn)}'),
+                ) else Text('Prazo ${dateTimeFormat('dd/MM/yyyy', dueOn)}'),
+                if (canAct && dueOn != null)
+                  IconButton(
+                    tooltip: 'Remover prazo',
+                    icon: const Icon(Icons.close),
+                    onPressed: () => _changeDeadline(context, clear: true),
+                  ),
+              ],
+            ),
           if (_orderInt == 15 &&
               ((item.link?.isNotEmpty ?? false) ||
                   (item.link2?.isNotEmpty ?? false))) ...[

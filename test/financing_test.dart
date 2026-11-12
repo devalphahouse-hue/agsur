@@ -22,6 +22,16 @@ void main() {
     });
   });
 
+  test('a entrada de 15% já inclui o sinal fixo de 5%', () {
+    final entry = parsePercentToFraction('15%');
+    expect(isValidProposalEntry(entry), isTrue);
+    expect(entry! - proposalSignalFraction, closeTo(.10, 1e-9));
+    expect(proposalEntryLabel(entry), '15%');
+    expect(isValidProposalEntry(parsePercentToFraction('4,99%')), isFalse);
+    expect(isValidProposalEntry(parsePercentToFraction('100,01%')), isFalse);
+    expect(parsePercentToFraction('NaN'), isNull);
+  });
+
   group('total do depósito', () {
     test('soma sinal e depósito inicial', () {
       expect(totalDepositFraction(sinal: '5%', depositoInicial: '10%'),

@@ -8,9 +8,6 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/form_field_controller.dart';
-import '/custom_code/actions/index.dart' as actions;
-import '/flutter_flow/custom_functions.dart' as functions;
-import 'package:easy_debounce/easy_debounce.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -48,23 +45,18 @@ class _CTCsrdAircraftWidgetState extends State<CTCsrdAircraftWidget> {
     super.initState();
     _model = createModel(context, () => CTCsrdAircraftModel());
 
-    // On component load action.
-    SchedulerBinding.instance.addPostFrameCallback((_) async {
-      _model.retornoValor = await actions.convertPorcentagem(
-        widget!.proposalItem!.initialDeposit.toString(),
-      );
-      safeSetState(() {
-        _model.tFInitialDepositTextController?.text = '${_model.retornoValor}%';
-      });
-    });
-
+    final financing = widget.proposalItem;
+    final total = financing == null
+        ? defaultProposalEntry
+        : financing.downPayment + financing.initialDeposit;
+    final entry = proposalEntryLabel(total);
     _model.tFDownPaymentTextController ??= TextEditingController();
     _model.tFDownPaymentFocusNode ??= FocusNode();
 
-    _model.tFInitialDepositTextController ??= TextEditingController();
+    _model.tFInitialDepositTextController ??= TextEditingController(text: entry);
     _model.tFInitialDepositFocusNode ??= FocusNode();
 
-    _model.tFTotalDepositTextController ??= TextEditingController();
+    _model.tFTotalDepositTextController ??= TextEditingController(text: entry);
     _model.tFTotalDepositFocusNode ??= FocusNode();
 
     WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {
@@ -512,57 +504,14 @@ class _CTCsrdAircraftWidgetState extends State<CTCsrdAircraftWidget> {
                     TextFormField(
                       controller: _model.tFInitialDepositTextController,
                       focusNode: _model.tFInitialDepositFocusNode,
-                      onChanged: (_) => EasyDebounce.debounce(
-                        '_model.tFInitialDepositTextController',
-                        Duration(milliseconds: 800),
-                        () async {
-                          safeSetState(() {
-                            _model.tFInitialDepositTextController?.text =
-                                valueOrDefault<String>(
-                              functions.formatPercent(
-                                  _model.tFInitialDepositTextController.text),
-                              '0',
-                            );
-                            _model.tFInitialDepositFocusNode?.requestFocus();
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              _model.tFInitialDepositTextController?.selection =
-                                  TextSelection.collapsed(
-                                offset: _model.tFInitialDepositTextController!
-                                    .text.length,
-                              );
-                            });
-                          });
-                          safeSetState(() {
-                            _model.tFTotalDepositTextController?.text =
-                                valueOrDefault<String>(
-                              (int sinal, String depositoInicial) {
-                                return (() {
-                                  // Remove % e converte para double
-                                  double numero = double.parse(
-                                      depositoInicial.replaceAll('%', ''));
-
-                                  // soma com o sinal
-                                  double resultado = sinal + numero;
-
-                                  // formata com 3 casas, remove zeros extras mas garante 1 casa decimal
-                                  String formatted = resultado
-                                      .toStringAsFixed(3)
-                                      .replaceFirst(RegExp(r'0+$'), '')
-                                      .replaceFirst(RegExp(r'\.$'), '.0');
-
-                                  return formatted + '%';
-                                })();
-                              }(5, _model.tFInitialDepositTextController.text),
-                              '0',
-                            );
-                          });
-                        },
-                      ),
+                      onChanged: (value) {
+                        _model.tFTotalDepositTextController?.text = value;
+                      },
                       autofocus: false,
                       obscureText: false,
                       decoration: InputDecoration(
                         isDense: false,
-                        labelText: 'Depósito inicial',
+                        labelText: 'Entrada total (inclui o sinal)',
                         labelStyle:
                             FlutterFlowTheme.of(context).labelMedium.override(
                                   font: GoogleFonts.inter(
@@ -583,7 +532,7 @@ class _CTCsrdAircraftWidgetState extends State<CTCsrdAircraftWidget> {
                                       .labelMedium
                                       .fontStyle,
                                 ),
-                        hintText: 'Depósito inicial',
+                        hintText: 'Entrada total (inclui o sinal)',
                         hintStyle:
                             FlutterFlowTheme.of(context).labelMedium.override(
                                   font: GoogleFonts.inter(
@@ -667,7 +616,7 @@ class _CTCsrdAircraftWidgetState extends State<CTCsrdAircraftWidget> {
                       obscureText: false,
                       decoration: InputDecoration(
                         isDense: false,
-                        labelText: 'Valor total do depósito',
+                        labelText: 'Percentual total de entrada',
                         labelStyle:
                             FlutterFlowTheme.of(context).labelMedium.override(
                                   font: GoogleFonts.inter(
@@ -688,7 +637,7 @@ class _CTCsrdAircraftWidgetState extends State<CTCsrdAircraftWidget> {
                                       .labelMedium
                                       .fontStyle,
                                 ),
-                        hintText: 'Valor total do depósito',
+                        hintText: 'Percentual total de entrada',
                         hintStyle:
                             FlutterFlowTheme.of(context).labelMedium.override(
                                   font: GoogleFonts.inter(
@@ -780,6 +729,12 @@ class _CTCsrdAircraftWidgetState extends State<CTCsrdAircraftWidget> {
                                 'Selecione o prazo de financiamento antes de salvar.');
                             return;
                           }
+                          final entry = parsePercentToFraction(
+                              _model.tFInitialDepositTextController.text);
+                          if (!isValidProposalEntry(entry)) {
+                            showWriteError(context, 'Informe uma entrada total entre 5% e 100%.');
+                            return;
+                          }
                           final rowsFinancing =
                               await ProposalFinancingTable().update(
                             data: {
@@ -791,39 +746,9 @@ class _CTCsrdAircraftWidgetState extends State<CTCsrdAircraftWidget> {
                                   _model.datePicked != null
                                       ? _model.datePicked
                                       : widget!.proposalItem?.creditDate),
-                              'down_payment': valueOrDefault<double>(
-                                (String downPayment) {
-                                  return double.parse(
-                                          downPayment.replaceAll('%', '')) /
-                                      100;
-                                }(functions
-                                    .parsePriceToDouble(
-                                        _model.tFDownPaymentTextController.text)
-                                    .toString()),
-                                5.0,
-                              ),
-                              'initial_deposit': valueOrDefault<double>(
-                                (String initialDeposit) {
-                                  return double.parse(
-                                          initialDeposit.replaceAll('%', '')) /
-                                      100;
-                                }(functions
-                                    .parsePriceToDouble(_model
-                                        .tFInitialDepositTextController.text)
-                                    .toString()),
-                                0.0,
-                              ),
-                              // Calculado do sinal + depósito, não lido do
-                              // campo da tela: aquele campo só é preenchido no
-                              // onChanged do depósito inicial e gravava 0
-                              // quando ninguém digitava nele.
-                              'total_deposit': totalDepositFraction(
-                                    sinal: _model
-                                        .tFDownPaymentTextController.text,
-                                    depositoInicial: _model
-                                        .tFInitialDepositTextController.text,
-                                  ) ??
-                                  0.0,
+                              'down_payment': proposalSignalFraction,
+                              'initial_deposit': entry! - proposalSignalFraction,
+                              'total_deposit': entry,
                               'created_at':
                                   supaSerialize<DateTime>(getCurrentTimestamp),
                               'created_by': currentUserUid,
